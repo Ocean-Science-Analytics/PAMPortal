@@ -1,0 +1,38 @@
+
+# Python-related ignores
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+
+# R-related ignores
+*.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# macOS-related ignores
+.DS_Store
+
+# Windows-related ignores
+Thumbs.db
+desktop.ini
+
+# IDE-specific ignores
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# RStudio
+.Rproj.user/
+
+# Environment-related ignores
+.env
+*.venv
+
+
+mich_sandbox/data/
