@@ -10,13 +10,18 @@ app_ui <- function(request) {
     # Leave this function for adding external resources
     golem_add_external_resources(),
     
-    navbarPage(
-      theme = shinythemes::shinytheme("cerulean"),
-      title = "PAMPortal",
-      tabsetPanel(
-        tabPanel("Data Exploration",
-                 mod_main_ui("main_1"))
-      )
+    bslib::page_navbar(
+      title = span(img(src = "www/white_square_OSA_med.jpg", height = 45)),  #img(src = "www/edia_logo.png", height = 45)),
+      theme = bslib::bs_theme(
+        version = 5,
+        base_font = bslib::font_google("Roboto Condensed"),
+        "nav-link-font-size" = "1.25rem !important"
+      ),
+      bg = "#7AC5CD",
+      id = "nav",
+      bslib::nav_panel("Overview", mod_main_ui("main_1")),
+      bslib::nav_panel("Spectrogram", mod_spectro_ui("spectro_1")),
+      #bslib::nav_panel("Data Analysis", mod_main_ui("main_1"))
     )
   )
 }
