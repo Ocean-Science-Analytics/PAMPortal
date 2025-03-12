@@ -22,7 +22,7 @@ attachment::att_amend_desc()
 ## Create a module infrastructure in R/
 golem::add_module(name = "main", with_test = FALSE) # Name of the module
 golem::add_module(name = "spectro", with_test = FALSE) # Name of the module
-golem::add_module(name = "spectrogram", with_test = FALSE)
+golem::add_module(name = "analysis", with_test = FALSE)
 
 ## Add helper functions ----
 ## Creates fct_* and utils_*

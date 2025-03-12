@@ -22,20 +22,31 @@ mod_main_ui <- function(id) {
         .input-group-btn .btn:hover {
           background-color: lightskyblue !important;
         }
+        .input-section {
+          border: 2px solid black; 
+          padding: 10px; 
+          margin-bottom: 15px; 
+          border-radius: 5px;
+          background-color: #F8F8F8;
+        }
       "))
     ),
     
-    bslib::page_fluid(
-      bslib::layout_sidebar(
-        sidebar = bslib::sidebar(
-          width = '400px',
-          style = "background-color: #D3D3D3; padding: 10px;",
-          fileInput(ns("directory"), "Directory Link:"),
-          selectInput(ns("select1"), "Select Option 1:", choices = NULL),
-          selectInput(ns("select2"), "Select Option 2:", choices = NULL)
-        )
-      ),
-      plotly::plotlyOutput(outputId = ns("ac_plot2"))
+    tags$div(
+      class = "input-section",
+      h4(tags$span(shiny::icon("file-upload"), " Select Data File:")), # See https://fontawesome.com/search?q=audio&o=r
+      fileInput(ns("data"), NULL),
+      selectInput(ns("select1"), "SELECT OPTION 1:", choices = NULL),
+      selectInput(ns("select2"), "SELECT OPTION 2:", choices = NULL)
+    ),
+    tags$br(), # Spacer
+    tags$div(
+      class = "input-section",
+      h4(tags$span(shiny::icon("file-audio"), " Select Audio File:")), 
+      fileInput(ns("audio"), NULL),
+      sliderInput(ns("freq_range"), "FREQUENCY RANGES:", min = 0, max = 100, value = c(0, 100)),
+      sliderInput(ns("time_range"), "TEMPORAL RANGES:", min = 0, max = 1, value = c(0, 1))
+      
     )
   )
 }
@@ -46,7 +57,24 @@ mod_main_ui <- function(id) {
 mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
- 
+    
+    # Reactive value to store the uploaded .wav file path
+    audio_file <- reactiveVal(NULL)
+    
+    observeEvent(input$audio, {
+      req(input$audio)  
+      audio_file(input$audio$datapath)  
+      
+      # Read .wav file and extract duration
+      wav_data <- readWave(input$audio$datapath)
+      duration <- length(wav_data@left) / wav_data@samp.rate  # Calculate duration in seconds
+      
+      # Update the temporal slider based on duration
+      updateSliderInput(session, "time_range", min = 0, max = duration, value = c(0, duration))
+    })
+    
+    # Return the reactive value so other modules can use it
+    return(list(audio_file = audio_file))
   })
 }
     

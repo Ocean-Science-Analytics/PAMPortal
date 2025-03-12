@@ -9,9 +9,10 @@ Imports:
     bslib,
     config,
     golem,
-    plotly,
+    seewave,
     shiny,
-    shinythemes
+    shinythemes,
+    tuneR
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.1
