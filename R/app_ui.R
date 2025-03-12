@@ -10,18 +10,42 @@ app_ui <- function(request) {
     # Leave this function for adding external resources
     golem_add_external_resources(),
     
-    bslib::page_navbar(
-      title = span(img(src = "www/white_square_OSA_med.jpg", height = 45)),  #img(src = "www/edia_logo.png", height = 45)),
+    fluidPage(
       theme = bslib::bs_theme(
         version = 5,
         base_font = bslib::font_google("Roboto Condensed"),
         "nav-link-font-size" = "1.25rem !important"
       ),
-      bg = "#7AC5CD",
-      id = "nav",
-      bslib::nav_panel("Overview", mod_main_ui("main_1")),
-      bslib::nav_panel("Spectrogram", mod_spectro_ui("spectro_1")),
-      #bslib::nav_panel("Data Analysis", mod_main_ui("main_1"))
+      
+      # Title with image
+      div(
+        style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
+        img(src = "www/white_square_OSA_med.jpg", height = 45, style = "margin-right: 10px;"),
+        h2("PAMPortal", style = "margin: 0; color: white;")
+      ),
+      
+      # Sidebar layout
+      sidebarLayout(
+        sidebarPanel(
+          width = 3,  # Adjust width as needed
+          mod_main_ui("main_1")
+        ),
+        mainPanel(
+          bslib::navset_card_underline(
+            id = "nav",
+            bslib::nav_panel(
+              title = "SPECTROGRAM",
+              value = "spectro",
+              mod_spectro_ui("spectro_1")
+            ),
+            bslib::nav_panel(
+              title = "ANALYSIS",
+              value = "analysis",
+              mod_analysis_ui("analysis_1")
+            )
+          )
+        )
+      )
     )
   )
 }
