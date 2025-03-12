@@ -8,6 +8,7 @@ License: What license is it under?
 Imports: 
     bslib,
     config,
+    ggplot2,
     golem,
     seewave,
     shiny,
