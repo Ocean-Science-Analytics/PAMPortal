@@ -10,6 +10,31 @@ app_ui <- function(request) {
     # Leave this function for adding external resources
     golem_add_external_resources(),
     
+    # Custom CSS for specific UI settings
+    tags$head(
+      tags$style(HTML("
+        html, body, .container-fluid, .fluid-row {
+          height: 100vh; /* Full viewport height */
+          margin: 0;
+          padding: 0;
+        }
+        .main-panel {
+          display: flex;
+          flex-direction: column;
+          height: calc(100vh - 65px); /* Adjust for title bar */
+        }
+        .navset-card-underline {
+          flex-grow: 1; /* Fills remaining space */
+          display: flex;
+          flex-direction: column;
+        }
+        .tab-content {
+          flex-grow: 1;
+          overflow-y: auto; /* Enables scrolling if needed */
+        }
+      "))
+    ),
+    
     fluidPage(
       theme = bslib::bs_theme(
         version = 5,
@@ -24,24 +49,33 @@ app_ui <- function(request) {
         h2("PAMPortal", style = "margin: 0; color: white;")
       ),
       
-      # Sidebar layout
-      sidebarLayout(
-        sidebarPanel(
-          width = 3,  # Adjust width as needed
+      # Sidebar + Main Content (using fluidRow now)
+      fluidRow(
+        column(
+          width = 3,
+          style = "padding-top: 10px;",
           mod_main_ui("main_1")
         ),
-        mainPanel(
-          bslib::navset_card_underline(
-            id = "nav",
-            bslib::nav_panel(
-              title = "SPECTROGRAM",
-              value = "spectro",
-              mod_spectro_ui("spectro_1")
-            ),
-            bslib::nav_panel(
-              title = "ANALYSIS",
-              value = "analysis",
-              mod_analysis_ui("analysis_1")
+        column(
+          width = 9,
+          div(class = "main-panel",
+              bslib::navset_card_underline(
+                id = "nav",
+                bslib::nav_panel(
+                  title = "OVERVIEW",
+                  value = "overview",
+                  mod_overview_ui("overview_1")
+                ),
+                bslib::nav_panel(
+                  title = "SPECTROGRAM",
+                  value = "spectro",
+                  mod_spectro_ui("spectro_1")
+                ),
+                bslib::nav_panel(
+                  title = "ANALYSIS",
+                  value = "analysis",
+                  mod_analysis_ui("analysis_1")
+              )
             )
           )
         )
