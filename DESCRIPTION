@@ -12,6 +12,7 @@ Imports:
     golem,
     seewave,
     shiny,
+    shinycssloaders,
     shinythemes,
     tuneR
 Encoding: UTF-8
