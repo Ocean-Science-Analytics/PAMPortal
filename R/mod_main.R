@@ -11,7 +11,7 @@ mod_main_ui <- function(id) {
   ns <- NS(id)
   
   tagList(
-    # Include inline CSS for the Browse button
+    # Included inline CSS to fix Browse button
     tags$head(
       tags$style(HTML("
         .btn-file {  
@@ -29,24 +29,39 @@ mod_main_ui <- function(id) {
           border-radius: 5px;
           background-color: #F8F8F8;
         }
+        .custom-btn {
+          background-color: #00688B !important;
+          color: white !important;
+          border-color: black !important;
+        }
+        .custom-btn:hover {
+          background-color: lightskyblue !important;
+        }
+        .success-text {
+          color: darkgreen;
+          font-weight: bold;
+          margin-top: 10px;
+        }
       "))
     ),
-    
+
+    ##############################################################
+    # SIDE BAR UI ELEMENTS
+    ##############################################################
     tags$div(
       class = "input-section",
-      h4(tags$span(shiny::icon("file-upload"), " Select Data File:")), # See https://fontawesome.com/search?q=audio&o=r
+      h4(tags$span(shiny::icon("file-upload"), " Select Data File (not working):")),
       fileInput(ns("data"), NULL),
-      selectInput(ns("select1"), "SELECT OPTION 1:", choices = NULL),
-      selectInput(ns("select2"), "SELECT OPTION 2:", choices = NULL)
-    ),
-    tags$br(), # Spacer
-    tags$div(
-      class = "input-section",
-      h4(tags$span(shiny::icon("file-audio"), " Select Audio File:")), 
-      fileInput(ns("audio"), NULL),
-      sliderInput(ns("freq_range"), "FREQUENCY RANGES:", min = 0, max = 100, value = c(0, 100)),
-      sliderInput(ns("time_range"), "TEMPORAL RANGES:", min = 0, max = 1, value = c(0, 1))
+      h4(tags$span(shiny::icon("file-audio"), " Select Audio Files:")), 
+      fileInput(ns("audio"), multiple = TRUE, NULL),
       
+      # Button container with flex styling to make it fill the sidebar width
+      div(
+        style = "display: flex; width: 100%;",
+        actionButton(ns("submit_files"), "Load Files", class = "custom-btn", style = "flex-grow: 1;")
+      ),
+      
+      textOutput(ns("load_status"))
     )
   )
 }
@@ -58,23 +73,53 @@ mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
-    # Reactive value to store the uploaded .wav file path
-    audio_file <- reactiveVal(NULL)
+    ##############################################################
+    # THIS SERVER PREPARES THE DATA FROM THE DIFFERENT FILES
+    ##############################################################
     
-    observeEvent(input$audio, {
-      req(input$audio)  
-      audio_file(input$audio$datapath)  
+    # Reactive values to store uploaded file paths and original names
+    data_file <- reactiveVal(NULL)
+    audio_files <- reactiveVal(NULL)
+    audio_names <- reactiveVal(NULL)  # Original filenames
+    
+    observeEvent(input$submit_files, {
+      # Store file paths and names if provided
+      if (!is.null(input$data)) data_file(input$data$datapath)
+      if (!is.null(input$audio)) {
+        audio_files(input$audio$datapath)  
+        audio_names(input$audio$name)  # Store the original file names
+      }
       
-      # Read .wav file and extract duration
-      wav_data <- readWave(input$audio$datapath)
-      duration <- length(wav_data@left) / wav_data@samp.rate  # Calculate duration in seconds
+      # Read and process each .wav file if audio is provided
+      if (!is.null(input$audio)) {
+        wav_list <- lapply(input$audio$datapath, function(file) {
+          readWave(file)
+        })
+      }
       
-      # Update the temporal slider based on duration
-      updateSliderInput(session, "time_range", min = 0, max = duration, value = c(0, duration))
+      # Update the text output dynamically based on loaded files
+      output$load_status <- renderText({
+        data_loaded <- !is.null(data_file())
+        audio_loaded <- !is.null(audio_files())
+        
+        if (data_loaded & audio_loaded) {
+          paste0("✔️ Data file and ", length(audio_files()), " audio files successfully loaded!")
+        } else if (data_loaded) {
+          "✔️ Data file successfully loaded!"
+        } else if (audio_loaded) {
+          paste0("✔️ ", length(audio_files()), " audio files successfully loaded!")
+        } else {
+          "No data or audio files loaded"  # Show nothing if neither is loaded
+        }
+      })
     })
     
-    # Return the reactive value so other modules can use it
-    return(list(audio_file = audio_file))
+    # Return both file paths and original names for use in other modules
+    return(list(
+      data_file = data_file, 
+      audio_files = audio_files, 
+      audio_names = audio_names  # Include original names
+    ))
   })
 }
     
