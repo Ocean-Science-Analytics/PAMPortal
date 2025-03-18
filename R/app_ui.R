@@ -62,8 +62,8 @@ app_ui <- function(request) {
               bslib::navset_card_underline(
                 id = "nav",
                 bslib::nav_panel(
-                  title = "OVERVIEW",
-                  value = "overview",
+                  title = "SUMMARY",
+                  value = "summary",
                   mod_overview_ui("overview_1")
                 ),
                 bslib::nav_panel(

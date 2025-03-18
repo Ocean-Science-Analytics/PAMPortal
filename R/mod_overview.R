@@ -1,4 +1,4 @@
-#' analysis UI Function
+#' overview UI Function
 #'
 #' @description A shiny Module.
 #'
@@ -7,17 +7,17 @@
 #' @noRd 
 #'
 #' @importFrom shiny NS tagList 
-mod_analysis_ui <- function(id) {
+mod_overview_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    print("This is where the data analysis will go.")
+    print("This is where the data summary will go.")
   )
 }
     
-#' analysis Server Functions
+#' overview Server Functions
 #'
 #' @noRd 
-mod_analysis_server <- function(id){
+mod_overview_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
  
@@ -25,7 +25,7 @@ mod_analysis_server <- function(id){
 }
     
 ## To be copied in the UI
-# mod_analysis_ui("analysis_1")
+# mod_overview_ui("overview_1")
     
 ## To be copied in the server
-# mod_analysis_server("analysis_1")
+# mod_overview_server("overview_1")
