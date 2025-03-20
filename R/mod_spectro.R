@@ -76,37 +76,53 @@ mod_spectro_server <- function(id, data){
     
     observeEvent(input$load_spectro, {
       req(data$audio_files(), input$audio_select)
-      
       file_paths <- data$audio_files()
       selected_files <- file_paths[file_paths %in% input$audio_select]  # Match full paths
-      
+
       # Generate UI dynamically: Sliders + Spectrograms
       output$spectrograms_ui <- renderUI({
         file_ui <- lapply(seq_along(selected_files), function(i) {
           file <- selected_files[i]
+          file_name <- basename(file)
           wav_data <- readWave(file)
           
           # Get WAV file properties
-          file_duration <- length(wav_data@left) / wav_data@samp.rate
+          file_duration <- round(length(wav_data@left) / wav_data@samp.rate, 1)
           nyquist_freq <- wav_data@samp.rate / 2
-          
+
           # Generate unique input IDs
           time_slider_id <- paste0("time_range_", i)
           freq_slider_id <- paste0("freq_range_", i)
-          
+          audio_id <- paste0("audio_", i)
+          spectro_id <- paste0("spectrogram_", i)
+
           # Create a div container for each spectrogram + its sliders
           tagList(
             div(
               style = "border: 2px solid black; padding: 10px; border-radius: 5px; margin-bottom: 15px; background-color: #F8F8F8;",
-              sliderInput(ns(time_slider_id), "Temporal Range:", 
-                          min = 0, max = file_duration, value = c(0, file_duration)),
-              # Uncomment if you want the frequency slider
-              # sliderInput(ns(freq_slider_id), "Frequency Range:", 
-              #             min = 0, max = nyquist_freq, value = c(0, nyquist_freq)),
+              
+              # Slider + Audio button in a single row
+              div(
+                style = "display: flex; align-items: center; gap: 700px;",
+                
+                # Temporal range slider
+                sliderInput(ns(time_slider_id), "Temporal Range:", 
+                            min = 0, max = file_duration, value = c(0, file_duration), width = "20%"),
+
+                # Audio playback button
+                tags$audio(
+                  controls = NA,  # Hide default audio player
+                  id = ns(audio_id),  
+                  src = paste0("www/", basename(data$audio_files()[i])), # tags$audio automatically looks in the inst/app/ directory 
+                  type = "audio/wav"
+                ),
+              ),
+
+              # Spectrogram with loading spinner
               shinycssloaders::withSpinner(
-                plotOutput(ns(paste0("spectrogram_", i))),
+                plotOutput(ns(spectro_id)),
                 type = 4, 
-                color = "#00688B",  # DeepSkyBlue4
+                color = "#00688B",  
                 caption = "Loading Spectrogram..."
               )
             )
@@ -115,6 +131,9 @@ mod_spectro_server <- function(id, data){
         
         do.call(tagList, file_ui)
       })
+      
+      # sliderInput(ns(freq_slider_id), "Frequency Range:", 
+      #             min = 0, max = nyquist_freq, value = c(0, nyquist_freq)),
       
       # Render spectrograms (will rerender based on individual sliders)
       lapply(seq_along(selected_files), function(i) {
@@ -155,25 +174,6 @@ mod_spectro_server <- function(id, data){
     })
   })
 }
-    
-#     observeEvent(input$load_spectro, {  # Only trigger when button is clicked
-#       output$spectrogram <- renderPlot({
-#         req(audio_files())  # Ensure an audio file is uploaded
-#         
-#         # Read the .wav file
-#         wav_data <- readWave(audio_files())
-#         
-#         # Generate spectrogram
-#         spectro(wav_data,
-#                 flim = c(5, 20),
-#                 wl = 1024,
-#                 collevels = seq(-124, 0, 2),
-#                 palette = temp.colors,
-#                 main = "Spectrogram 1")
-#       })
-#     })
-#   })
-# }
     
 # seewave - https://rug.mnhn.fr/seewave/
 # spectro - https://www.rdocumentation.org/packages/seewave/versions/2.2.3/topics/spectro
