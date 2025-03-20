@@ -51,11 +51,11 @@ mod_main_ui <- function(id) {
     tags$div(
       class = "input-section",
       h4(tags$span(shiny::icon("file-upload"), " Select Data File (not working):")),
-      fileInput(ns("data"), NULL),
+      div(style = "width: 100%;",  # Ensures full width
+          fileInput(ns("data"), NULL, width = "100%")),  # Expands with container
       h4(tags$span(shiny::icon("file-audio"), " Select Audio Files:")), 
-      fileInput(ns("audio"), multiple = TRUE, NULL),
-      
-      # Button container with flex styling to make it fill the sidebar width
+      div(style = "width: 100%;",  
+          fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")),
       div(
         style = "display: flex; width: 100%;",
         actionButton(ns("submit_files"), "Load Files", class = "custom-btn", style = "flex-grow: 1;")
@@ -81,15 +81,31 @@ mod_main_server <- function(id){
     data_file <- reactiveVal(NULL)
     audio_files <- reactiveVal(NULL)
     audio_names <- reactiveVal(NULL)  # Original filenames
+    uploaded_audio_paths <- NULL  # Non-Reactive list to delete files when app closes
     
     observeEvent(input$submit_files, {
       # Store file paths and names if provided
       if (!is.null(input$data)) data_file(input$data$datapath)
       if (!is.null(input$audio)) {
-        audio_files(input$audio$datapath)  
-        audio_names(input$audio$name)  # Store the original file names
+        # Define destination folder
+        www_dir <- "inst/app/www"
+        if (!dir.exists(www_dir)) dir.create(www_dir)  # Ensure 'www/' exists
+        
+        # Copy files to www/ and rename to avoid overwrites
+        saved_paths <- sapply(seq_along(input$audio$datapath), function(i) {
+          src <- input$audio$datapath[i]
+          dest <- file.path(www_dir, input$audio$name[i])
+          
+          file.copy(src, dest, overwrite = TRUE)
+          return(dest)
+        })
+        
+        # Store the new file paths and original names
+        audio_files(saved_paths)
+        uploaded_audio_paths <<- c(uploaded_audio_paths, saved_paths)
+        audio_names(input$audio$name)
       }
-      
+
       # Read and process each .wav file if audio is provided
       if (!is.null(input$audio)) {
         wav_list <- lapply(input$audio$datapath, function(file) {
@@ -113,11 +129,18 @@ mod_main_server <- function(id){
         }
       })
     })
+
+    # Delete temporary audio files when the session ends
+    session$onSessionEnded(function() {
+      if (!is.null(uploaded_audio_paths) && length(uploaded_audio_paths) > 0) {
+        file.remove(uploaded_audio_paths)
+      }
+    })
     
     # Return both file paths and original names for use in other modules
     return(list(
       data_file = data_file, 
-      audio_files = audio_files, 
+      audio_files = audio_files,
       audio_names = audio_names  # Include original names
     ))
   })
