@@ -22,15 +22,12 @@ mod_spectro_ui <- function(id) {
     # Card-style container for input selection & button
     div(
       style = "border: 2px solid #ccc; border-radius: 8px; padding: 15px; background-color: #f9f9f9; margin-bottom: 15px;",
-      
-      h4("Spectrogram Selection", style = "margin-bottom: 10px;"),  # Section title
+      h4("Spectrogram Selection", style = "margin-bottom: 10px;"),
       
       div(
         style = "display: flex; align-items: center; gap: 10px; width: 100%;",
-        
         # Audio File Selection
         selectInput(ns("audio_select"), "Select Audio File(s):", choices = NULL, multiple = TRUE, width = "100%"),
-        
         # Load Button (Aligned to the right)
         div(style = "flex-grow: 1; text-align: right;",
             actionButton(ns("load_spectro"), "Load Spectrogram", class = "btn btn-primary", style = "width: 200px;")
@@ -38,11 +35,11 @@ mod_spectro_ui <- function(id) {
       )
     ),
     
-    # Scrollable Section for Spectrograms
+    # Section for Spectrograms
     div(
       style = "max-height: 600px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background-color: #fff;",
       
-      uiOutput(ns("spectrograms_ui"))  # Dynamic spectrogram display
+      uiOutput(ns("spectrograms_ui"))  # Spectrogram display
     )
   )
 }
@@ -99,7 +96,7 @@ mod_spectro_server <- function(id, data){
           # Create a div container for each spectrogram + its sliders
           tagList(
             div(
-              style = "border: 2px solid black; padding: 10px; border-radius: 5px; margin-bottom: 15px; background-color: #F8F8F8;",
+              style = "border: 2px solid black; padding: 10px; border-radius: 5px; margin-bottom: 15px; background-color: #FFFAFA;", #F8F8F8
               
               # Slider + Audio button in a single row
               div(

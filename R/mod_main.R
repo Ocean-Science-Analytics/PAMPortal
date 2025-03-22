@@ -7,6 +7,9 @@
 #' @noRd 
 #'
 #' @importFrom shiny NS tagList 
+
+options(shiny.maxRequestSize = 700 * 1024^2)
+
 mod_main_ui <- function(id) {
   ns <- NS(id)
   
@@ -50,9 +53,14 @@ mod_main_ui <- function(id) {
     ##############################################################
     tags$div(
       class = "input-section",
-      h4(tags$span(shiny::icon("file-upload"), " Select Data File (not working):")),
+      h4(tags$span(shiny::icon("file-upload"), " Select Data File:")),
       div(style = "width: 100%;",  # Ensures full width
-          fileInput(ns("data"), NULL, width = "100%")),  # Expands with container
+          fileInput(ns("data"), NULL, width = "100%"),
+          shiny::h6(
+            "Note: Files up to 700MB are supported. Larger files may take several minutes to load.",
+            style = "margin-top: -30px; margin-bottom: 25px; font-size: 0.82rem; color: #888;"
+          )
+      ),  # Expands with container
       h4(tags$span(shiny::icon("file-audio"), " Select Audio Files:")), 
       div(style = "width: 100%;",  
           fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")),
@@ -79,13 +87,28 @@ mod_main_server <- function(id){
     
     # Reactive values to store uploaded file paths and original names
     data_file <- reactiveVal(NULL)
+    file_type <- reactiveVal(NULL)
     audio_files <- reactiveVal(NULL)
     audio_names <- reactiveVal(NULL)  # Original filenames
     uploaded_audio_paths <- NULL  # Non-Reactive list to delete files when app closes
     
     observeEvent(input$submit_files, {
-      # Store file paths and names if provided
-      if (!is.null(input$data)) data_file(input$data$datapath)
+      # Handle data file (Rdata or JSON)
+      if (!is.null(input$data)) {
+        ext <- tools::file_ext(input$data$name)  # Get file extension
+        
+        if (ext == "rds") {
+          # Load RDS file
+          data_file(readRDS(input$data$datapath))
+          file_type("rds")
+          
+        } else if (ext == "json") {
+          # Load JSON file
+          data_file(jsonlite::fromJSON(input$data$datapath))
+          file_type("json")
+        }
+      }
+      
       if (!is.null(input$audio)) {
         # Define destination folder
         www_dir <- "inst/app/www"
@@ -140,6 +163,7 @@ mod_main_server <- function(id){
     # Return both file paths and original names for use in other modules
     return(list(
       data_file = data_file, 
+      file_type = file_type,
       audio_files = audio_files,
       audio_names = audio_names  # Include original names
     ))
