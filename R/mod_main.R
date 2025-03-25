@@ -7,8 +7,9 @@
 #' @noRd 
 #'
 #' @importFrom shiny NS tagList 
+#' @import shinyjs
 
-options(shiny.maxRequestSize = 700 * 1024^2)
+options(shiny.maxRequestSize = 800 * 1024^2)
 
 mod_main_ui <- function(id) {
   ns <- NS(id)
@@ -29,6 +30,7 @@ mod_main_ui <- function(id) {
           border: 2px solid black; 
           padding: 10px; 
           margin-bottom: 15px; 
+          margin-left: 10px;
           border-radius: 5px;
           background-color: #F8F8F8;
         }
@@ -54,16 +56,22 @@ mod_main_ui <- function(id) {
     tags$div(
       class = "input-section",
       h4(tags$span(shiny::icon("file-upload"), " Select Data File:")),
-      div(style = "width: 100%;",  # Ensures full width
-          fileInput(ns("data"), NULL, width = "100%"),
-          shiny::h6(
-            "Note: Files up to 700MB are supported. Larger files may take several minutes to load.",
-            style = "margin-top: -30px; margin-bottom: 25px; font-size: 0.82rem; color: #888;"
-          )
-      ),  # Expands with container
+      div(style = "width: 100%;",  
+          fileInput(ns("data"), NULL, width = "100%")  # File input
+      ),
+      
       h4(tags$span(shiny::icon("file-audio"), " Select Audio Files:")), 
       div(style = "width: 100%;",  
-          fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")),
+          fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")  # File input
+      ),
+      
+      # Add note above the Load Files button
+      shiny::h6(
+        "Note: Files up to 800MB are supported. Larger files may take several minutes to load.",
+        style = "margin-top: 10px; margin-bottom: 10px; font-size: 0.82rem; color: #888; text-align: left;"
+      ),
+      
+      # Submit button with loading spinner
       div(
         style = "display: flex; width: 100%;",
         actionButton(ns("submit_files"), "Load Files", class = "custom-btn", style = "flex-grow: 1;")
@@ -122,13 +130,14 @@ mod_main_server <- function(id){
           file.copy(src, dest, overwrite = TRUE)
           return(dest)
         })
+        print("half way")
         
         # Store the new file paths and original names
         audio_files(saved_paths)
         uploaded_audio_paths <<- c(uploaded_audio_paths, saved_paths)
         audio_names(input$audio$name)
       }
-
+      
       # Read and process each .wav file if audio is provided
       if (!is.null(input$audio)) {
         wav_list <- lapply(input$audio$datapath, function(file) {
