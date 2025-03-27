@@ -7,13 +7,19 @@ Description: What the package does (one paragraph).
 License: What license is it under?
 Imports: 
     bslib,
+    cicerone,
     config,
+    DT,
     ggplot2,
     golem,
+    jsonlite,
+    plotly,
     seewave,
     shiny,
     shinycssloaders,
+    shinyjs,
     shinythemes,
+    tools,
     tuneR
 Encoding: UTF-8
 LazyData: true
