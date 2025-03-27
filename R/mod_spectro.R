@@ -19,27 +19,39 @@ mod_spectro_ui <- function(id) {
   ##############################################################
   
   tagList(
-    # Card-style container for input selection & button
-    div(
-      style = "border: 2px solid #ccc; border-radius: 8px; padding: 15px; background-color: #f9f9f9; margin-bottom: 15px;",
-      h4("Spectrogram Selection", style = "margin-bottom: 10px;"),
-      
-      div(
-        style = "display: flex; align-items: center; gap: 10px; width: 100%;",
-        # Audio File Selection
-        selectInput(ns("audio_select"), "Select Audio File(s):", choices = NULL, multiple = TRUE, width = "100%"),
-        # Load Button (Aligned to the right)
-        div(style = "flex-grow: 1; text-align: right;",
-            actionButton(ns("load_spectro"), "Load Spectrogram", class = "btn btn-primary", style = "width: 200px;")
-        )
-      )
+    tags$head(
+      tags$style(HTML("
+        .full-height {
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+        }
+      "))
     ),
     
-    # Section for Spectrograms
-    div(
-      style = "max-height: 600px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background-color: #fff;",
+    # Card-style container for input selection & button
+    div(class = "full-height",
+      div(
+        style = "border: 2px solid #ccc; border-radius: 8px; padding: 15px; background-color: #f9f9f9; margin-bottom: 15px;",
+        h4("Spectrogram Selection", style = "margin-bottom: 10px;"),
+        
+        div(
+          style = "display: flex; align-items: center; gap: 10px; width: 100%;",
+          # Audio File Selection
+          selectInput(ns("audio_select"), "Select Audio File(s):", choices = NULL, multiple = TRUE, width = "100%"),
+          # Load Button (Aligned to the right)
+          div(style = "flex-grow: 1; text-align: right;",
+              actionButton(ns("load_spectro"), "Load Spectrogram", class = "btn btn-primary", style = "width: 200px;")
+          )
+        )
+      ),
       
-      uiOutput(ns("spectrograms_ui"))  # Spectrogram display
+      # Section for Spectrograms
+      div(
+        style = "max-height: 1000px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background-color: #fff;",
+        
+        uiOutput(ns("spectrograms_ui"))  # Spectrogram display
+      )
     )
   )
 }

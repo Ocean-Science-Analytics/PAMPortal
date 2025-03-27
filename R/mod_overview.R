@@ -7,6 +7,7 @@
 #' @noRd 
 #'
 #' @importFrom shiny NS tagList 
+#' @import plotly
 mod_overview_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -68,14 +69,18 @@ mod_overview_ui <- function(id) {
     
     div(class = "full-height",
         div(class = "content-wrapper",
-            selectInput(ns("event_select"), "Select Acoustic Event:", choices = ""),
+            # Event Select and Detector Select in the Same Row
+            fluidRow(
+              column(3, selectInput(ns("event_select"), "Select Acoustic Event:", choices = "")),
+              column(3, selectInput(ns("detector_select"), "Select Detector:", choices = ""))
+            ),
             
             fluidRow(
               column(6,
                      bslib::card(
                        class = "custom-card",
-                       bslib::card_header("Card 1"),
-                       p("Content for the first card.")
+                       bslib::card_header("Analysis 1"),
+                       plotlyOutput(ns("card1"))  # Change this from plotOutput to plotlyOutput
                      )
               ),
               column(6,
@@ -87,9 +92,9 @@ mod_overview_ui <- function(id) {
               )
             ),
             br(),
-            # Detector Select (Left) and Export CSV Button (Right) Above DataTable
+            
+            # Export CSV Button Above DataTable
             div(class = "table-header",
-                selectInput(ns("detector_select"), "Select Detector:", choices = ""),
                 downloadButton(ns("export_csv"), "Export CSV", class = "export-button")
             ),
             
@@ -137,32 +142,98 @@ mod_overview_server <- function(id, data){
       req(data$data_file(), input$event_select)  # Ensure data exists
       
       acou_data <- data$data_file()
-      selected_event <- acou_data@events[[input$event_select]]  # Extract event
-      selected_event2 <- selected_event@detectors
-      #browser()
-      if (!is.null(selected_event@detectors)) {
-        detector_choices <- names(slot(selected_event, "detectors"))  # Extract detector names
-        updateSelectInput(session, "detector_select", choices = detector_choices)
+      file_type <- data$file_type()
+      
+      # Select event based on file type
+      if (file_type == "json") {
+        selected_event <- acou_data[[input$event_select]]
+        updateSelectInput(session, "detector_select", choices = "")
+        shinyjs::disable("detector_select")  # Disable detector select input
       } else {
-        updateSelectInput(session, "detector_select", choices = character(0))
+        selected_event <- acou_data@events[[input$event_select]]
+        shinyjs::enable("detector_select")  # Enable if not JSON
+        
+        if (!is.null(selected_event@detectors)) {
+          detector_choices <- names(slot(selected_event, "detectors"))  # Extract detector names
+          updateSelectInput(session, "detector_select", choices = detector_choices)
+        } else {
+          updateSelectInput(session, "detector_select", choices = character(0))
+        }
       }
     }, ignoreInit = TRUE)
+    
+    ##############################################################
+    # Render Interactive Pie Chart 
+    ##############################################################
+    output$card1 <- renderPlotly({
+      req(data$data_file(), input$event_select)  # Require data and event selection
+      
+      acou_data <- data$data_file()
+      file_type <- data$file_type()
+      
+      # Select event based on file type
+      selected_event <- if (file_type == "json") acou_data[[input$event_select]] else acou_data@events[[input$event_select]]
+      
+      if (file_type == "json") {
+        if (!"species" %in% colnames(selected_event)) {
+          return(
+            plot_ly() %>%
+              add_trace(type = "pie", labels = c("No Species data Found"), values = c(1), textinfo = "label")
+          )
+        }
+        
+        species_counts <- table(selected_event$species)
+        plot_ly(labels = names(species_counts), values = as.numeric(species_counts), type = "pie", 
+                textinfo = "label+percent", hoverinfo = "label+value+percent", 
+                marker = list(colors = rainbow(length(species_counts)))) %>%
+          layout(title = "Species Distribution")
+        
+      } else {
+        detector_data <- selected_event@detectors[[input$detector_select]]
+        
+        if (!"eventLabel" %in% colnames(detector_data)) {
+          return(
+            plot_ly() %>%
+              add_trace(type = "pie", labels = c("No Event Label data Found"), values = c(1), textinfo = "label")
+          )
+        }
+        
+        event_counts <- table(detector_data$eventLabel)
+        plot_ly(labels = names(event_counts), values = as.numeric(event_counts), type = "pie", 
+                textinfo = "label+percent", hoverinfo = "label+value+percent", 
+                marker = list(colors = rainbow(length(event_counts)))) %>%
+          layout(title = "Species Distribution")
+      }
+    })
     
     
     ##############################################################
     # Render data table based on event/detector selected
     ##############################################################
     output$data_table <- DT::renderDataTable({
-      req(data$data_file(), input$event_select, input$detector_select)
+      req(data$data_file(), input$event_select)  # Require data and event selection
       
       acou_data <- data$data_file()
-      selected_event <- acou_data@events[[input$event_select]]
-      detector_data <- selected_event@detectors[[input$detector_select]]
+      file_type <- data$file_type()
       
-      if (is.data.frame(detector_data)) {
-        return(DT::datatable(detector_data, options = list(pageLength = 15)))
+      # Select event based on file type
+      selected_event <- if (file_type == "json") acou_data[[input$event_select]] else acou_data@events[[input$event_select]]
+      
+      if (file_type == "json") {
+        if (is.data.frame(selected_event)) {
+          return(DT::datatable(selected_event, filter = 'top', options = list(pageLength = 15)))
+        } else {
+          return(DT::datatable(data.frame(Message = "No valid data available"), options = list(dom = 't')))
+        }
       } else {
-        return(DT::datatable(data.frame(Message = "No valid data available"), options = list(dom = 't')))
+        req(input$detector_select)
+        detector_data <- selected_event@detectors[[input$detector_select]]
+        
+        if (is.data.frame(detector_data)) {
+          return(DT::datatable(detector_data, filter = 'top', options = list(pageLength = 15)))
+        } else {
+          return(DT::datatable(data.frame(Message = "No valid data available"), options = list(dom = 't')))
+        }
       }
     })
     
@@ -171,20 +242,38 @@ mod_overview_server <- function(id, data){
     ##############################################################
     output$export_csv <- downloadHandler(
       filename = function() {
-        paste0(input$event_select, "_", input$detector_select, ".csv")
+        if (data$file_type() == "json") {
+          paste0(data$data_name(), "_", input$event_select, ".csv")  # Add data_name for JSON files
+        } else {
+          paste0(input$event_select, "_", input$detector_select, ".csv")
+        }
       },
       content = function(file) {
-        req(data$data_file(), input$event_select, input$detector_select)
+        req(data$data_file(), input$event_select)
         
         acou_data <- data$data_file()
-        selected_event <- acou_data@events[[input$event_select]]
-        detector_data <- selected_event@detectors[[input$detector_select]]
+        file_type <- data$file_type()
         
-        if (is.data.frame(detector_data)) {
-          write.csv(detector_data, file, row.names = FALSE)
+        # Select event based on file type
+        selected_event <- if (file_type == "json") acou_data[[input$event_select]] else acou_data@events[[input$event_select]]
+        
+        if (file_type == "json") {
+          if (is.data.frame(selected_event)) {
+            write.csv(selected_event, file, row.names = FALSE)
+          } else {
+            showNotification("No valid data available to download", type = "warning", duration = 5)
+            return(NULL)
+          }
         } else {
-          showNotification("No data available to download", type = "warning", duration = 5)
-          return(NULL)  # Prevents file creation
+          req(input$detector_select)
+          detector_data <- selected_event@detectors[[input$detector_select]]
+          
+          if (is.data.frame(detector_data)) {
+            write.csv(detector_data, file, row.names = FALSE)
+          } else {
+            showNotification("No valid data available to download", type = "warning", duration = 5)
+            return(NULL)
+          }
         }
       }
     )
