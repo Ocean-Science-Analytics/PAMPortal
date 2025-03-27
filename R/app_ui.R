@@ -4,6 +4,7 @@
 #'     DO NOT REMOVE.
 #' @import shiny
 #' @import shinythemes
+#' @import cicerone
 #' @noRd
 app_ui <- function(request) {
   tagList(
@@ -32,6 +33,14 @@ app_ui <- function(request) {
           flex-grow: 1;
           overflow-y: auto; /* Enables scrolling if needed */
         }
+        .btn-lightgrey {
+        background-color: #EEE5DE !important; /* Light grey background */
+        color: black; /* Black text color */
+        border: 1px solid black; /* Border color to match */
+        }
+        .btn-lightgrey:hover {
+        background-color: #b0b0b0 !important; /* Darker grey on hover */
+        }
       "))
     ),
     
@@ -46,7 +55,8 @@ app_ui <- function(request) {
       div(
         style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
         img(src = "www/white_square_OSA_med.jpg", height = 45, style = "margin-right: 10px;"),
-        h2("PAMPortal", style = "margin: 0; color: white;")
+        h2("PAMPortal", style = "margin: 0; color: white; flex-grow: 1;"),
+        actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey")  # Guide button
       ),
       
       # Sidebar + Main Content (using fluidRow now)
@@ -103,8 +113,9 @@ golem_add_external_resources <- function() {
     bundle_resources(
       path = app_sys("app/www"),
       app_title = "PAMPortal"
-    )
+    ),
     # Add here other external resources
     # for example, you can add shinyalert::useShinyalert()
+    cicerone::use_cicerone()
   )
 }

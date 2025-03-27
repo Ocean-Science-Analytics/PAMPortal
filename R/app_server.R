@@ -10,4 +10,9 @@ app_server <- function(input, output, session) {
   mod_overview_server("overview_1", data)
   mod_spectro_server("spectro_1", data)
   mod_analysis_server("analysis_1")
+  
+  observeEvent(input$help, {
+    guide$init()$start()
+  })
+  
 }

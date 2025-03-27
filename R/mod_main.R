@@ -54,6 +54,7 @@ mod_main_ui <- function(id) {
     # SIDE BAR UI ELEMENTS
     ##############################################################
     tags$div(
+      id = ns("sidebar"),
       class = "input-section",
       h4(tags$span(shiny::icon("file-upload"), " Select Data File:")),
       div(style = "width: 100%;",  
@@ -96,6 +97,7 @@ mod_main_server <- function(id){
     # Reactive values to store uploaded file paths and original names
     data_file <- reactiveVal(NULL)
     file_type <- reactiveVal(NULL)
+    data_name <- reactiveVal(NULL)
     audio_files <- reactiveVal(NULL)
     audio_names <- reactiveVal(NULL)  # Original filenames
     uploaded_audio_paths <- NULL  # Non-Reactive list to delete files when app closes
@@ -104,6 +106,8 @@ mod_main_server <- function(id){
       # Handle data file (Rdata or JSON)
       if (!is.null(input$data)) {
         ext <- tools::file_ext(input$data$name)  # Get file extension
+        name_without_ext <- tools::file_path_sans_ext(input$data$name)  # Extract name without extension
+        data_name(name_without_ext)  # Store the file name
         
         if (ext == "rds") {
           # Load RDS file
@@ -130,7 +134,6 @@ mod_main_server <- function(id){
           file.copy(src, dest, overwrite = TRUE)
           return(dest)
         })
-        print("half way")
         
         # Store the new file paths and original names
         audio_files(saved_paths)
@@ -173,6 +176,7 @@ mod_main_server <- function(id){
     return(list(
       data_file = data_file, 
       file_type = file_type,
+      data_name = data_name,
       audio_files = audio_files,
       audio_names = audio_names  # Include original names
     ))
