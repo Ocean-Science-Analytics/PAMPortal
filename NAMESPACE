@@ -3,6 +3,7 @@
 export(run_app)
 import(cicerone)
 import(ggplot2)
+import(leaflet)
 import(plotly)
 import(seewave)
 import(shiny)

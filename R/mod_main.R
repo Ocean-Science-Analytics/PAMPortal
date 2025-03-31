@@ -8,6 +8,7 @@
 #'
 #' @importFrom shiny NS tagList 
 #' @import shinyjs
+#' @import leaflet
 
 options(shiny.maxRequestSize = 800 * 1024^2)
 
@@ -15,6 +16,9 @@ mod_main_ui <- function(id) {
   ns <- NS(id)
   
   tagList(
+    
+    shinyjs::useShinyjs(),
+    
     # Included inline CSS to fix Browse button
     tags$head(
       tags$style(HTML("
@@ -47,11 +51,31 @@ mod_main_ui <- function(id) {
           font-weight: bold;
           margin-top: 10px;
         }
+        .map-container {
+          border: 2px solid black; 
+          border-radius: 5px;
+          padding: 5px;
+          background-color: #F8F8F8;
+          margin-top: 15px;
+          margin-left: 10px;
+        }
+        .map-toggle-btn {
+          width: 100%;
+          margin-top: 5px;
+          background-color: #00688B;
+          color: white;
+          border: 1px solid black;
+          border-radius: 5px;
+          padding: 5px;
+        }
+        .map-toggle-btn:hover {
+          background-color: lightskyblue;
+        }
       "))
     ),
 
     ##############################################################
-    # SIDE BAR UI ELEMENTS
+    # SIDE BAR DATA INPUTS AND BUTTONS
     ##############################################################
     tags$div(
       id = ns("sidebar"),
@@ -79,6 +103,16 @@ mod_main_ui <- function(id) {
       ),
       
       textOutput(ns("load_status"))
+    ),
+    
+    ##############################################################
+    # LEAFLET MAP 
+    ##############################################################
+    div(
+      id = ns("map_container"),
+      class = "map-container",
+      leaflet::leafletOutput(ns("map"), height = "300px"),
+      actionButton(ns("expand_map"), "Expand Map", class = "map-toggle-btn")
     )
   )
 }
@@ -90,8 +124,65 @@ mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
+    # Reactive value to track the map state
+    is_expanded <- reactiveVal(FALSE)
+    
     ##############################################################
-    # THIS SERVER PREPARES THE DATA FROM THE DIFFERENT FILES
+    # LEAFLET MAP LOGIC
+    ##############################################################
+    output$map <- leaflet::renderLeaflet({
+      leaflet() %>%
+        leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%  # Default: Centered on USA
+        leaflet::addProviderTiles(
+          leaflet::providers$Esri.WorldImagery,
+          group = "Satellite"
+        ) %>%
+        leaflet::addProviderTiles(
+          leaflet::providers$Esri.WorldTopoMap,
+          group = "Topographic"
+        ) %>%
+        leaflet::addLayersControl(
+          baseGroups = c("OSM", "Topographic", "Satellite")) %>%
+        addTiles() 
+    })
+    
+    
+    ##############################################################
+    # MAP EXPAND/SHRINK FUNCTION
+    ##############################################################
+    observeEvent(input$expand_map, {
+      showModal(
+        modalDialog(
+          title = "Map View",
+          size = "xl",  # Large modal
+          easyClose = TRUE,
+          footer = modalButton("Close"),
+          leaflet::leafletOutput(ns("map_large"), height = "600px")
+        )
+      )
+    })
+    
+    # Render the larger map when the modal is opened
+    output$map_large <- leaflet::renderLeaflet({
+      leaflet() %>%
+        leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%
+        leaflet::addProviderTiles(
+          leaflet::providers$Esri.WorldImagery,
+          group = "Satellite"
+        ) %>%
+        leaflet::addProviderTiles(
+          leaflet::providers$Esri.WorldTopoMap,
+          group = "Topographic"
+        ) %>%
+        leaflet::addLayersControl(
+          baseGroups = c("OSM", "Topographic", "Satellite")
+        ) %>%
+        addTiles()
+    })
+    
+    
+    ##############################################################
+    # FILE HANDLING LOGIC
     ##############################################################
     
     # Reactive values to store uploaded file paths and original names
@@ -100,7 +191,7 @@ mod_main_server <- function(id){
     data_name <- reactiveVal(NULL)
     audio_files <- reactiveVal(NULL)
     audio_names <- reactiveVal(NULL)  # Original filenames
-    uploaded_audio_paths <- NULL  # Non-Reactive list to delete files when app closes
+    uploaded_audio_paths <- NULL  # Non-Reactive list to delete audio files when app closes
     
     observeEvent(input$submit_files, {
       # Handle data file (Rdata or JSON)
@@ -165,6 +256,11 @@ mod_main_server <- function(id){
       })
     })
 
+    
+    ##############################################################
+    # AUDIO FILE DELETION LOGIC
+    ##############################################################
+    
     # Delete temporary audio files when the session ends
     session$onSessionEnded(function() {
       if (!is.null(uploaded_audio_paths) && length(uploaded_audio_paths) > 0) {
@@ -172,13 +268,18 @@ mod_main_server <- function(id){
       }
     })
     
+    
+    ##############################################################
+    # STORE PROCESSED DATA FILES FOR OTHER MODULES TO ACCESS
+    ##############################################################
+    
     # Return both file paths and original names for use in other modules
     return(list(
       data_file = data_file, 
-      file_type = file_type,
-      data_name = data_name,
+      file_type = file_type, # type of data (i.e. json or rds)
+      data_name = data_name, # name of data file
       audio_files = audio_files,
-      audio_names = audio_names  # Include original names
+      audio_names = audio_names # name of audio files
     ))
   })
 }
