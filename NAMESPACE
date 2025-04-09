@@ -2,11 +2,13 @@
 
 export(run_app)
 import(cicerone)
+import(dplyr)
 import(ggplot2)
 import(leaflet)
 import(plotly)
 import(seewave)
 import(shiny)
+import(shinyWidgets)
 import(shinycssloaders)
 import(shinyjs)
 import(shinythemes)
