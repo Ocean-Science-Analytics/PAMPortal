@@ -82,7 +82,7 @@ mod_main_ui <- function(id) {
       class = "input-section",
       h4(tags$span(shiny::icon("file-upload"), " Select Data File:")),
       div(style = "width: 100%;",  
-          fileInput(ns("data"), NULL, width = "100%")  # File input
+          fileInput(ns("data"), NULL, width = "100%", accept = c(".rds"))  # File input
       ),
       
       h4(tags$span(shiny::icon("file-audio"), " Select Audio Files:")), 

@@ -82,7 +82,7 @@ app_ui <- function(request) {
                   mod_spectro_ui("spectro_1")
                 ),
                 bslib::nav_panel(
-                  title = "ANALYSIS",
+                  title = "DATA VISULIZATION",
                   value = "analysis",
                   mod_analysis_ui("analysis_1")
               )
