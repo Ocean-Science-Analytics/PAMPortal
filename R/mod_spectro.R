@@ -38,9 +38,15 @@ mod_spectro_ui <- function(id) {
         div(
           style = "display: flex; align-items: center; gap: 10px; width: 100%;",
           # Audio File Selection
-          selectInput(ns("audio_select"), "Select Audio File(s):", choices = NULL, multiple = TRUE, width = "100%"),
+          selectInput(ns("species_select"), "Select Species:", choices = NULL, multiple = TRUE, width = "50%"),
+          selectInput(ns("species_event_select"), "Select Event(s):", choices = NULL, multiple = TRUE, width = "50%"),
+        ),
+        div(
+          style = "display: flex; align-items: center; gap: 10px; width: 100%;",
+          # Audio File Selection
+          selectInput(ns("audio_select"), "Select Audio File(s):", choices = NULL, multiple = TRUE, width = "80%"),
           # Load Button (Aligned to the right)
-          div(style = "flex-grow: 1; text-align: right;",
+          div(style = "flex-grow: 3; text-align: center;",
               actionButton(ns("load_spectro"), "Load Spectrogram", class = "btn btn-primary", style = "width: 200px;")
           )
         )
