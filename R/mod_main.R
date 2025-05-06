@@ -8,6 +8,7 @@
 #'
 #' @importFrom shiny NS tagList 
 #' @import shinyjs
+#' @import shinyFiles
 #' @import leaflet
 
 options(shiny.maxRequestSize = 800 * 1024^2)
@@ -86,10 +87,19 @@ mod_main_ui <- function(id) {
       ),
       
       h4(tags$span(shiny::icon("file-audio"), " Select Audio Files:")), 
-      div(style = "width: 100%;",  
-          fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")  # File input
+      div(style = "display: flex; width: 100%;",  
+          #fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")  # File input
+          shinyFiles::shinyDirButton(
+            id = ns("dir"),
+            label = "Choose Audio File Directory",
+            class = "custom-btn",
+            title = "Select Audio Folder",
+            style = "flex-grow: 1;"
+          )
       ),
       
+      shiny::verbatimTextOutput(ns("directory")),
+      br(),
       # Add note above the Load Files button
       shiny::h6(
         "Note: Files up to 800MB are supported. Larger files may take several minutes to load.",
@@ -124,15 +134,71 @@ mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
-    # Reactive value to track the map state
-    is_expanded <- reactiveVal(FALSE)
+    ##############################################################
+    # DIRECTORY OUTPUT
+    ##############################################################
+    volumes <- c(
+      Home = fs::path_home(),
+      Downloads = fs::path_home("Downloads"),
+      #"C Drive" = "C:/",
+      #"D Drive" = "D:/",
+      Root = "/"
+    )
+    
+    # Enable directory selection
+    shinyFiles::shinyDirChoose(
+      input = input,
+      id = "dir",
+      roots = volumes,
+      session = session,
+      allowDirCreate = FALSE
+    )
+    
+    # Selected directory reactive
+    selected_dir <- shiny::reactive({
+      shiny::req(input$dir)
+      shinyFiles::parseDirPath(volumes, input$dir)
+    })
+    
+    # Display selected directory path
+    output$directory <- shiny::renderPrint({
+      if(length(selected_dir()) == 0) {
+        "No directory selected"
+      } else {
+        selected_dir()
+      }
+    })
     
     ##############################################################
     # LEAFLET MAP LOGIC
     ##############################################################
+    location_data <- reactive({
+      read.csv("C://Users//16614//Documents//OSA//PAMPortal//data_testing//Locations//LGL_Arctic_Analysis_Site_Locations.csv") # LGL_Arctic_Analysis_Site_Locations ----- LMR_Recorder_Locations
+    })
+    
+    # Reactive value to track the map state
+    is_expanded <- reactiveVal(FALSE)
+    
+    # output$map <- leaflet::renderLeaflet({
+    #   leaflet() %>%
+    #     leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%  # Default: Centered on USA
+    #     leaflet::addProviderTiles(
+    #       leaflet::providers$Esri.WorldImagery,
+    #       group = "Satellite"
+    #     ) %>%
+    #     leaflet::addProviderTiles(
+    #       leaflet::providers$Esri.WorldTopoMap,
+    #       group = "Topographic"
+    #     ) %>%
+    #     leaflet::addLayersControl(
+    #       baseGroups = c("OSM", "Topographic", "Satellite")) %>%
+    #     addTiles() 
+    # })
+    
     output$map <- leaflet::renderLeaflet({
-      leaflet() %>%
-        leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%  # Default: Centered on USA
+      # Base map
+      base_map <- leaflet() %>%
+        leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 1) %>%
         leaflet::addProviderTiles(
           leaflet::providers$Esri.WorldImagery,
           group = "Satellite"
@@ -142,9 +208,35 @@ mod_main_server <- function(id){
           group = "Topographic"
         ) %>%
         leaflet::addLayersControl(
-          baseGroups = c("OSM", "Topographic", "Satellite")) %>%
-        addTiles() 
+          baseGroups = c("OSM", "Topographic", "Satellite")
+        ) %>%
+        addTiles()
+      
+      locs <- location_data()
+      
+      # Check if the columns exist
+      if (!is.null(locs$Longitude) && !is.null(locs$Latitude)) {
+        # If Depth_m column exists, use it; otherwise, set Depth to NA
+        if (!"Depth_m" %in% names(locs)) {
+          locs$Depth_m <- NA
+        }
+        
+        base_map <- base_map %>%
+          leaflet::addMarkers(
+            data = locs,
+            lng = ~Longitude,
+            lat = ~Latitude,
+            popup = ~paste0(
+              "<b>Longitude:</b> ", Longitude, "<br>",
+              "<b>Latitude:</b> ", Latitude, "<br>",
+              "<b>Depth (m):</b> ", ifelse(is.na(Depth_m), "NA", Depth_m)
+            )
+          )
+      }
+      
+      base_map
     })
+    
     
     
     ##############################################################
@@ -162,9 +254,27 @@ mod_main_server <- function(id){
       )
     })
     
-    # Render the larger map when the modal is opened
+    # # Render the larger map when the modal is opened
+    # output$map_large <- leaflet::renderLeaflet({
+    #   leaflet() %>%
+    #     leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%
+    #     leaflet::addProviderTiles(
+    #       leaflet::providers$Esri.WorldImagery,
+    #       group = "Satellite"
+    #     ) %>%
+    #     leaflet::addProviderTiles(
+    #       leaflet::providers$Esri.WorldTopoMap,
+    #       group = "Topographic"
+    #     ) %>%
+    #     leaflet::addLayersControl(
+    #       baseGroups = c("OSM", "Topographic", "Satellite")
+    #     ) %>%
+    #     addTiles()
+    # })
+    
     output$map_large <- leaflet::renderLeaflet({
-      leaflet() %>%
+      # Base map
+      base_map <- leaflet() %>%
         leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%
         leaflet::addProviderTiles(
           leaflet::providers$Esri.WorldImagery,
@@ -178,6 +288,30 @@ mod_main_server <- function(id){
           baseGroups = c("OSM", "Topographic", "Satellite")
         ) %>%
         addTiles()
+      
+      locs <- location_data()
+      
+      # Check if the columns exist
+      if (!is.null(locs$Longitude) && !is.null(locs$Latitude)) {
+        # If Depth_m column exists, use it; otherwise, set Depth to NA
+        if (!"Depth_m" %in% names(locs)) {
+          locs$Depth_m <- NA
+        }
+        
+        base_map <- base_map %>%
+          leaflet::addMarkers(
+            data = locs,
+            lng = ~Longitude,
+            lat = ~Latitude,
+            popup = ~paste0(
+              "<b>Longitude:</b> ", Longitude, "<br>",
+              "<b>Latitude:</b> ", Latitude, "<br>",
+              "<b>Depth (m):</b> ", ifelse(is.na(Depth_m), "NA", Depth_m)
+            )
+          )
+      }
+      
+      base_map
     })
     
     
@@ -212,31 +346,28 @@ mod_main_server <- function(id){
         }
       }
       
-      if (!is.null(input$audio)) {
-        # Define destination folder
-        www_dir <- "inst/app/www"
-        if (!dir.exists(www_dir)) dir.create(www_dir)  # Ensure 'www/' exists
+      if (!is.null(selected_dir())) {
+        wav_paths <- list.files(selected_dir(), pattern = "\\.wav$", full.names = TRUE, ignore.case = TRUE)
         
-        # Copy files to www/ and rename to avoid overwrites
-        saved_paths <- sapply(seq_along(input$audio$datapath), function(i) {
-          src <- input$audio$datapath[i]
-          dest <- file.path(www_dir, input$audio$name[i])
+        if (length(wav_paths) > 0) {
+          www_dir <- "inst/app/www"
+          if (!dir.exists(www_dir)) dir.create(www_dir, recursive = TRUE)
           
-          file.copy(src, dest, overwrite = TRUE)
-          return(dest)
-        })
-        
-        # Store the new file paths and original names
-        audio_files(saved_paths)
-        uploaded_audio_paths <<- c(uploaded_audio_paths, saved_paths)
-        audio_names(input$audio$name)
-      }
-      
-      # Read and process each .wav file if audio is provided
-      if (!is.null(input$audio)) {
-        wav_list <- lapply(input$audio$datapath, function(file) {
-          readWave(file)
-        })
+          saved_paths <- sapply(wav_paths, function(src) {
+            dest <- file.path(www_dir, basename(src))
+            file.copy(src, dest, overwrite = TRUE)
+            return(dest)
+          })
+          
+          audio_files(saved_paths)
+          uploaded_audio_paths <<- c(uploaded_audio_paths, saved_paths)
+          audio_names(basename(wav_paths))
+          
+          # Optionally, read the wave files for processing
+          wav_list <- lapply(saved_paths, function(file) {
+            readWave(file)
+          })
+        }
       }
       
       # Update the text output dynamically based on loaded files
@@ -256,7 +387,6 @@ mod_main_server <- function(id){
       })
     })
 
-    
     ##############################################################
     # AUDIO FILE DELETION LOGIC
     ##############################################################
