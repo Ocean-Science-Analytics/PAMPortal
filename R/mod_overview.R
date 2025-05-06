@@ -11,6 +11,8 @@
 #' @import dplyr
 #' @import shinyWidgets
 #' @import shinyjs
+#' @import shinyBS
+#' @import bs4Dash
 mod_overview_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -77,27 +79,21 @@ mod_overview_ui <- function(id) {
     
     div(class = "full-height",
         div(class = "content-wrapper",
-            # Event Select and Detector Select in the Same Row
-            # fluidRow(
-            #   column(3, selectInput(ns("event_select"), "Select Acoustic Event:", choices = "")),
-            #   column(3, selectInput(ns("detector_select"), "Select Detector:", choices = ""))
-            # ),
-            
             fluidRow(
-              column(5,
+              column(6,
                      bslib::card(
-                       style = "height: 610px; overflow-y: auto; padding: 10px;",
+                       style = "height: 610px; overflow-y: auto; padding: 5px;",
                        class = "custom-card",
-                       bslib::card_header("Species and Events"),
-                       htmlOutput(ns("species_text"))
+                       bslib::card_header(HTML("<span style='font-weight: bold; font-size: 1.3em;'>Species Events</span>")),
+                       uiOutput(outputId = ns("dynamic_accordion"))
                      )
               ),
-              column(7,
+              column(6,
                      bslib::card(
-                       style = "height: 610px; overflow-y: auto; padding: 10px;",
                        class = "custom-card",
-                       bslib::card_header("Species Distribution"),
-                       plotlyOutput(ns("card2"))
+                       style = "height: 610px; display: flex; flex-direction: column; padding: 5px;",
+                       bslib::card_header(HTML("<span style='font-weight: bold; font-size: 1.3em;'>Species Distribution</span>")),
+                       plotlyOutput(ns("card2"), height = "100%", width = "100%")
                      )
               )
             ),
@@ -136,13 +132,14 @@ mod_overview_server <- function(id, data){
     observeEvent(data$data_file(), {
       acou_data <- data$data_file()
       file_type <- data$file_type()  # Get stored file type
+      #species_data <- process_acoustic_data(data$data_file())
       #browser()
       event_titles <- sapply(acou_data@events, function(event) {
         slot(event, "id")  # Adjust slot name if necessary
       })
       updateSelectInput(session, "event_select", choices = event_titles)
     }, ignoreInit = TRUE)
-    
+
     
     ##############################################################
     # Gather detector and species data from each event
@@ -173,11 +170,19 @@ mod_overview_server <- function(id, data){
                                      "Unid Odont" = "Unidentified Odont.",
                                      "Delph spp." = "Delphinid Species")
               
+              first_utc <- if ("UTC" %in% colnames(detector_data)) {
+                format(as.POSIXct(detector_data$UTC[1], tz = "UTC"), "%Y-%m-%d %H:%M")
+              } else {
+                NA
+              }
+              
               # Create a data frame for this detector
               event_list[[length(event_list) + 1]] <- data.frame(
                 Event = event_name,
                 Detector = detector_name,
-                Species = paste(species_list, collapse = ", ")  # Combine species if multiple
+                Species = paste(species_list, collapse = ", "),
+                Time = first_utc,
+                stringsAsFactors = FALSE
               )
             }
           }
@@ -193,6 +198,16 @@ mod_overview_server <- function(id, data){
       
       return(final_df)
     }
+    
+    
+    ##############################################################
+    # Reactive: process species data only when file uploaded
+    ##############################################################
+    species_data <- reactive({
+      req(data$data_file())  # Only run if file exists
+      acou_data <- data$data_file()
+      process_acoustic_data(acou_data)
+    })
     
     
     ##############################################################
@@ -214,81 +229,88 @@ mod_overview_server <- function(id, data){
         updateSelectInput(session, "detector_select", choices = character(0))
       }
     }, ignoreInit = TRUE)
-
-
+    
     
     ##############################################################
-    # Text output for Card 1
+    # Dynamic Accordion UI
     ##############################################################
-    output$species_text <- renderUI({
+    # output$dynamic_accordion <- renderUI({
+    #   req(data$data_file())
+    #   species_df <- species_data()
+    #   species_list <- split(species_df[, c("Event", "Time")], species_df$Species)
+    #   
+    #   cards <- purrr::imap(species_list, function(df, species_name) {
+    #     safe_id <- gsub("[^A-Za-z0-9]", "_", species_name)
+    #     output_id <- paste0("table_", safe_id)
+    #     
+    #     # Dynamically generate table output
+    #     output[[output_id]] <- renderTable({
+    #       df
+    #     })
+    #     
+    #     # Create card with accordion inside
+    #     bslib::card(
+    #       full_screen = TRUE,
+    #       style = "background-color: #f5f7fa;",
+    #       bslib::card_header(species_name),
+    #       bslib::accordion(
+    #         open = FALSE,
+    #         bslib::accordion_panel(
+    #           title = "Individual Events",
+    #           tableOutput(ns(output_id))
+    #         )
+    #       )
+    #     )
+    #   })
+    #   
+    #   tagList(cards)
+    # })
+    
+    
+    output$dynamic_accordion <- renderUI({
       req(data$data_file())
+      species_df <- species_data()
+      species_list <- split(species_df[, c("Event", "Time")], species_df$Species)
       
-      species_data <- process_acoustic_data(data$data_file())
+      accordion_boxes <- purrr::imap(species_list, function(df, species_name) {
+        safe_id <- gsub("[^A-Za-z0-9]", "_", species_name)
+        output_id <- paste0("table_", safe_id)
+        
+        output[[output_id]] <- renderTable({
+          df
+        })
+        
+        div(
+          style = "margin-bottom: 15px; padding: 5px; border: 2px solid #ddd; border-radius: 5px;",
+          bslib::accordion(
+            open = FALSE,
+            bslib::accordion_panel(
+              title = HTML(paste0("<b>", species_name, "</b>")),
+              tableOutput(ns(output_id))
+            )
+          )
+        )
+      })
       
-      if (nrow(species_data) == 0) {
-        HTML('<p style="font-size: 18px;">No species data available.</p>')
-      } else {
-        # Sort the species list alphabetically
-        species_list <- sort(unique(unlist(strsplit(species_data$Species, ",\\s*"))))
-        
-        # Create a list to store the HTML content
-        text_html <- '<div>'
-        
-        # Title
-        #text_html <- paste0(text_html, '<p style="font-size: 24px; font-weight: bold;">The species identified in this acoustic study are:</p>')
-        
-        for (species in species_list) {
-          # Get the event titles that correlate with the species
-          events_for_species <- species_data$Event[species_data$Species == species]
-          
-          # Create a selectInput for this species
-          select_input <- selectInput(
-            inputId = paste0("event_select_", gsub("\\s+", "_", species)),  # Create a unique ID for each species
-            label = NULL,
-            choices = unique(events_for_species),
-            selected = NULL,  # Default to no event selected
-            width = "100%"  # Full width of the container
-          )
-          
-          # Add the species name, selectInput, and event list to the HTML content
-          text_html <- paste0(
-            text_html,
-            '<p style="font-size: 18px; font-weight: bold;">', species, '</p>',
-            select_input,
-            # '<ul style="font-size: 16px; padding-left: 20px;">',
-            # paste(sprintf("<li>%s</li>", events_for_species), collapse = ""),
-            "</ul>"
-            #"<br>"  # Adds a break between species
-          )
-        }
-        
-        text_html <- paste0(text_html, '</div>')
-        HTML(text_html)
-      }
+      tagList(accordion_boxes)
     })
-    
     
     
     ##############################################################
     # Interactive Pie Chart
     ##############################################################
     output$card2 <- renderPlotly({
-      req(data$data_file())  # Ensure a file is loaded
+      req(data$data_file())
+      species_df <- species_data()  # <-- reuse the reactive result
       
-      # Process the acoustic data to get species information
-      acou_data <- data$data_file()
-      species_data <- process_acoustic_data(acou_data)
-      
-      # Check if species_data is empty
-      if (nrow(species_data) == 0) {
+      if (nrow(species_df) == 0) {
         return(
           plot_ly() %>%
             add_trace(type = "pie", labels = c("No Species Data Found"), values = c(1), textinfo = "label")
         )
       }
       
-      # Count occurrences of each species
-      species_counts <- table(species_data$Species)
+      species_counts <- table(species_df$Species)
       
       # Create a pie chart
       plot_ly(
@@ -296,16 +318,22 @@ mod_overview_server <- function(id, data){
         values = as.numeric(species_counts),
         type = "pie",
         textinfo = "label+percent",
+        textposition = "inside", 
         hoverinfo = "label+value+percent",
         marker = list(colors = RColorBrewer::brewer.pal(length(species_counts), "RdYlBu"))) %>% # Also like 'Set3', 'Blues', and 'RdYlBu'. See https://r-graph-gallery.com/38-rcolorbrewers-palettes
-        layout(title = NULL, width = 650, height = 560,
+        layout(title = NULL, 
                legend = list(
-                 font = list(size = 10),  # Change legend text size
-                 itemsizing = "constant",  # Ensures consistent sizing
-                 tracegroupgap = 5  # Adjusts spacing between legend items
+                 orientation = "h", 
+                 x = 0.1,
+                 y = -0.1,
+                 font = list(size = 12)
                ),
+               width = 490, 
+               height = 520,
+               margin = list(l = 20, r = 20, t = 20, b = 20),
+               autosize = TRUE,
                marker = list(
-                 size = 10  # Adjusts legend color swatch size
+                 size = 11  # Adjusts legend color swatch size
                ))
     })
     
@@ -461,7 +489,6 @@ mod_overview_server <- function(id, data){
         }
       }
     )
-    
     
   })
 }
