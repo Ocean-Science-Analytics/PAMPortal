@@ -9,7 +9,19 @@
 app_ui <- function(request) {
   tagList(
     # Leave this function for adding external resources
+    
+    waiter::waiter_show_on_load(
+      html = tagList(
+        tags$img(src = "www/white_square_OSA_med.jpg", height = "80px"),
+        h2("Loading PAMPortal...", style = "color:white; margin-top: 10px;"),
+        br(),
+        waiter::spin_wave()
+      ),
+      color = "#3E606F"
+    ),
+    
     golem_add_external_resources(),
+    add_beta_ribbon(),
     
     # Custom CSS for specific UI settings
     tags$head(
@@ -59,37 +71,67 @@ app_ui <- function(request) {
         actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey")  # Guide button
       ),
       
-      # Sidebar + Main Content (using fluidRow now)
-      fluidRow(
-        column(
-          width = 3,
-          style = "padding-top: 10px;",
+      bslib::layout_sidebar(
+        sidebar = bslib::sidebar(
+          width = "430px", 
+          bg = "#DCE6EB", # #A9D3DA
           mod_main_ui("main_1")
         ),
-        column(
-          width = 9,
-          div(class = "main-panel",
-              bslib::navset_card_underline(
-                id = "nav",
-                bslib::nav_panel(
-                  title = "SUMMARY",
-                  value = "summary",
-                  mod_overview_ui("overview_1")
-                ),
-                bslib::nav_panel(
-                  title = "SPECTROGRAM",
-                  value = "spectro",
-                  mod_spectro_ui("spectro_1")
-                ),
-                bslib::nav_panel(
-                  title = "DATA VISULIZATION",
-                  value = "analysis",
-                  mod_analysis_ui("analysis_1")
-              )
-            )
+        fillable = TRUE,
+        fill = TRUE,
+        collapsible = TRUE,
+        bslib::navset_card_underline(
+          id = "nav",
+          bslib::nav_panel(
+            title = "SUMMARY",
+            value = "summary",
+            mod_overview_ui("overview_1")
+          ),
+          bslib::nav_panel(
+            title = "SPECTROGRAM",
+            value = "spectro",
+            mod_spectro_ui("spectro_1")
+          ),
+          bslib::nav_panel(
+            title = "DATA VISUALIZATION",
+            value = "analysis",
+            mod_analysis_ui("analysis_1")
           )
         )
       )
+      
+      
+      # Sidebar + Main Content (using fluidRow now)
+      # fluidRow(
+      #   column(
+      #     width = 3,
+      #     style = "padding-top: 10px;",
+      #     mod_main_ui("main_1")
+      #   ),
+      #   column(
+      #     width = 9,
+      #     div(class = "main-panel",
+      #         bslib::navset_card_underline(
+      #           id = "nav",
+      #           bslib::nav_panel(
+      #             title = "SUMMARY",
+      #             value = "summary",
+      #             mod_overview_ui("overview_1")
+      #           ),
+      #           bslib::nav_panel(
+      #             title = "SPECTROGRAM",
+      #             value = "spectro",
+      #             mod_spectro_ui("spectro_1")
+      #           ),
+      #           bslib::nav_panel(
+      #             title = "DATA VISULIZATION",
+      #             value = "analysis",
+      #             mod_analysis_ui("analysis_1")
+      #         )
+      #       )
+      #     )
+      #   )
+      # )
     )
   )
 }
@@ -116,6 +158,7 @@ golem_add_external_resources <- function() {
     ),
     # Add here other external resources
     # for example, you can add shinyalert::useShinyalert()
-    cicerone::use_cicerone()
+    cicerone::use_cicerone(),
+    waiter::use_waiter()
   )
 }

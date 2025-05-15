@@ -14,5 +14,7 @@ app_server <- function(input, output, session) {
   observeEvent(input$help, {
     guide$init()$start()
   })
+  Sys.sleep(5)
+  waiter::waiter_hide()
   
 }
