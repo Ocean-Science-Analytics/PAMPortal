@@ -405,7 +405,7 @@ mod_main_server <- function(id){
 
       if (!is.null(rds) && !is.null(audio)) {
         matches <- sum(audio %in% rds)
-        browser()
+        
         paste0("✔️ ", matches, " Data/Acoustic folders detected")
       } else if (!is.null(rds)) {
         paste0("✔️ ", length(rds), " Data file(s) loaded")

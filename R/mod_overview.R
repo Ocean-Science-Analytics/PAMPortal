@@ -79,6 +79,7 @@ mod_overview_ui <- function(id) {
     
     div(class = "full-height",
         div(class = "content-wrapper",
+            selectInput(ns("rds_select"), "Select Data File:", choices = NULL, width = "250px"),
             fluidRow(
               column(6,
                      bslib::card(
@@ -132,14 +133,16 @@ mod_overview_server <- function(id, data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
+    observeEvent(data$rds_data(), {
+      updateSelectInput(session, "rds_select", choices = names(data$rds_data()))
+    })
+    
     ##############################################################
     # Initially reads data files and updates acoustic events
     ##############################################################
-    observeEvent(data$data_file(), {
-      acou_data <- data$data_file()
-      file_type <- data$file_type()  # Get stored file type
-      #species_data <- process_acoustic_data(data$data_file())
-      #browser()
+    observeEvent(input$rds_select, {
+      selected_name <- input$rds_select
+      acou_data <- data$rds_data()[[selected_name]]
       event_titles <- sapply(acou_data@events, function(event) {
         slot(event, "id")  # Adjust slot name if necessary
       })
@@ -210,8 +213,14 @@ mod_overview_server <- function(id, data){
     # Reactive: process species data only when file uploaded
     ##############################################################
     species_data <- reactive({
-      req(data$data_file())  # Only run if file exists
-      acou_data <- data$data_file()
+      req(input$rds_select)       # Require the user to have selected something
+      req(data$rds_data())        # Require that rds_data exists
+      
+      selected_name <- input$rds_select
+      acou_data <- data$rds_data()[[selected_name]]
+      
+      req(!is.null(acou_data))    # Make sure the selected data is not null
+      
       process_acoustic_data(acou_data)
     })
     
@@ -220,10 +229,10 @@ mod_overview_server <- function(id, data){
     # Updates detectors based on event selected
     ##############################################################
     observeEvent(input$event_select, {
-      req(data$data_file(), input$event_select)  # Ensure data exists
+      #req(data$rds_data(), input$event_select)  # Ensure data exists
 
-      acou_data <- data$data_file()
-      file_type <- data$file_type()
+      selected_name <- input$rds_select
+      acou_data <- data$rds_data()[[selected_name]]
 
       selected_event <- acou_data@events[[input$event_select]]
       shinyjs::enable("detector_select")  # Enable if not JSON
@@ -235,7 +244,7 @@ mod_overview_server <- function(id, data){
         updateSelectInput(session, "detector_select", choices = character(0))
       }
     }, ignoreInit = TRUE)
-    
+    #
     
     ##############################################################
     # Dynamic Accordion UI
@@ -274,7 +283,7 @@ mod_overview_server <- function(id, data){
     
     
     output$dynamic_accordion <- renderUI({
-      req(data$data_file())
+      req(data$rds_data())
       species_df <- species_data()
       species_list <- split(species_df[, c("Event", "Time")], species_df$Species)
       
@@ -306,7 +315,7 @@ mod_overview_server <- function(id, data){
     # Interactive Pie Chart
     ##############################################################
     output$card2 <- renderPlotly({
-      req(data$data_file())
+      req(data$rds_data())
       species_df <- species_data()  # <-- reuse the reactive result
       
       if (nrow(species_df) == 0) {
@@ -363,9 +372,9 @@ mod_overview_server <- function(id, data){
     # Cool data table features - https://laustep.github.io/stlahblog/posts/DTcallbacks.html
     
     output$data_table <- DT::renderDataTable({
-      req(data$data_file())
-      acou_data <- data$data_file()
-      file_type <- data$file_type()
+      req(data$rds_data())
+      selected_name <- input$rds_select
+      acou_data <- data$rds_data()[[selected_name]]
       
       if (isTRUE(input$all_events)) {
         showNotification("Loading data for all events. This may take some time.", type = "message", duration = 6)
@@ -440,7 +449,8 @@ mod_overview_server <- function(id, data){
     
     output$export_csv <- downloadHandler(
       filename = function() {
-        acou_data <- data$data_file()
+        selected_name <- input$rds_select
+        acou_data <- data$rds_data()[[selected_name]]
         
         if (input$all_events) {
           paste0(slot(acou_data, "id"), "_All_Events.csv")
@@ -451,9 +461,9 @@ mod_overview_server <- function(id, data){
       content = function(file) {
         showNotification("Preparing CSV download. This can take some time depending on the amount of data being exported.", type = "message", duration = 8)
         
-        req(data$data_file())
-        acou_data <- data$data_file()
-        file_type <- data$file_type()
+        req(data$rds_data())
+        selected_name <- input$rds_select
+        acou_data <- data$rds_data()[[selected_name]]
         
         if (input$all_events) {
           # Combine all detector data across all events
