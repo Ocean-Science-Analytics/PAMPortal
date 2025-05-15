@@ -15,7 +15,7 @@ Imports:
     fs,
     ggplot2,
     golem,
-    jsonlite,
+    htmltools,
     leaflet,
     plotly,
     purrr,
@@ -29,7 +29,8 @@ Imports:
     shinythemes,
     shinyWidgets,
     tools,
-    tuneR
+    tuneR,
+    waiter
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.1
