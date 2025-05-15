@@ -29,6 +29,7 @@ golem::add_module(name = "analysis", with_test = FALSE)
 ## Creates fct_* and utils_*
 golem::add_fct("helpers", with_test = TRUE)
 golem::add_utils("cicerone", with_test = FALSE)
+golem::add_utils("helpers", with_test = FALSE)
 
 ## External resources
 ## Creates .js and .css files at inst/app/www
