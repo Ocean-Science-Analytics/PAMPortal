@@ -81,19 +81,19 @@ mod_main_ui <- function(id) {
     tags$div(
       id = ns("sidebar"),
       class = "input-section",
-      h4(tags$span(shiny::icon("file-upload"), " Select Data File:")),
-      div(style = "width: 100%;",  
-          fileInput(ns("data"), NULL, width = "100%", accept = c(".rds"))  # File input
-      ),
+      # h4(tags$span(shiny::icon("file-upload"), " Select Data File:"), style = "color: black;"),
+      # div(style = "width: 100%;",
+      #     fileInput(ns("data"), NULL, width = "100%", accept = c(".rds"))  # File input
+      # ),
       
-      h4(tags$span(shiny::icon("file-audio"), " Select Audio Files:")), 
+      h4(tags$span(shiny::icon("file-upload"), " Select PAM Folder:"), style = "color: black;"), 
       div(style = "display: flex; width: 100%;",  
           #fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")  # File input
           shinyFiles::shinyDirButton(
             id = ns("dir"),
-            label = "Choose Audio File Directory",
+            label = "Choose PAM Folder Directory",
             class = "custom-btn",
-            title = "Select Audio Folder",
+            title = "Select PAM Folder",
             style = "flex-grow: 1;"
           )
       ),
@@ -134,9 +134,12 @@ mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
-    ##############################################################
-    # DIRECTORY OUTPUT
-    ##############################################################
+    ###  C:/Users/16614/Documents/OSA/PAMPortal/data_testing/LMR_SonarPoint
+    
+    
+##############################################################
+# DIRECTORY OUTPUT LOGIC
+##############################################################
     volumes <- c(
       Home = fs::path_home(),
       Downloads = fs::path_home("Downloads"),
@@ -144,7 +147,7 @@ mod_main_server <- function(id){
       #"D Drive" = "D:/",
       Root = "/"
     )
-    
+
     # Enable directory selection
     shinyFiles::shinyDirChoose(
       input = input,
@@ -153,13 +156,13 @@ mod_main_server <- function(id){
       session = session,
       allowDirCreate = FALSE
     )
-    
+
     # Selected directory reactive
     selected_dir <- shiny::reactive({
       shiny::req(input$dir)
       shinyFiles::parseDirPath(volumes, input$dir)
     })
-    
+
     # Display selected directory path
     output$directory <- shiny::renderPrint({
       if(length(selected_dir()) == 0) {
@@ -169,64 +172,72 @@ mod_main_server <- function(id){
       }
     })
     
-    ##############################################################
-    # LEAFLET MAP LOGIC
-    ##############################################################
+    
+##############################################################
+# LEAFLET MAP LOGIC
+##############################################################
+    
     location_data <- reactive({
-      read.csv("C://Users//16614//Documents//OSA//PAMPortal//data_testing//Locations//LGL_Arctic_Analysis_Site_Locations.csv") # LGL_Arctic_Analysis_Site_Locations ----- LMR_Recorder_Locations
+      root_path <- selected_dir()
+      shiny::req(root_path)
+      
+      spatial_path <- file.path(root_path)
+      csv_files <- list.files(spatial_path, pattern = "\\.csv$", full.names = TRUE)
+      
+      if (length(csv_files) == 0) {
+        showNotification("No spatial CSV found in Spatial_Data folder.", type = "warning")
+        return(NULL)
+      }
+      
+      # Use first CSV found
+      locs <- read.csv(csv_files[1])
+      
+      # Normalize column names
+      names(locs) <- trimws(names(locs))
+      
+      # Ensure Depth column is consistent
+      if (!"Depth_m" %in% names(locs) && "Depth" %in% names(locs)) {
+        locs$Depth_m <- locs$Depth
+      } else if (!"Depth_m" %in% names(locs)) {
+        locs$Depth_m <- NA
+      }
+      
+      locs
     })
     
     # Reactive value to track the map state
     is_expanded <- reactiveVal(FALSE)
     
-    # output$map <- leaflet::renderLeaflet({
-    #   leaflet() %>%
-    #     leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%  # Default: Centered on USA
-    #     leaflet::addProviderTiles(
-    #       leaflet::providers$Esri.WorldImagery,
-    #       group = "Satellite"
-    #     ) %>%
-    #     leaflet::addProviderTiles(
-    #       leaflet::providers$Esri.WorldTopoMap,
-    #       group = "Topographic"
-    #     ) %>%
-    #     leaflet::addLayersControl(
-    #       baseGroups = c("OSM", "Topographic", "Satellite")) %>%
-    #     addTiles() 
-    # })
-    
     output$map <- leaflet::renderLeaflet({
-      # Base map
+      # Base map setup
       base_map <- leaflet() %>%
-        leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 1) %>%
-        leaflet::addProviderTiles(
-          leaflet::providers$Esri.WorldImagery,
-          group = "Satellite"
-        ) %>%
-        leaflet::addProviderTiles(
-          leaflet::providers$Esri.WorldTopoMap,
-          group = "Topographic"
-        ) %>%
-        leaflet::addLayersControl(
-          baseGroups = c("OSM", "Topographic", "Satellite")
-        ) %>%
-        addTiles()
+        setView(lng = -98.5795, lat = 39.8283, zoom = 1) %>%
+        addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite") %>%
+        addProviderTiles(leaflet::providers$Esri.WorldTopoMap, group = "Topographic") %>%
+        addTiles(group = "OSM") %>%
+        addLayersControl(baseGroups = c("OSM", "Topographic", "Satellite"))
       
-      locs <- location_data()
+      locs <- try(location_data(), silent = TRUE)
       
-      # Check if the columns exist
-      if (!is.null(locs$Longitude) && !is.null(locs$Latitude)) {
-        # If Depth_m column exists, use it; otherwise, set Depth to NA
+      if (!inherits(locs, "try-error") &&
+          !is.null(locs) &&
+          is.data.frame(locs) &&
+          all(c("Longitude", "Latitude") %in% names(locs)) &&
+          nrow(locs) > 0) {
+        
+        # Ensure Depth_m column exists
         if (!"Depth_m" %in% names(locs)) {
           locs$Depth_m <- NA
         }
         
         base_map <- base_map %>%
-          leaflet::addMarkers(
+          addMarkers(
             data = locs,
             lng = ~Longitude,
             lat = ~Latitude,
             popup = ~paste0(
+              "<b>Deployment:</b> ", Deployment, "<br>",
+              "<b>Sonar Point:</b> ", SonarPoint, "<br>",
               "<b>Longitude:</b> ", Longitude, "<br>",
               "<b>Latitude:</b> ", Latitude, "<br>",
               "<b>Depth (m):</b> ", ifelse(is.na(Depth_m), "NA", Depth_m)
@@ -236,8 +247,6 @@ mod_main_server <- function(id){
       
       base_map
     })
-    
-    
     
     ##############################################################
     # MAP EXPAND/SHRINK FUNCTION
@@ -254,56 +263,36 @@ mod_main_server <- function(id){
       )
     })
     
-    # # Render the larger map when the modal is opened
-    # output$map_large <- leaflet::renderLeaflet({
-    #   leaflet() %>%
-    #     leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%
-    #     leaflet::addProviderTiles(
-    #       leaflet::providers$Esri.WorldImagery,
-    #       group = "Satellite"
-    #     ) %>%
-    #     leaflet::addProviderTiles(
-    #       leaflet::providers$Esri.WorldTopoMap,
-    #       group = "Topographic"
-    #     ) %>%
-    #     leaflet::addLayersControl(
-    #       baseGroups = c("OSM", "Topographic", "Satellite")
-    #     ) %>%
-    #     addTiles()
-    # })
-    
     output$map_large <- leaflet::renderLeaflet({
-      # Base map
+      # Base map setup
       base_map <- leaflet() %>%
-        leaflet::setView(lng = -98.5795, lat = 39.8283, zoom = 2) %>%
-        leaflet::addProviderTiles(
-          leaflet::providers$Esri.WorldImagery,
-          group = "Satellite"
-        ) %>%
-        leaflet::addProviderTiles(
-          leaflet::providers$Esri.WorldTopoMap,
-          group = "Topographic"
-        ) %>%
-        leaflet::addLayersControl(
-          baseGroups = c("OSM", "Topographic", "Satellite")
-        ) %>%
-        addTiles()
+        setView(lng = -98.5795, lat = 39.8283, zoom = 1) %>%
+        addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite") %>%
+        addProviderTiles(leaflet::providers$Esri.WorldTopoMap, group = "Topographic") %>%
+        addTiles(group = "OSM") %>%
+        addLayersControl(baseGroups = c("OSM", "Topographic", "Satellite"))
       
-      locs <- location_data()
+      locs <- try(location_data(), silent = TRUE)
       
-      # Check if the columns exist
-      if (!is.null(locs$Longitude) && !is.null(locs$Latitude)) {
-        # If Depth_m column exists, use it; otherwise, set Depth to NA
+      if (!inherits(locs, "try-error") &&
+          !is.null(locs) &&
+          is.data.frame(locs) &&
+          all(c("Longitude", "Latitude") %in% names(locs)) &&
+          nrow(locs) > 0) {
+        
+        # Ensure Depth_m column exists
         if (!"Depth_m" %in% names(locs)) {
           locs$Depth_m <- NA
         }
         
         base_map <- base_map %>%
-          leaflet::addMarkers(
+          addMarkers(
             data = locs,
             lng = ~Longitude,
             lat = ~Latitude,
             popup = ~paste0(
+              "<b>Deployment:</b> ", Deployment, "<br>",
+              "<b>Sonar Point:</b> ", SonarPoint, "<br>",
               "<b>Longitude:</b> ", Longitude, "<br>",
               "<b>Latitude:</b> ", Latitude, "<br>",
               "<b>Depth (m):</b> ", ifelse(is.na(Depth_m), "NA", Depth_m)
@@ -315,9 +304,9 @@ mod_main_server <- function(id){
     })
     
     
-    ##############################################################
-    # FILE HANDLING LOGIC
-    ##############################################################
+##############################################################
+# FILE HANDLING LOGIC
+##############################################################
     
     # Reactive values to store uploaded file paths and original names
     data_file <- reactiveVal(NULL)
@@ -327,90 +316,197 @@ mod_main_server <- function(id){
     audio_names <- reactiveVal(NULL)  # Original filenames
     uploaded_audio_paths <- NULL  # Non-Reactive list to delete audio files when app closes
     
+    rds_names <- reactiveVal(NULL)
+    rds_data <- reactiveVal(NULL)
+    acoustic_names <- reactiveVal(NULL)
+    acoustic_file_tree <- reactiveVal(NULL)
+    
     observeEvent(input$submit_files, {
-      # Handle data file (Rdata or JSON)
-      if (!is.null(input$data)) {
-        ext <- tools::file_ext(input$data$name)  # Get file extension
-        name_without_ext <- tools::file_path_sans_ext(input$data$name)  # Extract name without extension
-        data_name(name_without_ext)  # Store the file name
-        
-        if (ext == "rds") {
-          # Load RDS file
-          data_file(readRDS(input$data$datapath))
-          file_type("rds")
-          
-        } else if (ext == "json") {
-          # Load JSON file
-          data_file(jsonlite::fromJSON(input$data$datapath))
-          file_type("json")
-        }
-      }
+      root_path <- selected_dir()
+      rds_folder <- file.path(root_path, "RDS")
+      acoustic_dir <- file.path(root_path, "Audio")
       
-      if (!is.null(selected_dir())) {
-        wav_paths <- list.files(selected_dir(), pattern = "\\.wav$", full.names = TRUE, ignore.case = TRUE)
+      #### ---- RDS LOADING ---- ####
+      if (dir.exists(rds_folder)) {
+        rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
         
-        if (length(wav_paths) > 0) {
-          www_dir <- "inst/app/www"
-          if (!dir.exists(www_dir)) dir.create(www_dir, recursive = TRUE)
+        if (length(rds_paths) > 0) {
+          names_only <- tools::file_path_sans_ext(basename(rds_paths))
+          rds_names(names_only)
           
-          saved_paths <- sapply(wav_paths, function(src) {
-            dest <- file.path(www_dir, basename(src))
-            file.copy(src, dest, overwrite = TRUE)
-            return(dest)
-          })
-          
-          audio_files(saved_paths)
-          uploaded_audio_paths <<- c(uploaded_audio_paths, saved_paths)
-          audio_names(basename(wav_paths))
-          
-          # Optionally, read the wave files for processing
-          wav_list <- lapply(saved_paths, function(file) {
-            readWave(file)
-          })
-        }
-      }
-      
-      # Update the text output dynamically based on loaded files
-      output$load_status <- renderText({
-        data_loaded <- !is.null(data_file())
-        audio_loaded <- !is.null(audio_files())
-        
-        if (data_loaded & audio_loaded) {
-          paste0("✔️ Data file and ", length(audio_files()), " audio files successfully loaded!")
-        } else if (data_loaded) {
-          "✔️ Data file successfully loaded!"
-        } else if (audio_loaded) {
-          paste0("✔️ ", length(audio_files()), " audio files successfully loaded!")
+          # Load actual RDS data into a named list
+          data_list <- setNames(lapply(rds_paths, readRDS), names_only)
+          rds_data(data_list)
         } else {
-          "No data or audio files loaded"  # Show nothing if neither is loaded
+          showNotification("No .rds files found in RDS folder.", type = "warning")
+          rds_names(NULL)
+          rds_data(NULL)
         }
-      })
-    })
-
-    ##############################################################
-    # AUDIO FILE DELETION LOGIC
-    ##############################################################
-    
-    # Delete temporary audio files when the session ends
-    session$onSessionEnded(function() {
-      if (!is.null(uploaded_audio_paths) && length(uploaded_audio_paths) > 0) {
-        file.remove(uploaded_audio_paths)
+      } else {
+        showNotification("RDS folder not found.", type = "error")
+        rds_names(NULL)
+      }
+      
+      #### ---- ACOUSTIC LOADING ---- ####
+      if (dir.exists(acoustic_dir)) {
+        # Read the acoustic event names
+        event_paths <- list.dirs(acoustic_dir, recursive = FALSE, full.names = TRUE)
+        event_names <- basename(event_paths)
+        cleaned_event_names <- sub("_Clips$", "", event_names)
+        acoustic_names(cleaned_event_names)
+        
+        build_nested_list <- function(base_dir) {
+          event_folders <- list.dirs(base_dir, recursive = FALSE, full.names = TRUE)
+          structure_list <- list()
+          
+          for (event_path in event_folders) {
+            event_name <- basename(event_path)
+            species_paths <- list.dirs(event_path, recursive = FALSE, full.names = TRUE)
+            species_list <- list()
+            
+            for (species_path in species_paths) {
+              species_name <- basename(species_path)
+              detection_paths <- list.dirs(species_path, recursive = FALSE, full.names = TRUE)
+              detection_list <- list()
+              
+              for (detection_path in detection_paths) {
+                detection_name <- basename(detection_path)
+                wavs <- list.files(detection_path, pattern = "\\.wav$", full.names = TRUE)
+                if (length(wavs) > 0) {
+                  detection_list[[detection_name]] <- wavs
+                }
+              }
+              
+              if (length(detection_list) > 0) {
+                species_list[[species_name]] <- detection_list
+              }
+            }
+            
+            if (length(species_list) > 0) {
+              structure_list[[event_name]] <- species_list
+            }
+          }
+          
+          return(structure_list)
+        }
+        
+        tree <- build_nested_list(acoustic_dir)
+        acoustic_file_tree(tree)
+      } else {
+        showNotification("Audio folder not found.", type = "error")
+        acoustic_file_tree(NULL)
       }
     })
     
+    #### ---- LOAD STATUS ---- ####
+    output$load_status <- renderText({
+      rds <- rds_names()
+      audio <- acoustic_names()
+
+      if (!is.null(rds) && !is.null(audio)) {
+        matches <- sum(audio %in% rds)
+        browser()
+        paste0("✔️ ", matches, " Data/Acoustic folders detected")
+      } else if (!is.null(rds)) {
+        paste0("✔️ ", length(rds), " Data file(s) loaded")
+      } else if (!is.null(audio)) {
+        paste0("✔️ Audio folder loaded with ", length(audio), " event(s)")
+      } else {
+        "No data or audio files loaded"
+      }
+    })
     
-    ##############################################################
-    # STORE PROCESSED DATA FILES FOR OTHER MODULES TO ACCESS
-    ##############################################################
-    
+    # observeEvent(input$submit_files, {
+    #   if (!is.null(input$data)) {
+    #     ext <- tools::file_ext(input$data$name)  # Get file extension
+    #     name_without_ext <- tools::file_path_sans_ext(input$data$name)  # Extract name without extension
+    #     data_name(name_without_ext)  # Store the file name
+    #     
+    #     if (ext == "rds") {
+    #       # Load RDS file
+    #       data_file(readRDS(input$data$datapath))
+    #       file_type("rds")
+    #     } else {
+    #       # Optional: Handle unsupported file types
+    #       showNotification("Only .rds files are supported.", type = "error")
+    #     }
+    #   }
+    #   
+    #   if (!is.null(selected_dir())) {
+    #     wav_paths <- list.files(selected_dir(), pattern = "\\.wav$", full.names = TRUE, ignore.case = TRUE)
+    #     
+    #     if (length(wav_paths) > 0) {
+    #       www_dir <- "inst/app/www"
+    #       if (!dir.exists(www_dir)) dir.create(www_dir, recursive = TRUE)
+    #       
+    #       saved_paths <- sapply(wav_paths, function(src) {
+    #         dest <- file.path(www_dir, basename(src))
+    #         file.copy(src, dest, overwrite = TRUE)
+    #         return(dest)
+    #       })
+    #       
+    #       audio_files(saved_paths)
+    #       uploaded_audio_paths <<- c(uploaded_audio_paths, saved_paths)
+    #       audio_names(basename(wav_paths))
+    #       
+    #       # Optionally, read the wave files for processing
+    #       wav_list <- lapply(saved_paths, function(file) {
+    #         readWave(file)
+    #       })
+    #     }
+    #   }
+    #   
+    #   # Update the text output dynamically based on loaded files
+    #   output$load_status <- renderText({
+    #     data_loaded <- !is.null(data_file())
+    #     audio_loaded <- !is.null(audio_files())
+    #     
+    #     if (data_loaded & audio_loaded) {
+    #       paste0("✔️ Data file and ", length(audio_files()), " audio files successfully loaded!")
+    #     } else if (data_loaded) {
+    #       "✔️ Data file successfully loaded!"
+    #     } else if (audio_loaded) {
+    #       paste0("✔️ ", length(audio_files()), " audio files successfully loaded!")
+    #     } else {
+    #       "No data or audio files loaded"  # Show nothing if neither is loaded
+    #     }
+    #   })
+    # })
+    # 
+    # ##############################################################
+    # # AUDIO FILE DELETION LOGIC
+    # ##############################################################
+    # 
+    # # Delete temporary audio files when the session ends
+    # session$onSessionEnded(function() {
+    #   if (!is.null(uploaded_audio_paths) && length(uploaded_audio_paths) > 0) {
+    #     file.remove(uploaded_audio_paths)
+    #   }
+    # })
+    # 
+    # 
+    # ##############################################################
+    # # STORE PROCESSED DATA FILES FOR OTHER MODULES TO ACCESS
+    # ##############################################################
+    # 
     # Return both file paths and original names for use in other modules
     return(list(
-      data_file = data_file, 
+      rds_names = rds_names,
+      rds_data = rds_data,   
+      acoustic_names = acoustic_names,
+      acoustic_file_tree = acoustic_file_tree,
+      ########################################
+      data_file = data_file,
       file_type = file_type, # type of data (i.e. json or rds)
       data_name = data_name, # name of data file
       audio_files = audio_files,
       audio_names = audio_names # name of audio files
     ))
+    
+    # Other modules can access rds data using:
+    #   my_data_list <- file_outputs$rds_data()
+    #   some_data <- my_data_list[["Event_A"]]
+    
   })
 }
     
