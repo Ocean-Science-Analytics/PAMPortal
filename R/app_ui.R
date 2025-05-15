@@ -74,7 +74,7 @@ app_ui <- function(request) {
       bslib::layout_sidebar(
         sidebar = bslib::sidebar(
           width = "430px", 
-          bg = "#DCE6EB", # #A9D3DA
+          bg = palette_main()$gray_light, # #A9D3DA
           mod_main_ui("main_1")
         ),
         fillable = TRUE,

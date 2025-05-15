@@ -13,7 +13,6 @@
 #'
 #' @noRd
 #' @return html
-#' @author Joseph Marlo, \email{support@landeranalytics.com}
 #'
 #' @examples
 #' htmltools::html_print(add_beta_ribbon())
@@ -49,3 +48,74 @@ add_beta_ribbon <- function(){
   
   return(beta_div)
 }
+
+
+#' Color palettes
+#' 
+#' PAMPortal color palette. Primarily used for static UI elements.
+#' 
+#' @param .data A raster or numeric vector providing the data domain for the color scale.
+#'
+#' @return For `palette_main()`, a named list of hex colors.  
+#' @export
+#'
+#' @examples
+#' palette_main()$green
+palette_main <- function(){
+  list(
+    slate_blue = "#3e606f",# Mainly for loading page 
+    deep_cyan = "#00688B", # Mainly for buttons and triggers
+    aquamarine = "#7AC5CD", # Mainly for title bar of app
+    gray = "#b0b0b0", # Background of buttons and titles
+    gray_light = "#F0F0F0", # Background of sidebar
+    seashell = "#EEE5DE" # Background of Guide button 
+  )
+}
+
+
+
+card_spectro <- function(ns, id, num) {
+  ns_id <- function(x) ns(paste0(id, "-", x))
+  
+  bslib::card(
+    div(
+      style = "border: 2px solid black; padding: 10px; border-radius: 5px; margin-bottom: 15px; background-color: #FFFAFA;",
+      
+      h4(paste("Spectrogram", num)),
+      
+      # Row 1: Event + Species
+      fluidRow(
+        column(6, selectInput(ns_id("event"), "1.) Event", choices = NULL)),
+        column(6, selectInput(ns_id("species"), "2.) Species", choices = NULL))
+      ),
+      
+      # Row 2: Detection + File
+      fluidRow(
+        column(6, selectInput(ns_id("detection"), "3.) Detection ID", choices = NULL)),
+        column(6, selectInput(ns_id("file"), "4.) File", choices = NULL))
+      ),
+      
+      # Row 3: Time Range + Audio playback
+      fluidRow(
+        column(5, sliderInput(ns_id("time_range"), "Time (s)", min = 0, max = 40, value = c(0, 5))),
+        column(7,
+               tags$audio(
+                 controls = NA,
+                 id = ns_id("audio_player"),
+                 src = "",  # dynamically updated in server
+                 type = "audio/wav"
+               )
+        )
+      ),
+      
+      # Spectrogram Plot (with spinner)
+      shinycssloaders::withSpinner(
+        plotOutput(ns_id("spectrogram"), height = "250px"),
+        type = 4,
+        color = "#00688B",
+        caption = "Loading Spectrogram..."
+      )
+    )
+  )
+}
+
