@@ -84,7 +84,10 @@ mod_overview_ui <- function(id) {
                      bslib::card(
                        style = "height: 610px; overflow-y: auto; padding: 5px;",
                        class = "custom-card",
-                       bslib::card_header(HTML("<span style='font-weight: bold; font-size: 1.3em;'>Species Events</span>")),
+                       bslib::card_header(HTML(paste0(
+                         as.character(shiny::icon("list-alt")), 
+                         "<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Events</span>"
+                       ))),
                        uiOutput(outputId = ns("dynamic_accordion"))
                      )
               ),
@@ -92,7 +95,10 @@ mod_overview_ui <- function(id) {
                      bslib::card(
                        class = "custom-card",
                        style = "height: 610px; display: flex; flex-direction: column; padding: 5px;",
-                       bslib::card_header(HTML("<span style='font-weight: bold; font-size: 1.3em;'>Species Distribution</span>")),
+                       bslib::card_header(HTML(paste0(
+                         as.character(shiny::icon("chart-simple")), 
+                         "<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Distribution</span>"
+                       ))),
                        plotlyOutput(ns("card2"), height = "100%", width = "100%")
                      )
               )
