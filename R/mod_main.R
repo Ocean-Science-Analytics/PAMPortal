@@ -99,7 +99,7 @@ mod_main_ui <- function(id) {
       ),
       
       shiny::verbatimTextOutput(ns("directory")),
-      br(),
+      #br(),
       # Add note above the Load Files button
       shiny::h6(
         "Note: Files up to 800MB are supported. Larger files may take several minutes to load.",
@@ -123,6 +123,10 @@ mod_main_ui <- function(id) {
       class = "map-container",
       leaflet::leafletOutput(ns("map"), height = "300px"),
       actionButton(ns("expand_map"), "Expand Map", class = "map-toggle-btn")
+    ),
+    div(
+      style = "margin-top: 10px; font-size: 0.85rem; color: #333; text-align: center;",
+      HTML('Please send any questions or issues to <u>jstephens@oceanscienceanalytics.com</u>')
     )
   )
 }
