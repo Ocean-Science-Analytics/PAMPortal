@@ -17,6 +17,7 @@ Imports:
     golem,
     htmltools,
     leaflet,
+    pixture,
     plotly,
     purrr,
     RColorBrewer,
