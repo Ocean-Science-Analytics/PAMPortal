@@ -138,12 +138,11 @@ mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
-    ###  C:/Users/16614/Documents/OSA/PAMPortal/data_testing/LMR_SonarPoint
-    
-    
 ##############################################################
 # DIRECTORY OUTPUT LOGIC
 ##############################################################
+    selected_dir <- reactiveVal(NULL)
+    
     volumes <- c(
       Home = fs::path_home(),
       Downloads = fs::path_home("Downloads"),
@@ -185,16 +184,14 @@ mod_main_server <- function(id){
       root_path <- selected_dir()
       shiny::req(root_path)
       
-      spatial_path <- file.path(root_path)
-      csv_files <- list.files(spatial_path, pattern = "\\.csv$", full.names = TRUE)
+      spatial_file <- file.path(root_path, "Spatial_Data.csv")
       
-      if (length(csv_files) == 0) {
-        showNotification("No spatial CSV found in Spatial_Data folder.", type = "warning")
+      if (!file.exists(spatial_file)) {
+        showNotification("Spatial_Data.csv not found in the selected folder.", type = "warning")
         return(NULL)
       }
       
-      # Use first CSV found
-      locs <- read.csv(csv_files[1])
+      locs <- read.csv(spatial_file, stringsAsFactors = FALSE)
       
       # Normalize column names
       names(locs) <- trimws(names(locs))
@@ -239,13 +236,14 @@ mod_main_server <- function(id){
             data = locs,
             lng = ~Longitude,
             lat = ~Latitude,
-            popup = ~paste0(
-              "<b>Deployment:</b> ", Deployment, "<br>",
-              "<b>Sonar Point:</b> ", SonarPoint, "<br>",
-              "<b>Longitude:</b> ", Longitude, "<br>",
-              "<b>Latitude:</b> ", Latitude, "<br>",
-              "<b>Depth (m):</b> ", ifelse(is.na(Depth_m), "NA", Depth_m)
-            )
+            popup = lapply(seq_len(nrow(locs)), function(i) {
+              row <- locs[i, , drop = FALSE]
+              paste0(
+                "<b>", names(row), ":</b> ", 
+                unlist(lapply(row, as.character)), 
+                collapse = "<br>"
+              )
+            })
           )
       }
       
@@ -294,13 +292,14 @@ mod_main_server <- function(id){
             data = locs,
             lng = ~Longitude,
             lat = ~Latitude,
-            popup = ~paste0(
-              "<b>Deployment:</b> ", Deployment, "<br>",
-              "<b>Sonar Point:</b> ", SonarPoint, "<br>",
-              "<b>Longitude:</b> ", Longitude, "<br>",
-              "<b>Latitude:</b> ", Latitude, "<br>",
-              "<b>Depth (m):</b> ", ifelse(is.na(Depth_m), "NA", Depth_m)
-            )
+            popup = lapply(seq_len(nrow(locs)), function(i) {
+              row <- locs[i, , drop = FALSE]
+              paste0(
+                "<b>", names(row), ":</b> ", 
+                unlist(lapply(row, as.character)), 
+                collapse = "<br>"
+              )
+            })
           )
       }
       
@@ -313,22 +312,24 @@ mod_main_server <- function(id){
 ##############################################################
     
     # Reactive values to store uploaded file paths and original names
-    data_file <- reactiveVal(NULL)
-    file_type <- reactiveVal(NULL)
-    data_name <- reactiveVal(NULL)
-    audio_files <- reactiveVal(NULL)
-    audio_names <- reactiveVal(NULL)  # Original filenames
-    uploaded_audio_paths <- NULL  # Non-Reactive list to delete audio files when app closes
+    # data_file <- reactiveVal(NULL)
+    # file_type <- reactiveVal(NULL)
+    # data_name <- reactiveVal(NULL)
+    # audio_files <- reactiveVal(NULL)
+    # audio_names <- reactiveVal(NULL)  # Original filenames
+    # uploaded_audio_paths <- NULL  # Non-Reactive list to delete audio files when app closes
     
     rds_names <- reactiveVal(NULL)
     rds_data <- reactiveVal(NULL)
     acoustic_names <- reactiveVal(NULL)
     acoustic_file_tree <- reactiveVal(NULL)
+    soundscape_data <- reactiveVal(NULL)
     
     observeEvent(input$submit_files, {
       root_path <- selected_dir()
       rds_folder <- file.path(root_path, "RDS")
       acoustic_dir <- file.path(root_path, "Audio")
+      soundscape_dir <- file.path(root_path, "Soundscape")
       
       #### ---- RDS LOADING ---- ####
       if (dir.exists(rds_folder)) {
@@ -400,23 +401,32 @@ mod_main_server <- function(id){
         showNotification("Audio folder not found.", type = "error")
         acoustic_file_tree(NULL)
       }
+      
+      #### ---- SOUNDSCAPE LOADING ---- ####
+      if (dir.exists(soundscape_dir)) {
+        site_folders <- list.dirs(soundscape_dir, recursive = FALSE, full.names = FALSE)
+        
+        if (length(site_folders) > 0) {
+          soundscape_data(site_folders)
+        } else {
+          showNotification("No site folders found in Soundscape.", type = "warning")
+          soundscape_data(NULL)
+        }
+      } else {
+        showNotification("Soundscape folder not found.", type = "error")
+        soundscape_data(NULL)
+      }
     })
     
     #### ---- LOAD STATUS ---- ####
     output$load_status <- renderText({
       rds <- rds_names()
-      audio <- acoustic_names()
-
-      if (!is.null(rds) && !is.null(audio)) {
-        matches <- sum(audio %in% rds)
-        
-        paste0("✔️ ", matches, " Data/Acoustic folders detected")
-      } else if (!is.null(rds)) {
-        paste0("✔️ ", length(rds), " Data file(s) loaded")
-      } else if (!is.null(audio)) {
-        paste0("✔️ Audio folder loaded with ", length(audio), " event(s)")
+      #audio <- acoustic_names()
+      
+      if (!is.null(rds) && length(rds) > 0) {
+        paste0("✔️ ", length(rds), " Data File(s) Uploaded")
       } else {
-        "No data or audio files loaded"
+        "No Data Files Loaded"
       }
     })
     
@@ -499,12 +509,8 @@ mod_main_server <- function(id){
       rds_data = rds_data,   
       acoustic_names = acoustic_names,
       acoustic_file_tree = acoustic_file_tree,
-      ########################################
-      data_file = data_file,
-      file_type = file_type, # type of data (i.e. json or rds)
-      data_name = data_name, # name of data file
-      audio_files = audio_files,
-      audio_names = audio_names # name of audio files
+      soundscape_data = soundscape_data,
+      selected_dir = selected_dir
     ))
     
     # Other modules can access rds data using:

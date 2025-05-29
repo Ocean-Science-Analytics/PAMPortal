@@ -119,3 +119,52 @@ card_spectro <- function(ns, id, num) {
   )
 }
 
+
+#' Process Acoustic Data
+#' 
+#' @description Process the acoustic data from a specific PAMPal rds file.
+#'
+#' @examples
+#' process_acoustic_data(acou_data)
+
+process_acoustic_data <- function(acou_data) {
+  # Initialize an empty list to store results
+  event_list <- list()
+
+  # Loop through each event in acou_data
+  for (event_name in names(acou_data@events)) {
+    event <- acou_data@events[[event_name]]
+
+    # Get species directly from event@species
+    species <- event@species
+    # Check if the event contains detectors
+    if (!is.null(event@detectors)) {
+      # Loop through each detector within the event
+      for (detector_name in names(event@detectors)) {
+        detector_data <- event@detectors[[detector_name]]
+
+        first_utc <- if ("UTC" %in% colnames(detector_data)) {
+          format(as.POSIXct(detector_data$UTC[1], tz = "UTC"), "%Y-%m-%d %H:%M")
+        } else {
+          NA
+        }
+
+        # Create a data frame entry for this detector
+        event_list[[length(event_list) + 1]] <- data.frame(
+          Event = event_name,
+          Detector = detector_name,
+          Species = as.character(species),
+          Time = first_utc,
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+  }
+  # Combine into a single data frame
+  if (length(event_list) > 0) {
+    final_df <- dplyr::bind_rows(event_list)
+  } else {
+    final_df <- data.frame(Event = character(0), Detector = character(0), Species = character(0), Time = character(0))
+  }
+  return(final_df)
+}

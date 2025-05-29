@@ -86,16 +86,8 @@ mod_overview_ui <- function(id) {
     
     div(class = "full-height",
         div(class = "content-wrapper",
+            tags$h4("Species Analysis:"),
             div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 20px;",
-                # prettyCheckbox(
-                #   ns("compare"),
-                #   label = "Compare Two Deployments",
-                #   value = FALSE,
-                #   outline = TRUE,
-                #   plain = TRUE,
-                #   bigger = TRUE,
-                #   icon = icon("square-check")
-                # ),
                 fluidRow(
                   column(3,
                          selectInput(ns("rds_select"), "Select Main Data File:", choices = NULL, width = "100%")
@@ -119,67 +111,46 @@ mod_overview_ui <- function(id) {
             ),
             uiOutput(ns("dynamic_cards_layout")),
             
-            # fluidRow(
-            #   column(6,
-            #          bslib::card(
-            #            style = "height: 610px; overflow-y: auto; padding: 5px;",
-            #            class = "custom-card",
-            #            bslib::card_header(HTML(paste0(
-            #              as.character(shiny::icon("list-alt")),
-            #              "<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Events</span>"
-            #            ))),
-            #            uiOutput(outputId = ns("dynamic_accordion"))
-            #          )
-            #   ),
-            #   column(6,
-            #          bslib::card(
-            #            class = "custom-card",
-            #            style = "height: 610px; display: flex; flex-direction: column; padding: 5px;",
-            #            bslib::card_header(HTML(paste0(
-            #              as.character(shiny::icon("chart-simple")),
-            #              "<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Distribution</span>"
-            #            ))),
-            #            plotlyOutput(ns("card2"), height = "100%", width = "100%")
-            #          )
-            #   )
-            # ),
             br(),
             
             # Add the three checkboxes
-            div(class = "checkbox-group-tight",
-                prettyCheckbox(ns("all_events"), label = "Display All Events", value = FALSE,
-                               outline = TRUE, plain = TRUE, bigger = TRUE, icon = icon("square-check")),
-                prettyCheckbox(ns("filter_species"), label = "Filter by Species", value = TRUE,
-                               outline = TRUE, plain = TRUE, bigger = TRUE, icon = icon("square-check")),
-                prettyCheckbox(ns("filter_events"), label = "Filter by Event", value = FALSE,
-                               outline = TRUE, plain = TRUE, bigger = TRUE, icon = icon("square-check")),
-            ),
-            
-            # Controls shown conditionally
-            div(class = "table-header",
-                div(style = "display: flex; gap: 10px; align-items: center;",
-                    
-                    selectInput(ns("file_select"), "1.) Select Deployment File:", choices = "", width = "250px"),
-                    
-                    div(style = "border-left: 1px solid black; height: 40px; margin-left: 10px; margin-right: 10px;"),
-                    
-                    # Only show if filter_events is checked
-                    conditionalPanel(
-                      condition = sprintf("input['%s']", ns("filter_events")),
-                      tagList(
-                        selectInput(ns("event_select"), "2.) Select Acoustic Event:", choices = "", width = "250px"),
-                        selectInput(ns("detector_select"), "3.) Select Detector:", choices = "", width = "250px")
+            tags$h4("Data Table:"),
+            div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 5px;",
+              div(class = "checkbox-group-tight",
+                  prettyCheckbox(ns("all_events"), label = "Display All Events", value = FALSE,
+                                 outline = TRUE, plain = TRUE, bigger = TRUE, icon = icon("square-check")),
+                  prettyCheckbox(ns("filter_species"), label = "Filter by Species", value = TRUE,
+                                 outline = TRUE, plain = TRUE, bigger = TRUE, icon = icon("square-check")),
+                  prettyCheckbox(ns("filter_events"), label = "Filter by Event", value = FALSE,
+                                 outline = TRUE, plain = TRUE, bigger = TRUE, icon = icon("square-check")),
+              ),
+              
+              # Controls shown conditionally
+              div(class = "table-header",
+                  div(style = "display: flex; gap: 10px; align-items: center;",
+                      
+                      selectInput(ns("file_select"), "1.) Select Deployment File:", choices = "", width = "220px"),
+                      
+                      div(style = "border-left: 1px solid black; height: 40px; margin-left: 10px; margin-right: 10px;"),
+                      
+                      # Only show if filter_events is checked
+                      conditionalPanel(
+                        condition = sprintf("input['%s']", ns("filter_events")),
+                        tagList(
+                          selectInput(ns("event_select"), "2.) Select Acoustic Event:", choices = "", width = "310px"),
+                          selectInput(ns("detector_select"), "3.) Select Detector:", choices = "", width = "240px")
+                        )
+                      ),
+                      
+                      # Only show if filter_species is checked
+                      conditionalPanel(
+                        condition = sprintf("input['%s']", ns("filter_species")),
+                        selectInput(ns("species_select"), "2.) Select Species:", choices = "", width = "240px")
                       )
-                    ),
-                    
-                    # Only show if filter_species is checked
-                    conditionalPanel(
-                      condition = sprintf("input['%s']", ns("filter_species")),
-                      selectInput(ns("species_select"), "2.) Select Species:", choices = "", width = "250px")
-                    )
-                ),
-                
-                downloadButton(ns("export_csv"), "Export CSV", class = "export-button")
+                  ),
+                  
+                  downloadButton(ns("export_csv"), "Export CSV", class = "export-button")
+              )
             ),
             
             # Data Table
@@ -310,69 +281,6 @@ mod_overview_server <- function(id, data){
       })
       updateSelectInput(session, "event_select", choices = event_titles)
     }, ignoreInit = TRUE)
-
-    
-    #########################################################################
-    # Gather detector and species data from each event
-    #########################################################################
-    
-    process_acoustic_data <- function(acou_data) {
-      # Initialize an empty list to store results
-      event_list <- list()
-      
-      # Loop through each event in acou_data
-      for (event_name in names(acou_data@events)) {
-        event <- acou_data@events[[event_name]]
-        
-        # Check if the event contains detectors
-        if (!is.null(event@detectors)) {
-          # Loop through each detector within the event
-          for (detector_name in names(event@detectors)) {
-            detector_data <- event@detectors[[detector_name]]
-            
-            # Ensure the detector contains the 'eventLabel' column
-            if ("eventLabel" %in% colnames(detector_data)) {
-              species_list <- unique(detector_data$eventLabel)  # Get unique species labels
-              
-              # Replace species codes with full names
-              species_list <- recode(species_list, 
-                                     "Mn" = "Humpback Whale", 
-                                     "Pos Mn" = "Possible Humpback Whale",
-                                     "Oo" = "Killer Whale",
-                                     "Pos Oo" = "Possible Killer Whale",
-                                     "Bm" = "Blue Whale",
-                                     "Pos Bm" = "Possible Blue Whale",
-                                     "Bp" = "Fin Whale", 
-                                     "Pos Bp" = "Possible Fin Whale",
-                                     "Unid Odont" = "Unidentified Odont.",
-                                     "Delph spp." = "Delphinid Species")
-              
-              first_utc <- if ("UTC" %in% colnames(detector_data)) {
-                format(as.POSIXct(detector_data$UTC[1], tz = "UTC"), "%Y-%m-%d %H:%M")
-              } else {
-                NA
-              }
-              
-              # Create a data frame for this detector
-              event_list[[length(event_list) + 1]] <- data.frame(
-                Event = event_name,
-                Detector = detector_name,
-                Species = paste(species_list, collapse = ", "),
-                Time = first_utc,
-                stringsAsFactors = FALSE
-              )
-            }
-          }
-        }
-      }
-      # Combine into a single data frame
-      if (length(event_list) > 0) {
-        final_df <- bind_rows(event_list)
-      } else {
-        final_df <- data.frame(Event = character(0), Detector = character(0), Species = character(0))
-      }
-      return(final_df)
-    }
     
     
     #########################################################################
@@ -683,66 +591,6 @@ mod_overview_server <- function(id, data){
     #########################################################################
     # Read data table and export to csv 
     #########################################################################
-    # output$export_csv <- downloadHandler(
-    #   filename = function() {
-    #     selected_name <- input$file_select
-    #     acou_data <- data$rds_data()[[selected_name]]
-    #     
-    #     if (input$all_events) {
-    #       paste0(slot(acou_data, "id"), "_All_Events.csv")
-    #     } else {
-    #       paste0(input$event_select, "_", input$detector_select, ".csv")
-    #     }
-    #   },
-    #   content = function(file) {
-    #     showNotification("Preparing CSV download. This can take some time depending on the amount of data being exported.", type = "message", duration = 8)
-    #     
-    #     req(data$rds_data())
-    #     selected_name <- input$file_select
-    #     acou_data <- data$rds_data()[[selected_name]]
-    #     
-    #     if (input$all_events) {
-    #       # Combine all detector data across all events
-    #       all_data <- list()
-    #       
-    #       for (event_name in names(acou_data@events)) {
-    #         event <- acou_data@events[[event_name]]
-    #         if (!is.null(event@detectors)) {
-    #           for (detector_name in names(event@detectors)) {
-    #             detector_data <- event@detectors[[detector_name]]
-    #             if (is.data.frame(detector_data)) {
-    #               detector_data$Event <- event_name
-    #               detector_data$Detector <- detector_name
-    #               all_data[[length(all_data) + 1]] <- detector_data
-    #             }
-    #           }
-    #         }
-    #       }
-    #       
-    #       final_df <- if (length(all_data) > 0) {
-    #         dplyr::bind_rows(all_data)
-    #       } else {
-    #         data.frame(Message = "No valid data available")
-    #       }
-    #       
-    #       write.csv(final_df, file, row.names = FALSE)
-    #       
-    #     } else {
-    #       req(input$event_select, input$detector_select)
-    #       selected_event <- acou_data@events[[input$event_select]]
-    #       detector_data <- selected_event@detectors[[input$detector_select]]
-    #       
-    #       if (is.data.frame(detector_data)) {
-    #         write.csv(detector_data, file, row.names = FALSE)
-    #       } else {
-    #         showNotification("No valid data available to download", type = "warning", duration = 5)
-    #         return(NULL)
-    #       }
-    #     }
-    #   }
-    # )
-    
-    
     output$export_csv <- downloadHandler(
       filename = function() {
         selected_name <- input$file_select
@@ -830,12 +678,7 @@ mod_overview_server <- function(id, data){
         write.csv(final_df, file, row.names = FALSE)
       }
     )
-    
-    
-    
-    
-    
-    
+
     #########################################################################
     # Ensure only one of the datatable checkboxes is checked at a time
     #########################################################################
