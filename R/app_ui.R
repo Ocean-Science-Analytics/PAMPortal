@@ -96,6 +96,11 @@ app_ui <- function(request) {
             title = "DATA VISUALIZATION",
             value = "analysis",
             mod_analysis_ui("analysis_1")
+          ),
+          bslib::nav_panel(
+            title = "SOUNDSCAPE",
+            value = "soundscape",
+            mod_soundscape_ui("soundscape_1")
           )
         )
       )
