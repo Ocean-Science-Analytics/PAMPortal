@@ -424,9 +424,9 @@ mod_main_server <- function(id){
       #audio <- acoustic_names()
       
       if (!is.null(rds) && length(rds) > 0) {
-        paste0("✔️ ", length(rds), " Data File(s) Uploaded")
+        paste0("✔️ ", length(rds), " Datasets Loaded")
       } else {
-        "No Data Files Loaded"
+        "No Datasets Loaded"
       }
     })
     
