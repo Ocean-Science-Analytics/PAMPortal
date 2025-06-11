@@ -29,6 +29,8 @@ Imports:
     shinyjs,
     shinythemes,
     shinyWidgets,
+    showtext,
+    tidyr,
     tools,
     tuneR,
     waiter
