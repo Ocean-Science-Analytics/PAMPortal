@@ -183,6 +183,9 @@ mod_soundscape_server <- function(id, data){
       df <- all_data(sites, bandwidths)
       
       col_pal <- c("#4A90A4", "#DB9A8E", "#849F99", "#9D9B90")
+      background = alpha('#F2F2F2', 0.25)
+      text = '#55636f'
+      font = "Roboto"
       
       # Dynamically create UI outputs for each plot
       output$spl_plot_ui <- renderUI({
