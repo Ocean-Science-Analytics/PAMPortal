@@ -210,7 +210,7 @@ pull_events <- function(location, base_path) {
 #' 
 #' @description This function annotates date/time information for the effort/detection figure
 #'
-sp_annotations <- function(location, base_path, project_name, duty_cycle_min=60) {
+sp_annotations <- function(location, base_path, duty_cycle_min=60) {
   library(lubridate)
   library(stringr)
   library(ggplot2)
@@ -288,7 +288,7 @@ sp_annotations <- function(location, base_path, project_name, duty_cycle_min=60)
 
 #' Effort Plot
 #' 
-#' @description This function creates the effort/detection plot for the data visulization tab
+#' @description This function creates the effort/detection plot for the data visualization tab
 #'
 effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_min = 60) {
   
@@ -353,3 +353,106 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
   
   return(p) 
 }
+
+
+#' Concat Whistes
+#' 
+#' @description Concat whistles for distribution plot in data visualization
+#'
+concat_whistles <- function(base_path, location_list) {
+  dfs <- list()
+  
+  for (location in location_list) {
+    rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
+    for (event in names(rds@events)) {
+      data <- rds@events[[event]][["Whistle_and_Moan_Detector"]]
+      if (!is.null(data) && is.data.frame(data)) {
+        data$eventName <- event
+        data$eventLabel <- rds@events[[event]]@species$id
+        data$location <- location
+        dfs <- append(dfs, list(data))
+      }
+    }
+  }
+  
+  df <- do.call(rbind, dfs)
+  return(df)
+}
+
+
+#' Distribution Plot
+#' 
+#' @description Generates the distribution plot for data visualization
+#'
+distribution_plot <- function(base_path, location_list, event_list, variable, species_list) {
+  
+  df <- concat_whistles(base_path, location_list)
+  
+  if (!identical(event_list, c("All"))) {
+    df <- df %>%
+      filter(eventName %in% event_list)}
+  if (!identical(species_list, c("All"))) {
+    df <- df %>%
+      filter(eventLabel %in% species_list)}
+  
+  space_caps <- function(string) {
+    gsub("(?<=[a-z])(?=[A-Z])", " ", string, perl = TRUE)
+  }
+  
+  df <- df %>% 
+    select(location, eventName, eventLabel, all_of(variable)) %>%
+    mutate(eventName = sub(".*\\.", "", eventName)) %>%
+    mutate(eventName = factor(eventName, 
+                              levels = unique(eventName[order(
+                                as.numeric(sub("DGL", "", eventName)))])))
+  
+  col_pal <- c("#4A90A4", "#DB9A8E", "#2B7A78", "#D6C4A2", "#1C3D57",
+               "#7F8B89", "#F4C542")
+  
+  background = '#F2F2F2'
+  text = '#55636f'
+  font = "Roboto"
+  
+  
+  p <- ggplot(df, aes(x = eventName, y = .data[[variable]])) +
+    geom_violin(aes(fill=eventLabel, color=eventLabel),
+                position = position_dodge(width=1),
+                width=1, alpha = 0.75,
+                linewidth = 0.4, color = text) +
+    
+    geom_boxplot(aes(group = interaction(eventName, eventLabel)),
+                 width = 0.075, position = position_dodge(width = 1),
+                 fill = 'white', alpha = 0.75,
+                 linewidth = 0.4, color = text) +
+    
+    facet_wrap(~ location, 
+               labeller = labeller(location = space_caps),
+               ncol = 1,
+               scales = "free_x") + 
+    
+    labs(x = "", y = var_names[[variable]], fill = "") +
+    scale_fill_manual(values = col_pal) +
+    
+    theme_minimal(base_size=14) +
+    theme(
+      axis.text.x = element_text(angle=45, hjust=1),
+      text = element_text(family = font, color = text),
+      strip.text = element_text(hjust = 0, family=font, 
+                                color=text, face='bold'),
+      
+      axis.title.y = element_text(margin = margin(r = 10)),
+      
+      panel.spacing = unit(1, "lines"),
+      
+      panel.background = element_rect(fill = background, color = NA),
+      plot.background = element_rect(fill = background, color = NA),
+      legend.background = element_rect(fill = background, color = NA),
+      
+      legend.key = element_rect(fill = background, color = NA),
+      legend.position = "bottom",
+      legend.text = element_text(margin = margin(r=25, l=5))
+    )
+  
+  return(p)
+}
+
