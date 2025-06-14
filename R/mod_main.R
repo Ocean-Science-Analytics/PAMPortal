@@ -88,7 +88,7 @@ mod_main_ui <- function(id) {
       
       h4(tags$span(shiny::icon("file-upload"), " Select PAM Folder:"), style = "color: black;"), 
       div(style = "display: flex; width: 100%;",  
-          #fileInput(ns("audio"), multiple = TRUE, NULL, width = "100%")  # File input
+          #fileInput("zip_file", "Upload a Folder (as .zip)", accept = ".zip")
           shinyFiles::shinyDirButton(
             id = ns("dir"),
             label = "Choose PAM Folder Directory",
@@ -98,7 +98,8 @@ mod_main_ui <- function(id) {
           )
       ),
       
-      shiny::verbatimTextOutput(ns("directory")),
+      #shiny::verbatimTextOutput(ns("directory")),
+      
       #br(),
       # Add note above the Load Files button
       shiny::h6(
@@ -181,6 +182,15 @@ mod_main_server <- function(id){
 ##############################################################
     
     location_data <- reactive({
+      
+      # req(input$zip_file)  # Ensure a file was uploaded
+      # zip_path <- input$zip_file$datapath
+      # temp_dir <- tempfile()
+      # dir.create(temp_dir)
+      # unzip(zip_path, exdir = temp_dir)
+      # selected_dir(temp_dir)
+      # root_path <- temp_dir  # Use the unzipped folder as the root
+      
       root_path <- selected_dir()
       shiny::req(root_path)
       
@@ -311,14 +321,6 @@ mod_main_server <- function(id){
 # FILE HANDLING LOGIC
 ##############################################################
     
-    # Reactive values to store uploaded file paths and original names
-    # data_file <- reactiveVal(NULL)
-    # file_type <- reactiveVal(NULL)
-    # data_name <- reactiveVal(NULL)
-    # audio_files <- reactiveVal(NULL)
-    # audio_names <- reactiveVal(NULL)  # Original filenames
-    # uploaded_audio_paths <- NULL  # Non-Reactive list to delete audio files when app closes
-    
     rds_names <- reactiveVal(NULL)
     rds_data <- reactiveVal(NULL)
     acoustic_names <- reactiveVal(NULL)
@@ -326,6 +328,14 @@ mod_main_server <- function(id){
     soundscape_data <- reactiveVal(NULL)
     
     observeEvent(input$submit_files, {
+      
+      # req(input$zip_file)  # Ensure a file was uploaded
+      # zip_path <- input$zip_file$datapath
+      # temp_dir <- tempfile()
+      # dir.create(temp_dir)
+      # unzip(zip_path, exdir = temp_dir)
+      # root_path <- temp_dir  # Use the unzipped folder as the root
+      
       root_path <- selected_dir()
       rds_folder <- file.path(root_path, "RDS")
       acoustic_dir <- file.path(root_path, "Audio")
@@ -430,63 +440,7 @@ mod_main_server <- function(id){
       }
     })
     
-    # observeEvent(input$submit_files, {
-    #   if (!is.null(input$data)) {
-    #     ext <- tools::file_ext(input$data$name)  # Get file extension
-    #     name_without_ext <- tools::file_path_sans_ext(input$data$name)  # Extract name without extension
-    #     data_name(name_without_ext)  # Store the file name
-    #     
-    #     if (ext == "rds") {
-    #       # Load RDS file
-    #       data_file(readRDS(input$data$datapath))
-    #       file_type("rds")
-    #     } else {
-    #       # Optional: Handle unsupported file types
-    #       showNotification("Only .rds files are supported.", type = "error")
-    #     }
-    #   }
-    #   
-    #   if (!is.null(selected_dir())) {
-    #     wav_paths <- list.files(selected_dir(), pattern = "\\.wav$", full.names = TRUE, ignore.case = TRUE)
-    #     
-    #     if (length(wav_paths) > 0) {
-    #       www_dir <- "inst/app/www"
-    #       if (!dir.exists(www_dir)) dir.create(www_dir, recursive = TRUE)
-    #       
-    #       saved_paths <- sapply(wav_paths, function(src) {
-    #         dest <- file.path(www_dir, basename(src))
-    #         file.copy(src, dest, overwrite = TRUE)
-    #         return(dest)
-    #       })
-    #       
-    #       audio_files(saved_paths)
-    #       uploaded_audio_paths <<- c(uploaded_audio_paths, saved_paths)
-    #       audio_names(basename(wav_paths))
-    #       
-    #       # Optionally, read the wave files for processing
-    #       wav_list <- lapply(saved_paths, function(file) {
-    #         readWave(file)
-    #       })
-    #     }
-    #   }
-    #   
-    #   # Update the text output dynamically based on loaded files
-    #   output$load_status <- renderText({
-    #     data_loaded <- !is.null(data_file())
-    #     audio_loaded <- !is.null(audio_files())
-    #     
-    #     if (data_loaded & audio_loaded) {
-    #       paste0("✔️ Data file and ", length(audio_files()), " audio files successfully loaded!")
-    #     } else if (data_loaded) {
-    #       "✔️ Data file successfully loaded!"
-    #     } else if (audio_loaded) {
-    #       paste0("✔️ ", length(audio_files()), " audio files successfully loaded!")
-    #     } else {
-    #       "No data or audio files loaded"  # Show nothing if neither is loaded
-    #     }
-    #   })
-    # })
-    # 
+ 
     # ##############################################################
     # # AUDIO FILE DELETION LOGIC
     # ##############################################################
