@@ -456,3 +456,134 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
   return(p)
 }
 
+
+#' Spectrogram Card
+#' 
+#' @description Generates UI cards for spectrogram module
+#' 
+card_spectro <- function(ns, id, index) {
+  tagList(
+    div(
+      style = "display: flex; flex-direction: row; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 20px; padding: 15px; height: 600px; background-color: #f9f9f9;",
+      
+      # Left panel with inputs
+      div(
+        style = "flex: 1; display: flex; flex-direction: column; gap: 2px; margin-right: 4px;",
+        h4(paste("Spectrogram", index)),
+        div(style = "border: 2px solid black; border-radius: 6px; padding: 5px; margin-bottom: 10px;",
+            selectInput(ns(paste0("location_", index)), "1. Location", choices = NULL),
+            selectInput(ns(paste0("species_", index)), "2. Species", choices = NULL),
+            selectInput(ns(paste0("folder_", index)), "3. Folder", choices = NULL),
+            selectInput(ns(paste0("file_", index)), "4. WAV File", choices = NULL)
+        ),
+        numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 256, step = 256),
+        actionButton(ns(paste0("render_", index)), "Render Spectrogram", class = "btn btn-primary", style = "width: 300px;")
+      ),
+      
+      # Right panel with spectrogram plot
+      div(
+        style = "flex: 2; height: 100%;",
+        #uiOutput(ns(paste0("audio_", index)), style = "height: 15%;"),
+        uiOutput(ns(paste0("plot_ui_", index)), style = "height: 10%;")
+      )
+    )
+  )
+}
+
+
+#' Spectrogram Plot
+#' 
+#' @description Function for generating a spectrogram plot
+#'
+spectrogram_plotly <- function(wave,
+                               floor = -50,
+                               background = "#001f3f",  # very dark blue
+                               foreground = "white",
+                               hover_bgcolor = "white",
+                               hover_fontcolor = "black",
+                               overlap = 50,
+                               zero_padding = 2,
+                               wl = NULL) {
+  #wl <- round(wave@samp.rate * sqrt(seewave::duration(wave)) * 20e-4)
+  if (is.null(wl)) {
+    wl <- 1024
+  }
+  if (wl %% 2 != 0) wl <- wl + 1
+  
+  spect <- wave |>
+    seewave::spectro(
+      wl = wl,
+      ovlp = overlap,
+      zp = zero_padding,
+      plot = FALSE
+    )
+  
+  colnames(spect$amp) <- spect$time
+  rownames(spect$amp) <- spect$freq
+  
+  library(tidyr)
+  
+  spect_df <- spect$amp |>
+    as_tibble(rownames = "freq") |>
+    pivot_longer(-freq, names_to = "time", values_to = "amp") |>
+    mutate(
+      freq = as.numeric(freq),
+      time = as.numeric(time)
+    )
+  
+  spect_df_floor <- spect_df |>
+    mutate(amp_floor = ifelse(amp < floor, floor, amp))
+  
+  spect_plot <- plot_ly(
+    data = spect_df_floor,
+    x = ~time,
+    y = ~freq,
+    z = ~amp_floor,
+    type = "heatmap",
+    colorscale = "Jet",  # rainbow style
+    zmin = floor,
+    zmax = max(spect_df$amp),
+    colorbar = list(
+      title = "Amplitude (dB)",
+      titleside = "right",
+      tickfont = list(color = foreground),
+      titlefont = list(color = foreground)
+    ),
+    hovertemplate = paste(
+      "Time: %{x:.3f} s<br>",
+      "Freq: %{y:.1f} kHz<br>",
+      "Amp: %{z:.1f} dB<extra></extra>"
+    )
+  ) |>
+    layout(
+      xaxis = list(
+        title = "Time (s)",
+        titlefont = list(size = 14, color = foreground),
+        tickfont = list(size = 12, color = foreground),
+        tickcolor = foreground,
+        linecolor = foreground,
+        mirror = TRUE
+      ),
+      yaxis = list(
+        title = "Frequency (kHz)",
+        titlefont = list(size = 14, color = foreground),
+        tickfont = list(size = 12, color = foreground),
+        tickcolor = foreground,
+        linecolor = foreground,
+        mirror = TRUE
+      ),
+      paper_bgcolor = background,
+      plot_bgcolor = background,
+      margin = list(t = 25, r = 25, b = 55, l = 35),
+      showlegend = FALSE
+    ) |>
+    style(
+      hoverlabel = list(
+        bgcolor = hover_bgcolor,
+        font = list(color = hover_fontcolor)
+      )
+    )
+  
+  return(spect_plot)
+}
+
