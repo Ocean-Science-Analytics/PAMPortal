@@ -1,0 +1,12 @@
+name: PAMPortal
+title: PAMPortal
+username: ocean-science-analytics
+account: ocean-science-analytics
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14934788
+bundleId: 10455330
+url: https://ocean-science-analytics.shinyapps.io/PAMPortal/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
