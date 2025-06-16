@@ -33,7 +33,7 @@ mod_soundscape_ui <- function(id) {
                br(),
                fluidRow(
                  column(
-                   width = 4,
+                   width = 3,
                    selectInput(ns("band_select"),
                                label = "Select Frequency Band",
                                choices = c("50 to 1000 Hz", "<0.8 Hz", "0.8 Hz","1 Hz","1.3 Hz","1.6 Hz","2 Hz","2.5 Hz","3.2 Hz",    
@@ -46,7 +46,7 @@ mod_soundscape_ui <- function(id) {
                    )
                  ),
                  column(
-                   width = 4,
+                   width = 2,
                    br(),  # adds vertical alignment
                    actionButton(
                      ns("render_plot"),
@@ -55,7 +55,7 @@ mod_soundscape_ui <- function(id) {
                    )
                  )
                ),
-               br(),
+               br(),br(),br(),
                #plotlyOutput(ns("spl_plot"), height = "500px")
                uiOutput(ns("spl_plot_ui"))
       )
