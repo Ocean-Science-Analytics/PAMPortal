@@ -30,6 +30,21 @@ var_names <- c(freqBeg = "Beginning Frequency",
 mod_analysis_ui <- function(id) {
   ns <- NS(id)
   tagList(
+    
+    tags$head(
+      tags$style(HTML("
+        .custom-btn {
+          background-color: #00688B !important;
+          color: white !important;
+          border-color: black !important;
+        }
+        .custom-btn:hover {
+          background-color: lightskyblue !important;
+          cursor: pointer;
+        }
+        "))
+    ),
+    
     tabsetPanel(
       tabPanel(
         "Effort & Detections",
@@ -48,8 +63,11 @@ mod_analysis_ui <- function(id) {
           ),
           fluidRow(
             column(
-              width = 2,
-              actionButton(ns("render_plot"), "Render Plot", class = "btn-primary")
+              width = 3,
+              actionButton(ns("render_plot"), "Render Plot", icon = shiny::icon("file-lines"),
+                           class = "custom-btn"
+                           #style = "background-color: #00688B; color: white; border: none; width = 200px;"
+                           )
             ),
             column(
               width = 3,
@@ -81,8 +99,11 @@ mod_analysis_ui <- function(id) {
             ),
             fluidRow(
               column(
-                width = 2,
-                actionButton(ns("render_distribution"), "Render Plot", class = "btn-primary")
+                width = 3,
+                actionButton(ns("render_distribution"), "Render Plot", icon = shiny::icon("file-lines"),
+                             class = "custom-btn"
+                             #style = "background-color: #00688B; color: white; border: none; width = 200px;"
+                             )
               ),
               column(
                 width = 3,
@@ -140,7 +161,7 @@ mod_analysis_server <- function(id, data){
       effort_plot_obj({
         isolate({
           req(input$location, input$duty)
-          
+          showNotification("Loading Effort & Detection Plot...", type = "message")
           effort_plot(
             location = input$location,
             base_path = base_path(),
@@ -163,7 +184,7 @@ mod_analysis_server <- function(id, data){
       distribution_plot_obj({
         isolate({
           req(input$distribution_variable)
-          
+          showNotification("Loading Distribution Plot...", type = "message")
           distribution_plot(
             location_list = input$location_dis,
             base_path = base_path(),

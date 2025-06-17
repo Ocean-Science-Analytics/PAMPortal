@@ -87,7 +87,8 @@ mod_overview_ui <- function(id) {
     div(class = "full-height",
         div(class = "content-wrapper",
             tags$h4("Species Analysis:"),
-            div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 20px;",
+            div(id = ns("overview_input"),
+                style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 20px;",
                 fluidRow(
                   column(3,
                          selectInput(ns("rds_select"), "Select Main Data File:", choices = NULL, width = "100%")
@@ -109,10 +110,13 @@ mod_overview_ui <- function(id) {
                   )
                 )
             ),
-            uiOutput(ns("dynamic_cards_layout")),
+            div(id = ns("overview_cards"),
+                uiOutput(ns("dynamic_cards_layout"))
+            ),
             
             br(),
             
+            div(id = ns("overview_datatable"),
             # Add the three checkboxes
             tags$h4("Data Table:"),
             div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 5px;",
@@ -151,6 +155,7 @@ mod_overview_ui <- function(id) {
                   
                   downloadButton(ns("export_csv"), "Export CSV", class = "export-button")
               )
+            )
             ),
             
             # Data Table

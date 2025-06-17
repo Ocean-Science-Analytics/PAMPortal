@@ -27,6 +27,15 @@ mod_spectro_ui <- function(id) {
           display: flex;
           flex-direction: column;
         }
+        .custom-btn {
+          background-color: #00688B !important;
+          color: white !important;
+          border-color: black !important;
+        }
+        .custom-btn:hover {
+          background-color: lightskyblue !important;
+          cursor: pointer;
+        }
       "))
     ),
     # actionButton(ns("add_spectro"), "+ Add Spectrogram"),

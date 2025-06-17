@@ -88,7 +88,7 @@ mod_main_ui <- function(id) {
       
       h4(tags$span(shiny::icon("file-upload"), " Select PAM Folder:"), style = "color: black;"), 
       div(style = "display: flex; width: 100%;",  
-          fileInput(ns("zip_file"), "Upload a Folder (as .zip)", accept = ".zip")
+          fileInput(ns("zip_file"), "Upload a Zip Folder", accept = ".zip")
           # shinyFiles::shinyDirButton(
           #   id = ns("dir"),
           #   label = "Choose PAM Folder Directory",
@@ -110,7 +110,7 @@ mod_main_ui <- function(id) {
       # Submit button with loading spinner
       div(
         style = "display: flex; width: 100%;",
-        actionButton(ns("submit_files"), "Load Files", class = "custom-btn", style = "flex-grow: 1;")
+        actionButton(ns("submit_files"), "Load Files", icon = shiny::icon("folder-open"), class = "custom-btn", style = "flex-grow: 1;")
       ),
       
       textOutput(ns("load_status"))
@@ -123,7 +123,7 @@ mod_main_ui <- function(id) {
       id = ns("map_container"),
       class = "map-container",
       leaflet::leafletOutput(ns("map"), height = "300px"),
-      actionButton(ns("expand_map"), "Expand Map", class = "map-toggle-btn")
+      actionButton(ns("expand_map"), "Expand Map", icon = shiny::icon("map"), class = "map-toggle-btn")
     ),
     div(
       style = "margin-top: 10px; font-size: 0.85rem; color: #333; text-align: center;",
@@ -321,7 +321,8 @@ mod_main_server <- function(id){
     
     observeEvent(input$submit_files, {
       req(input$zip_file)  # Wait for zip upload
-
+      showNotification("Loading Data Files...", type = "message")
+      
       # Unzip uploaded folder into temp directory
       zip_path <- input$zip_file$datapath
       temp_dir <- tempfile()
@@ -340,7 +341,17 @@ mod_main_server <- function(id){
           return()
         }
         
-        output$load_status <- renderText("Files loaded successfully.")
+        #### ---- LOAD STATUS ---- ####
+        output$load_status <- renderText({
+          rds <- rds_names()
+          #audio <- acoustic_names()
+          
+          if (!is.null(rds) && length(rds) > 0) {
+            paste0("✔️ ", length(rds), " Datasets Loaded")
+          } else {
+            "No Datasets Loaded"
+          }
+        })
         
         #### ==== FILE HANDLING LOGIC START ==== ####
         root_path <- selected_dir()
@@ -437,18 +448,6 @@ mod_main_server <- function(id){
       }, error = function(e) {
         output$load_status <- renderText(paste("Error unzipping file:", e$message))
       })
-    })
-    
-    #### ---- LOAD STATUS ---- ####
-    output$load_status <- renderText({
-      rds <- rds_names()
-      #audio <- acoustic_names()
-      
-      if (!is.null(rds) && length(rds) > 0) {
-        paste0("✔️ ", length(rds), " Datasets Loaded")
-      } else {
-        "No Datasets Loaded"
-      }
     })
     
  
