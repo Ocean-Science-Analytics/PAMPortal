@@ -180,10 +180,29 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     # Distribution Plot
     ###################################################################
+    observeEvent(input$species_filter, {
+      req(data$rds_data(), input$location_dis, input$species_filter)
+      
+      selected_data <- data$rds_data()[input$location_dis]
+      
+      # Filter events based on selected species
+      filtered_events <- lapply(selected_data, function(loc_data) {
+        Filter(function(ev) {
+          species_id <- ev@species$id
+          "All" %in% input$species_filter || species_id %in% input$species_filter
+        }, loc_data@events)
+      })
+      
+      # Extract event names that match the species filter
+      event_choices <- unique(unlist(lapply(filtered_events, names)))
+      
+      updateSelectInput(session, "event_filter", choices = c("All", event_choices), selected = "All")
+    })
+    
     observeEvent(input$render_distribution, {
       distribution_plot_obj({
         isolate({
-          req(input$distribution_variable)
+          req(input$location_dis, input$distribution_variable) 
           showNotification("Loading Distribution Plot...", type = "message")
           distribution_plot(
             location_list = input$location_dis,
