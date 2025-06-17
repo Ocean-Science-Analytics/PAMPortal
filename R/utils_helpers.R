@@ -363,7 +363,7 @@ concat_whistles <- function(base_path, location_list) {
   dfs <- list()
   
   for (location in location_list) {
-    rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
+    rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds"))) # rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
     for (event in names(rds@events)) {
       data <- rds@events[[event]][["Whistle_and_Moan_Detector"]]
       if (!is.null(data) && is.data.frame(data)) {
@@ -477,7 +477,10 @@ card_spectro <- function(ns, id, index) {
             selectInput(ns(paste0("file_", index)), "4. WAV File", choices = NULL)
         ),
         numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 256, step = 256),
-        actionButton(ns(paste0("render_", index)), "Render Spectrogram", class = "btn btn-primary", style = "width: 300px;")
+        actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
+                     class = "custom-btn"
+                     #style = "background-color: #00688B; color: white; border: none; width: 300px;"
+                     )
       ),
       
       # Right panel with spectrogram plot
@@ -504,6 +507,7 @@ spectrogram_plotly <- function(wave,
                                overlap = 50,
                                zero_padding = 2,
                                wl = NULL) {
+  
   #wl <- round(wave@samp.rate * sqrt(seewave::duration(wave)) * 20e-4)
   if (is.null(wl)) {
     wl <- 1024
@@ -585,5 +589,63 @@ spectrogram_plotly <- function(wave,
     )
   
   return(spect_plot)
+}
+
+
+#' SPL Measurment Plot
+#' 
+#' @description Function for gathering SPL measurment data
+#'
+all_data <- function(location_list, bandwidth_list, base_path) {
+  #base_path <- data$selected_dir()
+  soundscape_path <- file.path(base_path, "Soundscape")
+  folders <- list.dirs(path = soundscape_path, recursive = TRUE)
+  band_cols <- paste0("band_", bandwidth_list)
+  rows <- list()
+  
+  for (loc in location_list) {
+    matched <- folders[grepl(paste0(loc, ".*SPL_measurements[/\\]csv$"), folders)]
+    
+    for (file in list.files(matched, full.names = TRUE)) {
+      data <- read.csv(file, header = TRUE, check.names = FALSE)
+      colnames(data)[2:3] <- c("<0.8", "0.8")
+      d <- strsplit(colnames(data)[1], "\\s+")[[1]][1]
+      
+      cols <- colnames(data)
+      cols_numeric <- suppressWarnings(as.numeric(cols))
+      filtered <- cols[!is.na(cols_numeric) & cols_numeric >= 50 & cols_numeric <= 1000]
+      pressure_sq <- 10^(data[, filtered] / 10)
+      pressure_sq_avg <- mean(as.matrix(pressure_sq))
+      avg_band <- 10 * log10(pressure_sq_avg)
+      
+      row <- list(date = d, site = loc, band_50to1000 = avg_band)
+      
+      for (i in seq_along(bandwidth_list)) {
+        bw_raw <- bandwidth_list[i]
+        bw_clean <- band_cols[i]
+        if (bw_raw %in% colnames(data)) {
+          row[[bw_clean]] <- mean(data[[bw_raw]], na.rm = TRUE)
+        }
+      }
+      
+      rows[[length(rows) + 1]] <- row
+    }
+  }
+  
+  df <- dplyr::bind_rows(lapply(rows, as.data.frame))
+  df$date <- as.Date(df$date, format = "%d-%b-%Y")
+  df$month <- factor(format(df$date, "%b"), levels = month.abb)
+  df$site <- factor(df$site, levels = location_list)  
+  df <- tidyr::pivot_longer(df,
+                            cols = starts_with("band_"),
+                            names_to = "band_type",
+                            values_to = "freq"
+  )
+  
+  band_levels <- c("band_50to1000", band_cols)
+  band_labels <- c("50 to 1000 Hz", paste0(bandwidth_list, " Hz"))
+  df$band_type <- factor(df$band_type, levels = band_levels, labels = band_labels)
+  
+  return(df)
 }
 
