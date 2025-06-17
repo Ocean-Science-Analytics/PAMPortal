@@ -5,7 +5,7 @@ account: ocean-science-analytics
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14934788
-bundleId: 10455330
+bundleId: 10469289
 url: https://ocean-science-analytics.shinyapps.io/PAMPortal/
 version: 1
 asMultiple: FALSE
