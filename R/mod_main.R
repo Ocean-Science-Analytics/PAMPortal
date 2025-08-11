@@ -47,6 +47,14 @@ mod_main_ui <- function(id) {
         .custom-btn:hover {
           background-color: lightskyblue !important;
         }
+        .example-btn {
+          background-color: #3399CC !important;  /* lighter than #00688B */
+          color: white !important;
+          border-color: black !important;
+        }
+        .example-btn:hover {
+          background-color: lightskyblue !important;
+        }
         .success-text {
           color: darkgreen;
           font-weight: bold;
@@ -113,7 +121,16 @@ mod_main_ui <- function(id) {
         actionButton(ns("submit_files"), "Load Files", icon = shiny::icon("folder-open"), class = "custom-btn", style = "flex-grow: 1;")
       ),
       
-      textOutput(ns("load_status"))
+      textOutput(ns("load_status")),
+      br(),
+      # Horizontal black line
+      tags$hr(style = "border-top: 1px solid black; margin-top: 15px; margin-bottom: 10px;"),
+      
+      # "Use Example Data" button
+      div(
+        style = "display: flex; width: 100%;",
+        actionButton(ns("load_example"), "Use Example Data", icon = icon("flask"), class = "example-btn", style = "flex-grow: 1;")
+      )
     ),
     
     ##############################################################
@@ -309,6 +326,48 @@ mod_main_server <- function(id){
     })
     
     
+    ##############################################################
+    # EXAMPLE DATA LOGIC
+    ##############################################################
+    observeEvent(input$load_example, {
+      showModal(modalDialog(
+        title = "Load Example Data",
+        "Are you sure you want to load the example data?",
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton(ns("confirm_example_load"), "Submit", class = "btn-primary")
+        )
+      ))
+    })
+    
+    observeEvent(input$confirm_example_load, {
+      removeModal()
+      showNotification("Loading Example Data Files...", type = "message")
+      
+      # Full relative path to the example ZIP file inside the app directory
+      example_zip_path <- "inst/OSA_OOI_Demo.zip"
+      
+      # Call your existing ZIP processing function
+      result <- process_zip(example_zip_path)
+      
+      selected_dir(result$root_path)
+      rds_names(result$rds_names)
+      rds_data(result$rds_data)
+      acoustic_names(result$acoustic_names)
+      acoustic_file_tree(result$acoustic_tree)
+      soundscape_data(result$soundscape)
+      
+      output$load_status <- renderText({
+        if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
+          "✔️ Example Data Loaded"
+        } else {
+          "Example Data Did Not Load Properly"
+        }
+      })
+    })
+    
+    
+    
 ##############################################################
 # FILE HANDLING LOGIC
 ##############################################################
@@ -318,155 +377,181 @@ mod_main_server <- function(id){
     acoustic_names <- reactiveVal(NULL)
     acoustic_file_tree <- reactiveVal(NULL)
     soundscape_data <- reactiveVal(NULL)
+    selected_dir <- reactiveVal(NULL)
     
     observeEvent(input$submit_files, {
       req(input$zip_file)  # Wait for zip upload
       showNotification("Loading Data Files...", type = "message")
       
-      # Unzip uploaded folder into temp directory
       zip_path <- input$zip_file$datapath
-      temp_dir <- tempfile()
-      dir.create(temp_dir)
-
+      
       tryCatch({
-        unzip(zip_path, exdir = temp_dir)
-        extracted_files <- list.files(temp_dir, recursive = TRUE, full.names = TRUE)
-        top_level_dirs <- list.dirs(temp_dir, recursive = FALSE, full.names = TRUE)
-        if (length(top_level_dirs) == 1) {
-          project_root <- top_level_dirs[[1]]
-          selected_dir(project_root)
-        } else {
-          showNotification("Multiple folders found at root of ZIP. Please ensure the ZIP contains a single project folder.", type = "error")
-          selected_dir(NULL)
-          return()
-        }
+        result <- process_zip(zip_path)
         
-        #### ---- LOAD STATUS ---- ####
+        # Set reactive values
+        selected_dir(result$root_path)
+        
+        rds_names(result$rds_names)
+        rds_data(result$rds_data)
+        acoustic_names(result$acoustic_names)
+        acoustic_file_tree(result$acoustic_tree)
+        soundscape_data(result$soundscape)
+        
+        # Status
         output$load_status <- renderText({
-          rds <- rds_names()
-          #audio <- acoustic_names()
-          
-          if (!is.null(rds) && length(rds) > 0) {
-            paste0("✔️ ", length(rds), " Datasets Loaded")
+          if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
+            paste0("✔️ ", length(result$rds_names), " Datasets Loaded")
           } else {
             "No Datasets Loaded"
           }
         })
         
-        #### ==== FILE HANDLING LOGIC START ==== ####
-        root_path <- selected_dir()
-        rds_folder <- file.path(root_path, "RDS")
-        acoustic_dir <- file.path(root_path, "Audio")
-        soundscape_dir <- file.path(root_path, "Soundscape")
-        
-        #### ---- RDS LOADING ---- ####
-        if (dir.exists(rds_folder)) {
-          rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
-          
-          if (length(rds_paths) > 0) {
-            names_only <- tools::file_path_sans_ext(basename(rds_paths))
-            rds_names(names_only)
-            
-            data_list <- setNames(lapply(rds_paths, readRDS), names_only)
-            rds_data(data_list)
-          } else {
-            showNotification("No .rds files found in RDS folder.", type = "warning")
-            rds_names(NULL)
-            rds_data(NULL)
-          }
-        } else {
-          showNotification("RDS folder not found.", type = "error")
-          rds_names(NULL)
-        }
-        
-        #### ---- ACOUSTIC LOADING ---- ####
-        if (dir.exists(acoustic_dir)) {
-          event_paths <- list.dirs(acoustic_dir, recursive = FALSE, full.names = TRUE)
-          event_names <- basename(event_paths)
-          cleaned_event_names <- sub("_Clips$", "", event_names)
-          acoustic_names(cleaned_event_names)
-          
-          build_nested_list <- function(base_dir) {
-            event_folders <- list.dirs(base_dir, recursive = FALSE, full.names = TRUE)
-            structure_list <- list()
-            
-            for (event_path in event_folders) {
-              event_name <- basename(event_path)
-              species_paths <- list.dirs(event_path, recursive = FALSE, full.names = TRUE)
-              species_list <- list()
-              
-              for (species_path in species_paths) {
-                species_name <- basename(species_path)
-                detection_paths <- list.dirs(species_path, recursive = FALSE, full.names = TRUE)
-                detection_list <- list()
-                
-                for (detection_path in detection_paths) {
-                  detection_name <- basename(detection_path)
-                  wavs <- list.files(detection_path, pattern = "\\.wav$", full.names = TRUE)
-                  if (length(wavs) > 0) {
-                    detection_list[[detection_name]] <- wavs
-                  }
-                }
-                
-                if (length(detection_list) > 0) {
-                  species_list[[species_name]] <- detection_list
-                }
-              }
-              
-              if (length(species_list) > 0) {
-                structure_list[[event_name]] <- species_list
-              }
-            }
-            
-            return(structure_list)
-          }
-          
-          tree <- build_nested_list(acoustic_dir)
-          acoustic_file_tree(tree)
-        } else {
-          showNotification("Audio folder not found.", type = "error")
-          acoustic_file_tree(NULL)
-        }
-        
-        #### ---- SOUNDSCAPE LOADING ---- ####
-        if (dir.exists(soundscape_dir)) {
-          site_folders <- list.dirs(soundscape_dir, recursive = FALSE, full.names = FALSE)
-          
-          if (length(site_folders) > 0) {
-            soundscape_data(site_folders)
-          } else {
-            showNotification("No site folders found in Soundscape.", type = "warning")
-            soundscape_data(NULL)
-          }
-        } else {
-          showNotification("Soundscape folder not found.", type = "error")
-          soundscape_data(NULL)
-        }
-        
-        #### ==== FILE HANDLING LOGIC END ==== ####
-        
       }, error = function(e) {
-        output$load_status <- renderText(paste("Error unzipping file:", e$message))
+        selected_dir(NULL)
+        output$load_status <- renderText(paste("❌ Error loading ZIP:", e$message))
+        showNotification(paste("Error:", e$message), type = "error")
       })
+      
+      
+      # # Unzip uploaded folder into temp directory
+      # zip_path <- input$zip_file$datapath
+      # temp_dir <- tempfile()
+      # dir.create(temp_dir)
+      # 
+      # tryCatch({
+      #   unzip(zip_path, exdir = temp_dir)
+      #   extracted_files <- list.files(temp_dir, recursive = TRUE, full.names = TRUE)
+      #   top_level_dirs <- list.dirs(temp_dir, recursive = FALSE, full.names = TRUE)
+      #   if (length(top_level_dirs) == 1) {
+      #     project_root <- top_level_dirs[[1]]
+      #     selected_dir(project_root)
+      #   } else {
+      #     showNotification("Multiple folders found at root of ZIP. Please ensure the ZIP contains a single project folder.", type = "error")
+      #     selected_dir(NULL)
+      #     return()
+      #   }
+      #   
+      #   #### ---- LOAD STATUS ---- ####
+      #   output$load_status <- renderText({
+      #     rds <- rds_names()
+      #     #audio <- acoustic_names()
+      #     
+      #     if (!is.null(rds) && length(rds) > 0) {
+      #       paste0("✔️ ", length(rds), " Datasets Loaded")
+      #     } else {
+      #       "No Datasets Loaded"
+      #     }
+      #   })
+      #   
+      #   #### ==== FILE HANDLING LOGIC START ==== ####
+      #   root_path <- selected_dir()
+      #   rds_folder <- file.path(root_path, "RDS")
+      #   acoustic_dir <- file.path(root_path, "Audio")
+      #   soundscape_dir <- file.path(root_path, "Soundscape")
+      #   
+      #   #### ---- RDS LOADING ---- ####
+      #   if (dir.exists(rds_folder)) {
+      #     rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
+      #     
+      #     if (length(rds_paths) > 0) {
+      #       names_only <- tools::file_path_sans_ext(basename(rds_paths))
+      #       rds_names(names_only)
+      #       
+      #       data_list <- setNames(lapply(rds_paths, readRDS), names_only)
+      #       rds_data(data_list)
+      #     } else {
+      #       showNotification("No .rds files found in RDS folder.", type = "warning")
+      #       rds_names(NULL)
+      #       rds_data(NULL)
+      #     }
+      #   } else {
+      #     showNotification("RDS folder not found.", type = "error")
+      #     rds_names(NULL)
+      #   }
+      #   
+      #   #### ---- ACOUSTIC LOADING ---- ####
+      #   if (dir.exists(acoustic_dir)) {
+      #     event_paths <- list.dirs(acoustic_dir, recursive = FALSE, full.names = TRUE)
+      #     event_names <- basename(event_paths)
+      #     cleaned_event_names <- sub("_Clips$", "", event_names)
+      #     acoustic_names(cleaned_event_names)
+      #     
+      #     build_nested_list <- function(base_dir) {
+      #       event_folders <- list.dirs(base_dir, recursive = FALSE, full.names = TRUE)
+      #       structure_list <- list()
+      #       
+      #       for (event_path in event_folders) {
+      #         event_name <- basename(event_path)
+      #         species_paths <- list.dirs(event_path, recursive = FALSE, full.names = TRUE)
+      #         species_list <- list()
+      #         
+      #         for (species_path in species_paths) {
+      #           species_name <- basename(species_path)
+      #           detection_paths <- list.dirs(species_path, recursive = FALSE, full.names = TRUE)
+      #           detection_list <- list()
+      #           
+      #           for (detection_path in detection_paths) {
+      #             detection_name <- basename(detection_path)
+      #             wavs <- list.files(detection_path, pattern = "\\.wav$", full.names = TRUE)
+      #             if (length(wavs) > 0) {
+      #               detection_list[[detection_name]] <- wavs
+      #             }
+      #           }
+      #           
+      #           if (length(detection_list) > 0) {
+      #             species_list[[species_name]] <- detection_list
+      #           }
+      #         }
+      #         
+      #         if (length(species_list) > 0) {
+      #           structure_list[[event_name]] <- species_list
+      #         }
+      #       }
+      #       
+      #       return(structure_list)
+      #     }
+      #     
+      #     tree <- build_nested_list(acoustic_dir)
+      #     acoustic_file_tree(tree)
+      #   } else {
+      #     showNotification("Audio folder not found.", type = "error")
+      #     acoustic_file_tree(NULL)
+      #   }
+      #   
+      #   #### ---- SOUNDSCAPE LOADING ---- ####
+      #   if (dir.exists(soundscape_dir)) {
+      #     site_folders <- list.dirs(soundscape_dir, recursive = FALSE, full.names = FALSE)
+      #     
+      #     if (length(site_folders) > 0) {
+      #       soundscape_data(site_folders)
+      #     } else {
+      #       showNotification("No site folders found in Soundscape.", type = "warning")
+      #       soundscape_data(NULL)
+      #     }
+      #   } else {
+      #     showNotification("Soundscape folder not found.", type = "error")
+      #     soundscape_data(NULL)
+      #   }
+      #   
+      #   #### ==== FILE HANDLING LOGIC END ==== ####
+      #   
+      # }, error = function(e) {
+      #   output$load_status <- renderText(paste("Error unzipping file:", e$message))
+      # })
+    })
+
+    ##############################################################
+    # DELETE TEMPORARY DIRECTORY
+    ##############################################################
+    session$onSessionEnded(function() {
+      unlink(tempdir(), recursive = TRUE, force = TRUE)
     })
     
- 
-    # ##############################################################
-    # # AUDIO FILE DELETION LOGIC
-    # ##############################################################
-    # 
-    # # Delete temporary audio files when the session ends
-    # session$onSessionEnded(function() {
-    #   if (!is.null(uploaded_audio_paths) && length(uploaded_audio_paths) > 0) {
-    #     file.remove(uploaded_audio_paths)
-    #   }
-    # })
-    # 
-    # 
-    # ##############################################################
-    # # STORE PROCESSED DATA FILES FOR OTHER MODULES TO ACCESS
-    # ##############################################################
-    # 
+    
+    ##############################################################
+    # STORE PROCESSED DATA FILES FOR OTHER MODULES TO ACCESS
+    ##############################################################
+
     # Return both file paths and original names for use in other modules
     return(list(
       rds_names = rds_names,
@@ -476,6 +561,7 @@ mod_main_server <- function(id){
       soundscape_data = soundscape_data,
       selected_dir = selected_dir
     ))
+    
     
     # Other modules can access rds data using:
     #   my_data_list <- file_outputs$rds_data()
