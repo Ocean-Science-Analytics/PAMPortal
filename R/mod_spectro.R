@@ -15,12 +15,18 @@
 mod_spectro_ui <- function(id) {
   ns <- NS(id)
   
-  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ########## See Band-Pass filter video on this page for zoomable spectrogram https://rpubs.com/panchorivasf/rthoptera_preprocess ##################
-  
-  
   tagList(
     tags$head(
+      # tags$script(HTML("
+      #   Shiny.addCustomMessageHandler('stopAudio', function(message) {
+      #     var audioEl = document.getElementById(message.id);
+      #     if (audioEl && !audioEl.paused) {
+      #       audioEl.pause();
+      #       audioEl.currentTime = 0;
+      #     }
+      #   });
+      # ")),
+      
       tags$style(HTML("
         .full-height {
           height: 100vh;
@@ -41,7 +47,9 @@ mod_spectro_ui <- function(id) {
     # actionButton(ns("add_spectro"), "+ Add Spectrogram"),
     # br(),
     # uiOutput(ns("spectrograms_ui"))
-    card_spectro(ns, "spectro1", 1),
+    div(id = ns("spectro_card"),
+      card_spectro(ns, "spectro1", 1)
+    ),
     card_spectro(ns, "spectro2", 2)
     # fluidRow(
     #   column(6, card_spectro(ns, "spectro3", 3)),
@@ -58,6 +66,15 @@ mod_spectro_server <- function(id, data) {
     ns <- session$ns
     
     tree <- reactive(data$acoustic_file_tree())
+    
+    audio_dir <- file.path(tempdir(), "audio")
+    dir.create(audio_dir, showWarnings = FALSE, recursive = TRUE)
+    shiny::addResourcePath("temp_audio", audio_dir)
+    
+    # AUDIO FILE DELETION LOGIC
+    # session$onSessionEnded(function() {
+    #   unlink(audio_dir, recursive = TRUE, force = TRUE)
+    # })
     
     for (i in 1:2) {
       local({
@@ -99,22 +116,94 @@ mod_spectro_server <- function(id, data) {
         observeEvent(input[[paste0("render_", index)]], {
           req(input[[fileInput]])
           
-          # audio_name <- paste0("audio_", index, ".wav")
-          # www_path <- file.path(base_path(), "inst", "app", "www", audio_name)
-          # 
-          # # Remove old file if it exists
-          # if (file.exists(www_path)) {
-          #   file.remove(www_path)
+          wav_path_val <- input[[fileInput]]
+          wl_val <- input[[paste0("wl_", index)]]
+          if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
+          audio_name <- paste0("audio_", index, ".wav")
+          temp_audio_path <- file.path(audio_dir, audio_name)
+          
+          ####!!!!!!!!!!!!!!!!!!!
+          # Stop any playing audio first
+          session$sendCustomMessage("stopAudio", list(id = ns(paste0("audio_element_", index))))
+          
+          later::later(function() {
+            if (file.exists(temp_audio_path)) {
+              file.remove(temp_audio_path)
+            }
+            file.copy(from = wav_path_val, to = temp_audio_path, overwrite = TRUE)
+            
+            # Now render the audio player and spectrogram
+            output[[paste0("audio_", index)]] <- renderUI({
+              tagList(
+                tags$audio(
+                  id = ns(paste0("audio_element_", index)),
+                  controls = T,
+                  style = "width: 50%; margin-top: 5px;",
+                  tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
+                  "Your browser does not support the audio element."
+                )
+              #   tags$script(HTML(sprintf("
+              #   setTimeout(function() {
+              #     const audio = document.getElementById('%s');
+              #     const plotDiv = document.getElementById('%s');
+              # 
+              #     if (audio && plotDiv) {
+              #       audio.addEventListener('timeupdate', function () {
+              #         const currentTime = audio.currentTime;
+              #         Plotly.relayout(plotDiv, {
+              #           'shapes[0].x0': currentTime,
+              #           'shapes[0].x1': currentTime
+              #         });
+              #       });
+              #     }
+              #   }, 500);
+              # ", ns(paste0("audio_element_", index)), ns(paste0("plot_", index))))
+              #   )
+              )
+            })
+          }, delay = 0.1)
+          
+          # # Remove old if exists and copy
+          # if (file.exists(temp_audio_path)) {
+          #   file.remove(temp_audio_path)
           # }
+          # file.copy(from = input[[fileInput]], to = temp_audio_path, overwrite = TRUE)
+          
+          # output[[paste0("audio_", index)]] <- renderUI({
+          #   tagList(
+          #     tags$audio(
+          #       id = ns(paste0("audio_element_", index)),
+          #       controls = NA,
+          #       style = "width: 50%; margin-top: 5px;",
+          #       tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
+          #       "Your browser does not support the audio element."
+          #     ),
+          #     tags$script(HTML(sprintf("
+          #     setTimeout(function() {
+          #       const audio = document.getElementById('%s');
+          #       const plotDiv = document.getElementById('%s');
           # 
-          # # Copy new file to www
-          # file.copy(from = input[[fileInput]], to = www_path, overwrite = TRUE)
-          # 
+          #       if (audio && plotDiv) {
+          #         audio.addEventListener('timeupdate', function () {
+          #           const currentTime = audio.currentTime;
+          #           Plotly.relayout(plotDiv, {
+          #             'shapes[0].x0': currentTime,
+          #             'shapes[0].x1': currentTime
+          #           });
+          #         });
+          #       }
+          #     }, 500);  // delay to ensure plot is ready
+          #   ", ns(paste0("audio_element_", index)), ns(paste0("plot_", index)))))
+          #   )
+          # })
+          
+          # Now point to the file via its web-accessible path
           # output[[paste0("audio_", index)]] <- renderUI({
           #   tags$audio(
+          #     id = ns(paste0("audio_element_", index)),
           #     controls = NA,
           #     style = "width: 50%; margin-top: 5px;",
-          #     tags$source(src = audio_name, type = "audio/wav"),
+          #     tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
           #     "Your browser does not support the audio element."
           #   )
           # })
@@ -129,11 +218,11 @@ mod_spectro_server <- function(id, data) {
           
           # Let the UI render the spinner before doing heavy work
           later::later(function() {
-            wav_path <- isolate(input[[fileInput]])
-            wl_val <- isolate(input[[paste0("wl_", index)]])
-            if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
+            # wav_path <- isolate(input[[fileInput]])
+            # wl_val <- isolate(input[[paste0("wl_", index)]])
+            # if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
             
-            wave <- tuneR::readWave(wav_path)
+            wave <- tuneR::readWave(wav_path_val)
             
             output[[plotOutput]] <- renderPlotly({
               spectrogram_plotly(wave, wl = wl_val)
@@ -141,7 +230,7 @@ mod_spectro_server <- function(id, data) {
           }, delay = 0.1)
         })
       })
-    }
+     }
   })
 }
     

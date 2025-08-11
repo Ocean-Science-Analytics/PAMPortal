@@ -28,6 +28,14 @@ guide <- cicerone::Cicerone$
     position = "middle"
   )$
   step(
+    el = "[data-value='summary']",
+    title = "Summary Page",
+    description = "The summary page displays the general information for each location dataset.",
+    is_id = FALSE,
+    position = "middle",
+    on_highlighted = "function() { document.querySelector(\"[data-value='summary']\").click(); }"
+  )$
+  step(
     el = "overview_1-overview_input",
     title = "Summary Selection",
     description = "Select which data location to analyze. You can also select to compare two different locations.",
@@ -44,4 +52,26 @@ guide <- cicerone::Cicerone$
     title = "Analysis Data Table",
     description = "Here is a variety of selections for the data table.",
     position = "middle"
+  )$
+  step(
+    el = "[data-value='spectro']",
+    title = "Spectrogram Page",
+    description = "The spectrogram page provides two tabs to visualize call events from the different locations.",
+    is_id = FALSE,
+    position = "middle",
+    on_highlighted = "function() { document.querySelector(\"[data-value='spectro']\").click(); }"
+  )$
+  step(
+    el = "spectro_1-spectro_card",
+    title = "Spectrogram",
+    description = "Adjust these setting to specify which call event to display on in the spectrogram.",
+    position = "middle"
+  )$
+  step(
+    el = "[data-value='analysis']",
+    title = "Spectrogram Page",
+    description = "The data visualization page contains two different analysis methods. The effort/detection plot displays the call events as a function of effort measured from the duty cycle of the hydrophones. The Distribution plot displays the range of different call features for each individual event.",
+    is_id = FALSE,
+    position = "middle",
+    on_highlighted = "function() { document.querySelector(\"[data-value='analysis']\").click(); }"
   )

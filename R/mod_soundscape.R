@@ -123,13 +123,13 @@ mod_soundscape_server <- function(id, data){
       sites <- unique(data$soundscape_data())
       selected_band <- input$band_select
       base_path <- data$selected_dir()
-      
+      #browser()
       if ("50 to 1000 Hz" %in% selected_band) {
         bandwidths <- sub(" Hz", "", setdiff(selected_band, "50 to 1000 Hz"))
       } else {
         bandwidths <- sub(" Hz", "", selected_band)
       }
-      
+      browser()
       df <- all_data(sites, bandwidths, base_path)
       
       col_pal <- c("#4A90A4", "#DB9A8E", "#849F99", "#9D9B90")

@@ -72,50 +72,99 @@ palette_main <- function(){
   )
 }
 
-
-
-card_spectro <- function(ns, id, num) {
-  ns_id <- function(x) ns(paste0(id, "-", x))
+#' Process Zip File
+#' 
+#' @description Processes the project zip files for the app
+process_zip <- function(zip_path) {
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  unzip(zip_path, exdir = temp_dir)
   
-  bslib::card(
-    div(
-      style = "border: 2px solid black; padding: 10px; border-radius: 5px; margin-bottom: 15px; background-color: #FFFAFA;",
+  top_level_dirs <- list.dirs(temp_dir, recursive = FALSE, full.names = TRUE)
+  
+  if (length(top_level_dirs) != 1) {
+    stop("Multiple folders found at root of ZIP. Please ensure the ZIP contains a single project folder.")
+  }
+  
+  root_path <- top_level_dirs[[1]]
+  
+  rds_folder <- file.path(root_path, "RDS")
+  acoustic_dir <- file.path(root_path, "Audio")
+  soundscape_dir <- file.path(root_path, "Soundscape")
+  
+  ## ---- RDS LOADING ---- ##
+  rds_names <- NULL
+  rds_data <- NULL
+  if (dir.exists(rds_folder)) {
+    rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
+    if (length(rds_paths) > 0) {
+      rds_names <- tools::file_path_sans_ext(basename(rds_paths))
+      rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
+    }
+  }
+  
+  ## ---- ACOUSTIC LOADING ---- ##
+  acoustic_names <- NULL
+  acoustic_tree <- NULL
+  
+  if (dir.exists(acoustic_dir)) {
+    event_paths <- list.dirs(acoustic_dir, recursive = FALSE, full.names = TRUE)
+    acoustic_names <- sub("_Clips$", "", basename(event_paths))
+    
+    build_nested_list <- function(base_dir) {
+      event_folders <- list.dirs(base_dir, recursive = FALSE, full.names = TRUE)
+      structure_list <- list()
       
-      h4(paste("Spectrogram", num)),
+      for (event_path in event_folders) {
+        event_name <- basename(event_path)
+        species_paths <- list.dirs(event_path, recursive = FALSE, full.names = TRUE)
+        species_list <- list()
+        
+        for (species_path in species_paths) {
+          species_name <- basename(species_path)
+          detection_paths <- list.dirs(species_path, recursive = FALSE, full.names = TRUE)
+          detection_list <- list()
+          
+          for (detection_path in detection_paths) {
+            detection_name <- basename(detection_path)
+            wavs <- list.files(detection_path, pattern = "\\.wav$", full.names = TRUE)
+            if (length(wavs) > 0) {
+              detection_list[[detection_name]] <- wavs
+            }
+          }
+          
+          if (length(detection_list) > 0) {
+            species_list[[species_name]] <- detection_list
+          }
+        }
+        
+        if (length(species_list) > 0) {
+          structure_list[[event_name]] <- species_list
+        }
+      }
       
-      # Row 1: Event + Species
-      fluidRow(
-        column(6, selectInput(ns_id("event"), "1.) Event", choices = NULL)),
-        column(6, selectInput(ns_id("species"), "2.) Species", choices = NULL))
-      ),
-      
-      # Row 2: Detection + File
-      fluidRow(
-        column(6, selectInput(ns_id("detection"), "3.) Detection ID", choices = NULL)),
-        column(6, selectInput(ns_id("file"), "4.) File", choices = NULL))
-      ),
-      
-      # Row 3: Time Range + Audio playback
-      fluidRow(
-        column(5, sliderInput(ns_id("time_range"), "Time (s)", min = 0, max = 40, value = c(0, 5))),
-        column(7,
-               tags$audio(
-                 controls = NA,
-                 id = ns_id("audio_player"),
-                 src = "",  # dynamically updated in server
-                 type = "audio/wav"
-               )
-        )
-      ),
-      
-      # Spectrogram Plot (with spinner)
-      shinycssloaders::withSpinner(
-        plotOutput(ns_id("spectrogram"), height = "250px"),
-        type = 4,
-        color = "#00688B",
-        caption = "Loading Spectrogram..."
-      )
-    )
+      return(structure_list)
+    }
+    
+    acoustic_tree <- build_nested_list(acoustic_dir)
+  }
+  
+  ## ---- SOUNDSCAPE LOADING ---- ##
+  soundscape <- NULL
+  if (dir.exists(soundscape_dir)) {
+    site_folders <- list.dirs(soundscape_dir, recursive = FALSE, full.names = FALSE)
+    if (length(site_folders) > 0) {
+      soundscape <- site_folders
+    }
+  }
+  
+  list(
+    root_path = root_path,
+    rds_names = rds_names,
+    rds_data = rds_data,
+    acoustic_names = acoustic_names,
+    acoustic_tree = acoustic_tree,
+    soundscape = soundscape
   )
 }
 
@@ -219,14 +268,19 @@ sp_annotations <- function(location, base_path, duty_cycle_min=60) {
   library(tidyverse)
   #**may need to specify full path name here too
   files <- read.csv(file.path(base_path, "Audio", paste0(location, "_file_list.csv")))
-  parsed <- parse_date_time(str_remove(files$Filename, "\\.wav$"), orders = "ymd-HMS")
+  #parsed <- parse_date_time(str_remove(files$Filename, "\\.wav$"), orders = "ymd-HMS")
+  if ("UTC_DateTime" %in% colnames(files)) {
+    parsed <- parse_date_time(files$UTC_DateTime, orders = "ymd-HMS")
+  } else {
+    parsed <- parse_date_time(str_remove(files$Filename, "\\.wav$"), orders = "ymd-HMS")
+  }
   day_hour_present <- data.frame(day = as.Date(parsed), hour = hour(parsed))
   full_grid <- expand_grid(
     day = unique(day_hour_present$day),
     hour = 0:23, minute = 0:59)
   
   species_df <- pull_events(location, base_path)
-  
+  #browser()
   annotated <- full_grid %>%
     left_join(day_hour_present %>% 
                 mutate(effort = TRUE), by = c("day", "hour")) %>%
@@ -240,7 +294,7 @@ sp_annotations <- function(location, base_path, duty_cycle_min=60) {
            time_hms = hms::as_hms(sprintf("%02d:%02d:00", hour, minute)),
            day = factor(day, levels = rev(sort(unique(day))))) %>%
     select(day, time_str, time_hms, presence)
-  
+  #browser()
   spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
   spatial$Site <- sub(".*?_", "", spatial$Site)
   
@@ -302,33 +356,52 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
                             c("Not Sampled", "No Events"))
   species_palette <- setNames(col_pal[seq_along(species_colors)], species_colors)
   
+  annotated$presence <- factor(annotated$presence, 
+                               levels = c("No Events", "Not Sampled", species_colors,
+                                          "Night time", "No effort"))
+
   hour_labels <- sprintf("%02d:00", 0:23)
   y_breaks <- levels(annotated$day)[seq(1, length(levels(annotated$day)), by = 7)]
-  
+
   if (see_duty_cycle==FALSE) {
     annotated <- annotated[annotated$presence != 'Not Sampled', ]
   }
-  
+
   loc_str <- str_replace(location, "(?<=.)(?=[A-Z])", " ")
   
   p <- ggplot(annotated, aes(x = time_str, y = day)) +
     
-    geom_tile(data = subset(annotated, subset = (daylight==FALSE)),
-              fill="#2e4482", alpha = 0.25) +
+    # geom_tile(data = subset(annotated, subset = (daylight==FALSE)),
+    #           fill="#2e4482", alpha = 0.25) +
+    
+    # Background tiles for night (adds legend entry with dummy fill)
+    geom_tile(data = subset(annotated, daylight == FALSE),
+              aes(fill = "Night"), alpha = 0.4) +
+    
+    # No-effort tiles (adds legend entry with dummy fill)
+    geom_tile(data = subset(annotated, presence == "Not Sampled"),
+              aes(fill = "No effort"), alpha = 0.5) +
     
     geom_tile(aes(fill = presence)) +
     
-    scale_fill_manual(values = c("No Events" = background, 
-                                 "Not Sampled" = alpha(text,0.25), 
-                                 species_palette),
-                      breaks = setdiff(unique(annotated$presence), 
-                                       c("No Events", "Not Sampled"))) +
+    scale_fill_manual(
+      values = c("No Events" = background, 
+                 "Not Sampled" = alpha(text, 0.25),
+                 species_palette,
+                 "spacer" = NA, 
+                 "Night" = "#2e4482",  
+                 "No events" = "#F2F2F2",
+                 "No effort" = "#9D9B90"),
+      breaks = c(species_colors, "spacer", "Night", "No effort"),  
+      labels = c(species_colors, "spacer", "Night", "No effort")
+    ) +
+    
     scale_x_discrete(breaks = hour_labels, position = "top") +
     scale_y_discrete(breaks = y_breaks) +
     
     theme(
-      axis.text.x = element_text(angle = 45, hjust = 0, size = 12, family = font, color = text),
-      axis.text.y = element_text(size = 12, family = font, color = text),
+      axis.text.x = element_text(angle = 45, hjust = 0, size = 15, family = font, color = text),
+      axis.text.y = element_text(size = 15, family = font, color = text),
       
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
@@ -339,13 +412,21 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
                                 color=text, family=font, size=18),
       
       legend.text = element_text(color=text, 
-                                 family=font, 
+                                 family=font,
+                                 size = 15,
                                  margin = margin(r=15, l=5)),
       legend.title = element_text(color=text, 
                                   family=font),
       legend.position = "bottom",
-      legend.direction = "horizontal"
-    ) + 
+      legend.direction = "horizontal",
+      legend.justification = "center",
+      legend.box = "horizontal",          # forces box layout
+      legend.box.just = "center",
+      legend.margin = margin(t = 10),
+      plot.margin = margin(20, 20, 20, 20)
+    ) +
+    
+    guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
     
     labs(x = NULL, y = NULL, 
          title=paste(loc_str, "Event Detections"),
@@ -457,6 +538,173 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
 }
 
 
+#' Occurrence plot events
+#' 
+#' @description Gathers acoustic event data for the Occurrence plot
+#' 
+occr_events <- function(location, base_path, species_list = c('All')) {
+  library(lubridate)
+  rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
+  species_df <- data.frame()
+  detectors <- unique(unlist(lapply(rds@events, 
+                                    function(event) names(event@detectors))))
+  for (event in rds@events) {
+    for (detector in detectors) {
+      data <- event[[detector]]
+      if (!is.null(data)) {
+        df <- tibble(day = as.Date(data$UTC),
+                     hour = hour(data$UTC),
+                     duration = data$duration,
+                     species = event@species$id)
+        
+        event_summary <- df %>%
+          group_by(day, hour, species) %>%
+          summarise(total_duration = sum(duration), .groups = 'drop')
+        
+        species_df <- rbind(species_df, event_summary)
+      }
+    }
+  }
+  
+  all_days <- seq(min(species_df$day), 
+                  max(species_df$day), by="day")
+  
+  all_species <- unique(species_df$species)
+  
+  all_hours <- seq(0,24)
+  
+  full_grid <- expand_grid(
+    species = all_species,
+    day = all_days,
+    hour = all_hours
+  )
+  
+  merged <- full_grid %>%
+    left_join(species_df, by = c("day", "hour", "species")) %>%
+    mutate(datetime = as.POSIXct(day) + hours(hour))
+  
+  if (!('All' %in% species_list)) {
+    merged <- merged %>%
+      filter(species %in% species_list)
+  }
+  
+  spatial <- read.csv(paste(base_path, "\\Spatial_Data.csv", sep=""))
+  spatial$Site <- sub(".*?_", "", spatial$Site)
+  
+  latitude <- spatial[spatial$Site==location,'Latitude']
+  longitude <- spatial[spatial$Site==location,'Longitude']
+  tz <- suppressWarnings(
+    lutz::tz_lookup_coords(lat = latitude,
+                           lon = longitude,
+                           method = "fast"))
+  
+  sun_times <- getSunlightTimes(
+    date = unique(merged$day),
+    lat = latitude,
+    lon = longitude,
+    tz = tz,
+    keep = c("sunrise", "sunset")) %>% 
+    mutate(day = as.Date(date)) %>%
+    select(day, sunrise, sunset)
+  
+  
+  merged <- merged %>%
+    left_join(sun_times, by = "day", relationship = "many-to-many") %>%
+    mutate(
+      #day_date = as.Date(as.character(day)),
+      time_hms = hms::as_hms(sprintf("%02d:00:00", hour)),
+      sunrise_hms = hms::as_hms(format(sunrise, "%H:%M:%S")),
+      sunset_hms  = hms::as_hms(format(sunset, "%H:%M:%S")),
+      
+      daylight = case_when(
+        (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% 4:9 ~
+          TRUE,
+        
+        sunset_hms > sunrise_hms ~ 
+          time_hms >= sunrise_hms & time_hms < sunset_hms,
+        sunset_hms < sunrise_hms ~ 
+          time_hms >= sunrise_hms | time_hms < sunset_hms
+      )) %>%
+    mutate(time_hour = substr(time_hms, 1,5))%>%
+    select(species, day, time_hour, total_duration, daylight)
+  
+  return(merged)
+}
+
+
+#' Occurrence plot
+#' 
+#' @description Creates the Occurrence plot
+#' 
+occurrence_plot <- function(location, base_path, species_list = c('All')) {
+  library(stringr)
+  df <- occr_events(location, base_path, species_list)
+  
+  all_days <- seq(min(df$day), max(df$day), by = "1 day")
+  week <- seq(min(df$day), max(df$day), by = "7 days")
+  shadow <- df %>% filter(!daylight)
+  
+  breaks <- sprintf("%02d:00", seq(0, 24, by = 6))
+  loc_str <- str_replace(location, "(?<=.)(?=[A-Z])", " ")
+  
+  col_pal <- c("#3C6E71", "#00E0B0", "#F87060", "#FFD700", "#422040")
+  
+  background = alpha('#F2F2F2', 0.25)
+  text = '#55636f'
+  font = "Roboto"
+  
+  p <- ggplot(df, aes(x = day, y = time_hour, fill = total_duration)) +
+    geom_tile(data = shadow, fill='black', alpha = 0.25) +
+    geom_tile() +
+    facet_wrap(~species, ncol=1) +
+    scale_fill_gradientn(
+      colors = c(col_pal[2], col_pal[1], col_pal[5]),
+      na.value = alpha('#F2F2F2', 0.5),
+      name = 'Total Detection Duration\n(seconds)',
+      guide = guide_colorbar(
+        title.position = "right",   # put title to the left of colorbar
+        title.hjust = 0.5,
+        barheight = unit(6, 'cm')
+      )) +
+    
+    scale_y_discrete(breaks=breaks, expand=c(0,0)) +
+    scale_x_date(breaks = week,
+                 minor_breaks = all_days,
+                 date_labels = "%b %d",
+                 expand=c(0,0)) +
+    
+    theme_minimal() + 
+    labs(y = 'Hour of Day', x = '', 
+         title = paste(loc_str, "Event Detections")) +
+    
+    theme(
+      plot.background = element_rect(fill = "#F2F2F2", color = NA),  # overall background
+      panel.background = element_rect(fill = "#F2F2F2", color = NA),
+      legend.position = "right",
+      legend.title = element_text(angle = 270, vjust = 0.5,
+                                  color=text, family=font),
+      legend.text = element_text(color=text, 
+                                 family=font, 
+                                 margin = margin(r=4)),
+      
+      strip.text = element_text(hjust = 0, family=font, color=text,
+                                size=10),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.title.y = element_text(family=font, color=text, margin=margin(r=10)),
+      
+      plot.title = element_text(hjust = 0.5, margin = margin(b=10),
+                                color=text, family=font, size=14),
+      
+      panel.grid.major.x = element_line(color = "gray60", size = 0.3),
+      panel.grid.minor.x = element_line(color = "gray80", size = 0.3),
+      panel.grid.major.y = element_line(color = "gray60", size = 0.3),
+      panel.grid.minor.y = element_blank()
+    )
+  
+  return(p)
+}
+
+
 #' Spectrogram Card
 #' 
 #' @description Generates UI cards for spectrogram module
@@ -486,8 +734,8 @@ card_spectro <- function(ns, id, index) {
       # Right panel with spectrogram plot
       div(
         style = "flex: 2; height: 100%;",
-        #uiOutput(ns(paste0("audio_", index)), style = "height: 15%;"),
-        uiOutput(ns(paste0("plot_ui_", index)), style = "height: 10%;")
+        uiOutput(ns(paste0("audio_", index)), style = "height: 10%;"),
+        uiOutput(ns(paste0("plot_ui_", index)), style = "height: 90%;")
       )
     )
   )
@@ -576,6 +824,14 @@ spectrogram_plotly <- function(wave,
         linecolor = foreground,
         mirror = TRUE
       ),
+      # shapes = list(list(
+      #   type = "line",
+      #   x0 = 0, x1 = 0,
+      #   y0 = 0, y1 = max(spect_df$freq, na.rm = TRUE),
+      #   line = list(color = "red", width = 2),
+      #   name = "playhead",
+      #   layer = "above"
+      # )),
       paper_bgcolor = background,
       plot_bgcolor = background,
       margin = list(t = 25, r = 25, b = 55, l = 35),
@@ -599,27 +855,31 @@ spectrogram_plotly <- function(wave,
 all_data <- function(location_list, bandwidth_list, base_path) {
   #base_path <- data$selected_dir()
   soundscape_path <- file.path(base_path, "Soundscape")
+  print(soundscape_path)
   folders <- list.dirs(path = soundscape_path, recursive = TRUE)
+  print(folders)
   band_cols <- paste0("band_", bandwidth_list)
+  print(band_cols)
   rows <- list()
-  
+
   for (loc in location_list) {
-    matched <- folders[grepl(paste0(loc, ".*SPL_measurements[/\\]csv$"), folders)]
-    
+    #matched <- folders[grepl(paste0(loc, ".*SPL_measurements[/\\]csv$"), folders)]
+    matched <- folders[grepl(paste0(loc, ".*SPL_[Mm]easurements[/\\]csv$"), folders)]
+
     for (file in list.files(matched, full.names = TRUE)) {
       data <- read.csv(file, header = TRUE, check.names = FALSE)
       colnames(data)[2:3] <- c("<0.8", "0.8")
       d <- strsplit(colnames(data)[1], "\\s+")[[1]][1]
-      
+
       cols <- colnames(data)
       cols_numeric <- suppressWarnings(as.numeric(cols))
       filtered <- cols[!is.na(cols_numeric) & cols_numeric >= 50 & cols_numeric <= 1000]
       pressure_sq <- 10^(data[, filtered] / 10)
       pressure_sq_avg <- mean(as.matrix(pressure_sq))
       avg_band <- 10 * log10(pressure_sq_avg)
-      
+
       row <- list(date = d, site = loc, band_50to1000 = avg_band)
-      
+
       for (i in seq_along(bandwidth_list)) {
         bw_raw <- bandwidth_list[i]
         bw_clean <- band_cols[i]
@@ -627,25 +887,26 @@ all_data <- function(location_list, bandwidth_list, base_path) {
           row[[bw_clean]] <- mean(data[[bw_raw]], na.rm = TRUE)
         }
       }
-      
+
       rows[[length(rows) + 1]] <- row
     }
   }
-  
+
   df <- dplyr::bind_rows(lapply(rows, as.data.frame))
   df$date <- as.Date(df$date, format = "%d-%b-%Y")
   df$month <- factor(format(df$date, "%b"), levels = month.abb)
-  df$site <- factor(df$site, levels = location_list)  
+  df$site <- factor(df$site, levels = location_list)
+  str(df)
   df <- tidyr::pivot_longer(df,
                             cols = starts_with("band_"),
                             names_to = "band_type",
                             values_to = "freq"
   )
-  
+
   band_levels <- c("band_50to1000", band_cols)
   band_labels <- c("50 to 1000 Hz", paste0(bandwidth_list, " Hz"))
   df$band_type <- factor(df$band_type, levels = band_levels, labels = band_labels)
-  
+
   return(df)
 }
 
