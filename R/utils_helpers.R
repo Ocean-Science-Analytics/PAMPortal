@@ -72,6 +72,15 @@ palette_main <- function(){
   )
 }
 
+#' secondary color palette used for data viz elements.
+palette_secondary <- c("#4A90A4", "#DB9A8E", "#2B7A78", "#D6C4A2", "#1C3D57",
+             "#F4C542", "#E69F00", "#7F8B89", "#00CED1", "#CC79A7")
+
+
+background = '#F2F2F2'
+text = '#55636f'
+font = "Roboto"
+
 #' Process Zip File
 #' 
 #' @description Processes the project zip files for the app
@@ -346,15 +355,10 @@ sp_annotations <- function(location, base_path, duty_cycle_min=60) {
 #'
 effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_min = 60) {
   
-  col_pal <- c("#4A90A4", "#DB9A8E", "#849F99", "#9D9B90")
-  background = alpha('#F2F2F2', 0.25)
-  text = '#55636f'
-  font = "Roboto"
-  
   annotated <- sp_annotations(location, base_path, duty_cycle_min)
   species_colors <- setdiff(unique(annotated$presence), 
                             c("Not Sampled", "No Events"))
-  species_palette <- setNames(col_pal[seq_along(species_colors)], species_colors)
+  species_palette <- setNames(palette_secondary[seq_along(species_colors)], species_colors)
   
   annotated$presence <- factor(annotated$presence, 
                                levels = c("No Events", "Not Sampled", species_colors,
@@ -497,13 +501,6 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
                               levels = unique(eventName[order(
                                 as.numeric(sub("DGL", "", eventName)))])))
   
-  col_pal <- c("#4A90A4", "#DB9A8E", "#2B7A78", "#D6C4A2", "#1C3D57",
-               "#7F8B89", "#F4C542")
-  
-  background = '#F2F2F2'
-  text = '#55636f'
-  font = "Roboto"
-  
   
   p <- ggplot(df, aes(x = eventName, y = .data[[variable]])) +
     geom_violin(aes(fill=eventLabel, color=eventLabel),
@@ -522,7 +519,7 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
                scales = "free_x") + 
     
     labs(x = "", y = var_names[[variable]], fill = "") +
-    scale_fill_manual(values = col_pal) +
+    scale_fill_manual(values = palette_secondary) +
     
     theme_minimal(base_size=14) +
     theme(
@@ -566,7 +563,11 @@ occr_events <- function(location, base_path, species_list = c('All')) {
         df <- tibble(day = as.Date(data$UTC),
                      hour = hour(data$UTC),
                      duration = data$duration,
-                     species = event@species$id)
+                     species = event@species$id,
+                     detector = detector)
+        
+        df <- df %>%
+          mutate(duration = if_else(detector != "Whistle_and_Moan_Detector", duration / 1000, duration))
         
         event_summary <- df %>%
           group_by(day, hour, species) %>%
@@ -656,20 +657,14 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
   shadow <- df %>% filter(!daylight)
   
   breaks <- sprintf("%02d:00", seq(0, 24, by = 6))
-  loc_str <- str_replace(location, "(?<=.)(?=[A-Z])", " ")
-  
-  col_pal <- c("#3C6E71", "#00E0B0", "#F87060", "#FFD700", "#422040")
-  
-  background = alpha('#F2F2F2', 0.25)
-  text = '#55636f'
-  font = "Roboto"
+  #loc_str <- str_replace(location, "(?<=.)(?=[A-Z])", " ")
   
   p <- ggplot(df, aes(x = day, y = time_hour, fill = total_duration)) +
     geom_tile(data = shadow, fill='black', alpha = 0.25) +
     geom_tile() +
     facet_wrap(~species, ncol=1) +
     scale_fill_gradientn(
-      colors = c(col_pal[2], col_pal[1], col_pal[5]),
+      colors = c(palette_secondary[9], palette_secondary[1], palette_secondary[5]),
       na.value = alpha('#F2F2F2', 0.5),
       name = 'Total Detection Duration\n(seconds)',
       guide = guide_colorbar(
@@ -686,7 +681,7 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
     
     theme_minimal() + 
     labs(y = 'Hour of Day', x = '', 
-         title = paste(loc_str, "Event Detections")) +
+         title = location) +
     
     theme(
       plot.background = element_rect(fill = "#F2F2F2", color = NA),  # overall background
