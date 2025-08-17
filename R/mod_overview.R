@@ -609,16 +609,20 @@ mod_overview_server <- function(id, data){
         }
       },
       content = function(file) {
-        showNotification("Preparing CSV download. This can take some time depending on the amount of data being exported.", type = "message", duration = 8)
+        showNotification(
+          "Preparing CSV download. This can take some time depending on the amount of data being exported.",
+          type = "message", duration = 8
+        )
         
         req(data$rds_data())
         selected_name <- input$file_select
         acou_data <- data$rds_data()[[selected_name]]
         
-        all_data <- list()
+        final_df <- NULL
         
         if (isTRUE(input$filter_species)) {
           # Combine all detector data from events with matching species
+          all_data <- list()
           for (event_name in names(acou_data@events)) {
             event <- acou_data@events[[event_name]]
             
@@ -640,12 +644,15 @@ mod_overview_server <- function(id, data){
               }
             }
           }
+          if (length(all_data) > 0) {
+            final_df <- dplyr::bind_rows(all_data)
+          }
           
         } else if (isTRUE(input$all_events)) {
           # Combine all detector data from all events
+          all_data <- list()
           for (event_name in names(acou_data@events)) {
             event <- acou_data@events[[event_name]]
-            
             if (!is.null(event@detectors)) {
               for (detector_name in names(event@detectors)) {
                 detector_data <- event@detectors[[detector_name]]
@@ -657,6 +664,9 @@ mod_overview_server <- function(id, data){
               }
             }
           }
+          if (length(all_data) > 0) {
+            final_df <- dplyr::bind_rows(all_data)
+          }
           
         } else {
           # Export only the selected event and detector
@@ -665,21 +675,24 @@ mod_overview_server <- function(id, data){
           detector_data <- selected_event@detectors[[input$detector_select]]
           
           if (is.data.frame(detector_data)) {
-            write.csv(detector_data, file, row.names = FALSE)
-            return()
-          } else {
-            showNotification("No valid data available to download", type = "warning", duration = 5)
-            return(NULL)
+            final_df <- detector_data
           }
         }
         
-        # Final export if all_data was populated
-        final_df <- if (length(all_data) > 0) {
-          dplyr::bind_rows(all_data)
-        } else {
-          data.frame(Message = "No valid data available")
+        # Handle empty case
+        if (is.null(final_df) || !is.data.frame(final_df)) {
+          showNotification("No valid data available to download", type = "warning", duration = 5)
+          write.csv(data.frame(Message = "No valid data available"), file, row.names = FALSE)
+          return(NULL)
         }
         
+        # Apply filtering from the DataTable
+        filtered_idx <- input$data_table_rows_all
+        if (!is.null(filtered_idx)) {
+          final_df <- final_df[filtered_idx, , drop = FALSE]
+        }
+        
+        # Write out
         write.csv(final_df, file, row.names = FALSE)
       }
     )
