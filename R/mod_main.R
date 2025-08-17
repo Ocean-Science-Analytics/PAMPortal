@@ -331,8 +331,19 @@ mod_main_server <- function(id){
     ##############################################################
     observeEvent(input$load_example, {
       showModal(modalDialog(
-        title = "Load Example Data",
-        "Are you sure you want to load the example data?",
+        title = "Example Data",
+        tagList(
+          p("The National Science Foundation-funded Ocean Observatories Initiative (OOI) maintains a series of coastal and oceanic monitoring sites that consists of a multitude of physical and biological sensors."),
+          p("As part of this program, OOI collects continuous data from a cabled array along the continental shelf and slope off Newport, Oregon."),
+          p("Ocean Science Analytics is currently exploring the occurrence of vocally active marine mammal species in relation to coastal and offshore oceanographic variables following recent persistent changes (i.e. warm water “blob” anomaly) to this dynamic part of the California Current Ecosystem."),
+          p("This example dataset is a single month of data from two different OOI site locations."),
+          p("Please follow these links if you want to learn more about the ",
+            a("Ocean Observatory Initiative", href = "https://ooinet.oceanobservatories.org/", target = "_blank"), 
+            " or the ",
+            a("Coastal and Offshore Oregon Marine Mammal Ecological Study", href = "https://www.oceanscienceanalytics.com/coastal-OR-marine-mammal-study", target = "_blank"),"."
+          ),
+          tags$img(src = "www/OOI.png", width = "100%", style = "margin-top: 15px; border: 1px solid #ddd;")
+        ),
         footer = tagList(
           modalButton("Cancel"),
           actionButton(ns("confirm_example_load"), "Submit", class = "btn-primary")
@@ -342,7 +353,7 @@ mod_main_server <- function(id){
     
     observeEvent(input$confirm_example_load, {
       removeModal()
-      showNotification("Loading Example Data Files...", type = "message")
+      showNotification("Loading Example Data Files...", type = "message", duration = 10)
       
       # Full relative path to the example ZIP file inside the app directory
       example_zip_path <- "inst/OSA_OOI_Demo.zip"
