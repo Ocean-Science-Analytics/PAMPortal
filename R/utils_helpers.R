@@ -390,14 +390,18 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
                  species_palette,
                  "spacer" = NA, 
                  "Night" = "#2e4482",  
-                 "No events" = "#F2F2F2",
-                 "No effort" = "#9D9B90"),
-      breaks = c(species_colors, "spacer", "Night", "No effort"),  
-      labels = c(species_colors, "spacer", "Night", "No effort")
+                 "No events" = "#9D9B90",
+                 "No effort" = "#F2F2F2"),
+      breaks = c(species_colors, "Night", "No effort", "No events"),
+      labels = c(species_colors, "Night", "No effort", "No events")
     ) +
     
     scale_x_discrete(breaks = hour_labels, position = "top") +
-    scale_y_discrete(breaks = y_breaks) +
+    scale_y_discrete(
+      breaks = levels(annotated$day),  # Tick mark at every day
+      labels = function(x) ifelse(x %in% y_breaks, x, "")  # Label only every 7th
+    )+
+    #scale_y_discrete(breaks = y_breaks) +
     
     theme(
       axis.text.x = element_text(angle = 45, hjust = 0, size = 15, family = font, color = text),
@@ -426,7 +430,13 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
       plot.margin = margin(20, 20, 20, 20)
     ) +
     
-    guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+    guides(
+      fill = guide_legend(
+        nrow = 2,
+        byrow = TRUE,
+        override.aes = list(colour = "black", size = 0.2)  # Outline around each swatch
+      )
+    ) +
     
     labs(x = NULL, y = NULL, 
          title=paste(loc_str, "Event Detections"),
@@ -544,7 +554,8 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
 #' 
 occr_events <- function(location, base_path, species_list = c('All')) {
   library(lubridate)
-  rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
+  #rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
+  rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
   species_df <- data.frame()
   detectors <- unique(unlist(lapply(rds@events, 
                                     function(event) names(event@detectors))))
@@ -588,7 +599,7 @@ occr_events <- function(location, base_path, species_list = c('All')) {
       filter(species %in% species_list)
   }
   
-  spatial <- read.csv(paste(base_path, "\\Spatial_Data.csv", sep=""))
+  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
   spatial$Site <- sub(".*?_", "", spatial$Site)
   
   latitude <- spatial[spatial$Site==location,'Latitude']
@@ -688,16 +699,17 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
                                  margin = margin(r=4)),
       
       strip.text = element_text(hjust = 0, family=font, color=text,
-                                size=10),
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      axis.title.y = element_text(family=font, color=text, margin=margin(r=10)),
+                                size=12),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title.y = element_text(family=font, color=text, margin=margin(r=10), size = 14),
       
       plot.title = element_text(hjust = 0.5, margin = margin(b=10),
                                 color=text, family=font, size=14),
       
-      panel.grid.major.x = element_line(color = "gray60", size = 0.3),
-      panel.grid.minor.x = element_line(color = "gray80", size = 0.3),
-      panel.grid.major.y = element_line(color = "gray60", size = 0.3),
+      panel.grid.major.x = element_line(color = "gray60", size = 0.4),
+      panel.grid.minor.x = element_line(color = "gray80", size = 0.4),
+      panel.grid.major.y = element_line(color = "gray60", size = 0.4),
       panel.grid.minor.y = element_blank()
     )
   

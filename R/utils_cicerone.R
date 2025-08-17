@@ -69,9 +69,50 @@ guide <- cicerone::Cicerone$
   )$
   step(
     el = "[data-value='analysis']",
-    title = "Spectrogram Page",
-    description = "The data visualization page contains two different analysis methods. The effort/detection plot displays the call events as a function of effort measured from the duty cycle of the hydrophones. The Distribution plot displays the range of different call features for each individual event.",
+    title = "Data Visualization Page",
+    description = HTML("
+    <p>The data visualization page contains three different visualization methods:</p>
+    <ul>
+      <li>Occurrence</li>
+      <li>Call Measurements</li>
+      <li>Effort/Detection</li>
+    </ul>
+    <p>Please see the respective help pages, identified by the '?', for more details on each method.</p>
+    "),
     is_id = FALSE,
     position = "middle",
     on_highlighted = "function() { document.querySelector(\"[data-value='analysis']\").click(); }"
+  )$
+  step(
+    el = "[data-value='soundscape']",
+    title = "Soundscape Page",
+    description = HTML("
+    <p>The Soundscape page provides two different pages containing information on the acoustic soundscape of each location:</p>
+    <ul>
+      <li>PSD Gallery</li>
+      <li>SPL Measurements</li>
+    </ul>
+    <p>The PSD Gallery page provides daily power spectral density plots generated for each acoustic recording site.</p>
+    <p>The SPL Measurments page displays boxplots of measured sound pressure level data at unique frequnecy bins across the full time span of the measuremnt period.</p>
+    "),
+    is_id = FALSE,
+    position = "middle",
+    on_highlighted = "function() { document.querySelector(\"[data-value='soundscape']\").click(); }"
+  )$
+  step(
+    el = "[data-value='soundscape']",
+    title = "Soundscape Page",
+    description = HTML("
+    <p>The Soundscape page provides two different pages containing information on the acoustic soundscape of each location:</p>
+    <ul>
+      <li>PSD Gallery</li>
+      <li>SPL Measurements</li>
+    </ul>
+    <p>The PSD Gallery page provides daily power spectral density plots generated for each acoustic recording site.</p>
+    <p>The SPL Measurments page displays boxplots of measured sound pressure level data at unique frequnecy bins across the full time span of the measuremnt period.</p>
+    "),
+    is_id = FALSE,
+    position = "middle",
+    on_highlighted = "function() { document.querySelector(\"[data-value='soundscape']\").click(); }"
   )
+  
