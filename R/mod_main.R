@@ -45,15 +45,16 @@ mod_main_ui <- function(id) {
           border-color: black !important;
         }
         .custom-btn:hover {
-          background-color: lightskyblue !important;
+          background-color: lightskyblue !important; /*  /*
         }
         .example-btn {
-          background-color: #3399CC !important;  /* lighter than #00688B */
-          color: white !important;
-          border-color: black !important;
+          background-color: #CD950C !important;   /* named CSS color */
+          color: white !important;                      /* contrast text */
+          border: 1px solid black !important;
         }
-        .example-btn:hover {
-          background-color: lightskyblue !important;
+        .load-example-btn:hover {
+          background-color: #FFD700 !important;
+          color: black !important;
         }
         .success-text {
           color: darkgreen;
@@ -129,7 +130,18 @@ mod_main_ui <- function(id) {
       # "Use Example Data" button
       div(
         style = "display: flex; width: 100%;",
-        actionButton(ns("load_example"), "Use Example Data", icon = icon("flask"), class = "example-btn", style = "flex-grow: 1;")
+        actionButton(
+          ns("load_example"), 
+          "Use Example Data", 
+          icon = icon("flask"), 
+          style = "
+            flex-grow: 1;
+            background-color: #CDAD00; 
+            border: 1px solid black; 
+            color: white;
+          ",
+          class = "load-example-btn"
+        )
       )
     ),
     
@@ -407,7 +419,7 @@ mod_main_server <- function(id){
         acoustic_names(result$acoustic_names)
         acoustic_file_tree(result$acoustic_tree)
         soundscape_data(result$soundscape)
-        
+        ### browser()
         # Status
         output$load_status <- renderText({
           if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
