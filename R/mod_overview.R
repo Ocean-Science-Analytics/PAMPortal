@@ -81,6 +81,21 @@ mod_overview_ui <- function(id) {
           gap: 4px !important;
           margin-bottom: 10px;
         }
+        .accordion-panel table {
+          table-layout: fixed;
+          width: 100%;
+          word-wrap: break-word;
+          white-space: normal;
+        }
+        .accordion-panel td, .accordion-panel th {
+          word-wrap: break-word;
+          white-space: normal;
+        }
+        table th:nth-child(1), table td:nth-child(1) {
+          white-space: normal !important;
+          word-wrap: break-word !important;
+          max-width: 120px;  /* keep Event column narrower */
+        }
       "))
     ),
     
@@ -173,6 +188,10 @@ mod_overview_ui <- function(id) {
 mod_overview_server <- function(id, data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
+    
+    base_path <- reactive({
+      req(data$selected_dir())
+    })
     
     output$dynamic_cards_layout <- renderUI({
       if (isTRUE(input$compare)) {
@@ -364,10 +383,37 @@ mod_overview_server <- function(id, data){
     # Dynamic Accordion UI
     #########################################################################
     output$dynamic_accordion <- renderUI({
-      req(data$rds_data())
+      req(data$rds_data(), req(base_path))
+      selected_name <- input$rds_select
+
+      # Species dataframe from your process_acoustic_data
       species_df <- species_data()
-      species2_df <- species2_data
-      species_list <- split(species_df[, c("Event", "Time")], species_df$Species)
+
+      # Load analyst comments file
+      comments_path <- file.path(base_path(), "Audio", selected_name, paste0(selected_name, "_species_list.csv"))
+      if (file.exists(comments_path)) {
+        comments_df <- read.csv(comments_path, stringsAsFactors = FALSE)
+        # Keep only relevant columns
+        comments_df <- comments_df[, c("Event", "Description", "Analyst_Comments")]
+      } else {
+        comments_df <- data.frame(
+          Event = character(0), 
+          Description = character(0), 
+          Analyst_Comments = character(0)
+        )
+      }
+      
+      # Merge species data with analyst comments by Event
+      merged_df <- dplyr::left_join(
+        species_df,
+        comments_df,
+        by = "Event"
+      )
+      str(merged_df)
+      # Split into species-specific tables
+      species_list <- split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")],
+                            merged_df$Species)
+      #print(species_list)
 
       accordion_boxes <- purrr::imap(species_list, function(df, species_name) {
         safe_id <- gsub("[^A-Za-z0-9]", "_", species_name)
@@ -396,9 +442,28 @@ mod_overview_server <- function(id, data){
     output$dynamic_accordion_cmp <- renderUI({
       req(isTRUE(input$compare))
       req(species2_data())
-      
+      selected_name <- input$rds_select
       species2_df <- species2_data()
-      species2_list <- split(species2_df[, c("Event", "Time")], species2_df$Species)
+      selected_name <- input$rds_select
+      
+      # Load analyst comments file
+      comments_path <- file.path("Audio", selected_name, paste0(selected_name, "_species_list.csv"))
+      if (file.exists(comments_path)) {
+        comments_df <- read.csv(comments_path, stringsAsFactors = FALSE)
+      } else {
+        comments_df <- data.frame(Event = character(0), 
+                                  Description = character(0), 
+                                  Analyst_Comments = character(0))
+      }
+      
+      merged_df <- dplyr::left_join(
+        species2_df,
+        comments_df,
+        by = "Event"
+      )
+      
+      species2_list <- split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")],
+                             merged_df$Species)
       
       purrr::imap(species2_list, function(df, species_name) {
         safe_id <- paste0("cmp_", gsub("[^A-Za-z0-9]", "_", species_name))

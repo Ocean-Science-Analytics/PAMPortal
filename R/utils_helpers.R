@@ -188,11 +188,11 @@ process_zip <- function(zip_path) {
 process_acoustic_data <- function(acou_data) {
   # Initialize an empty list to store results
   event_list <- list()
-
+  
   # Loop through each event in acou_data
   for (event_name in names(acou_data@events)) {
     event <- acou_data@events[[event_name]]
-
+    
     # Get species directly from event@species
     species <- event@species
     # Check if the event contains detectors
@@ -200,19 +200,22 @@ process_acoustic_data <- function(acou_data) {
       # Loop through each detector within the event
       for (detector_name in names(event@detectors)) {
         detector_data <- event@detectors[[detector_name]]
-
-        first_utc <- if ("UTC" %in% colnames(detector_data)) {
-          format(as.POSIXct(detector_data$UTC[1], tz = "UTC"), "%Y-%m-%d %H:%M")
+        
+        if ("UTC" %in% colnames(detector_data)) {
+          first_utc <- format(as.POSIXct(detector_data$UTC[1], tz = "UTC"), "%Y-%m-%d %H:%M")
+          last_utc  <- format(as.POSIXct(tail(detector_data$UTC, 1), tz = "UTC"), "%Y-%m-%d %H:%M")
         } else {
-          NA
+          first_utc <- NA
+          last_utc  <- NA
         }
-
+        
         # Create a data frame entry for this detector
         event_list[[length(event_list) + 1]] <- data.frame(
-          Event = event_name,
+          Event    = event_name,
           Detector = detector_name,
-          Species = as.character(species),
-          Time = first_utc,
+          Species  = as.character(species),
+          Start = first_utc,
+          Finish  = last_utc,
           stringsAsFactors = FALSE
         )
       }
