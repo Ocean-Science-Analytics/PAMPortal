@@ -81,6 +81,16 @@ background = '#F2F2F2'
 text = '#55636f'
 font = "Roboto"
 
+font_sizes <- c(
+  "title" = 20,
+  "ticks" = 14,
+  "facets" = 16,
+  "axis labels" = 18,
+  "legend title" = 14,
+  "legend text" = 12
+)
+
+
 #' Process Zip File
 #' 
 #' @description Processes the project zip files for the app
@@ -373,13 +383,10 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
   if (see_duty_cycle==FALSE) {
     annotated <- annotated[annotated$presence != 'Not Sampled', ]
   }
-
-  loc_str <- str_replace(location, "(?<=.)(?=[A-Z])", " ")
   
   p <- ggplot(annotated, aes(x = time_str, y = day)) +
     
-    # geom_tile(data = subset(annotated, subset = (daylight==FALSE)),
-    #           fill="#2e4482", alpha = 0.25) +
+    geom_tile(aes(fill = presence)) +
     
     # Background tiles for night (adds legend entry with dummy fill)
     geom_tile(data = subset(annotated, daylight == FALSE),
@@ -389,7 +396,7 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
     geom_tile(data = subset(annotated, presence == "Not Sampled"),
               aes(fill = "No effort"), alpha = 0.5) +
     
-    geom_tile(aes(fill = presence)) +
+    
     
     scale_fill_manual(
       values = c("No Events" = background, 
@@ -408,11 +415,10 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
       breaks = levels(annotated$day),  # Tick mark at every day
       labels = function(x) ifelse(x %in% y_breaks, x, "")  # Label only every 7th
     )+
-    #scale_y_discrete(breaks = y_breaks) +
     
     theme(
-      axis.text.x = element_text(angle = 45, hjust = 0, size = 15, family = font, color = text),
-      axis.text.y = element_text(size = 15, family = font, color = text),
+      axis.text.x = element_text(angle = 45, hjust = 0, size = font_sizes['ticks'], family = font, color = text),
+      axis.text.y = element_text(family = font, color = text, size = font_sizes['ticks']),
       
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
@@ -420,18 +426,19 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
       axis.line = element_blank(),
       
       plot.title = element_text(hjust = 0.5, margin = margin(b=20),
-                                color=text, family=font, size=18),
+                                color=text, family=font, size=font_sizes['title']),
       
       legend.text = element_text(color=text, 
                                  family=font,
-                                 size = 15,
+                                 size = font_sizes['legend text'],
                                  margin = margin(r=15, l=5)),
       legend.title = element_text(color=text, 
-                                  family=font),
+                                  family=font,
+                                  size = font_sizes['legend title']),
       legend.position = "bottom",
       legend.direction = "horizontal",
       legend.justification = "center",
-      legend.box = "horizontal",          # forces box layout
+      legend.box = "horizontal",
       legend.box.just = "center",
       legend.margin = margin(t = 10),
       plot.margin = margin(20, 20, 20, 20)
@@ -446,12 +453,11 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
     ) +
     
     labs(x = NULL, y = NULL, 
-         title=paste(loc_str, "Event Detections"),
+         title=paste(location, "Event Detections"),
          fill="")
   
   return(p) 
 }
-
 
 #' Concat Whistes
 #' 
@@ -526,12 +532,12 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
     
     theme_minimal(base_size=14) +
     theme(
-      axis.text.x = element_text(angle=45, hjust=1),
+      axis.text.x = element_text(angle=45, hjust=1, size = font_sizes['ticks']),
       text = element_text(family = font, color = text),
       strip.text = element_text(hjust = 0, family=font, 
-                                color=text, face='bold'),
+                                color=text, face='bold', size = font_sizes['facets']),
       
-      axis.title.y = element_text(margin = margin(r = 10)),
+      axis.title.y = element_text(margin = margin(r = 10), size = font_sizes['axis labels']),
       
       panel.spacing = unit(1, "lines"),
       
@@ -541,7 +547,7 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
       
       legend.key = element_rect(fill = background, color = NA),
       legend.position = "bottom",
-      legend.text = element_text(margin = margin(r=25, l=5))
+      legend.text = element_text(margin = margin(r=25, l=5), size = font_sizes['legend title'])
     )
   
   return(p)
@@ -554,6 +560,7 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
 #' 
 occr_events <- function(location, base_path, species_list = c('All')) {
   library(lubridate)
+  
   #rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
   rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
   species_df <- data.frame()
@@ -622,26 +629,51 @@ occr_events <- function(location, base_path, species_list = c('All')) {
     mutate(day = as.Date(date)) %>%
     select(day, sunrise, sunset)
   
-  
-  merged <- merged %>%
-    left_join(sun_times, by = "day", relationship = "many-to-many") %>%
-    mutate(
-      #day_date = as.Date(as.character(day)),
-      time_hms = hms::as_hms(sprintf("%02d:00:00", hour)),
-      sunrise_hms = hms::as_hms(format(sunrise, "%H:%M:%S")),
-      sunset_hms  = hms::as_hms(format(sunset, "%H:%M:%S")),
-      
-      daylight = case_when(
-        (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% 4:9 ~
-          TRUE,
+  if (latitude >= 0) {
+    merged <- merged %>%
+      left_join(sun_times, by = "day", relationship = "many-to-many") %>%
+      mutate(
+        #day_date = as.Date(as.character(day)),
+        time_hms = hms::as_hms(sprintf("%02d:00:00", hour)),
+        sunrise_hms = hms::as_hms(format(sunrise, "%H:%M:%S")),
+        sunset_hms  = hms::as_hms(format(sunset, "%H:%M:%S")),
         
-        sunset_hms > sunrise_hms ~ 
-          time_hms >= sunrise_hms & time_hms < sunset_hms,
-        sunset_hms < sunrise_hms ~ 
-          time_hms >= sunrise_hms | time_hms < sunset_hms
-      )) %>%
-    mutate(time_hour = substr(time_hms, 1,5))%>%
-    select(species, day, time_hour, total_duration, daylight)
+        daylight = case_when(
+          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% 4:9 ~
+            TRUE,
+          
+          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% c(10, 11, 12, 1, 2, 3) ~ FALSE,
+          
+          sunset_hms > sunrise_hms ~ 
+            time_hms >= sunrise_hms & time_hms < sunset_hms,
+          sunset_hms < sunrise_hms ~ 
+            time_hms >= sunrise_hms | time_hms < sunset_hms
+        )) %>%
+      mutate(time_hour = substr(time_hms, 1,5))%>%
+      select(species, day, time_hour, total_duration, daylight)
+  } else {
+    merged <- merged %>%
+      left_join(sun_times, by = "day", relationship = "many-to-many") %>%
+      mutate(
+        time_hms = hms::as_hms(sprintf("%02d:00:00", hour)),
+        sunrise_hms = hms::as_hms(format(sunrise, "%H:%M:%S")),
+        sunset_hms  = hms::as_hms(format(sunset, "%H:%M:%S")),
+        
+        daylight = case_when(
+          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% 4:9 ~
+            FALSE,
+          
+          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% c(10, 11, 12, 1, 2, 3) ~ TRUE,
+          
+          sunset_hms > sunrise_hms ~ 
+            time_hms >= sunrise_hms & time_hms < sunset_hms,
+          sunset_hms < sunrise_hms ~ 
+            time_hms >= sunrise_hms | time_hms < sunset_hms
+        )) %>%
+      mutate(time_hour = substr(time_hms, 1,5))%>%
+      select(species, day, time_hour, total_duration, daylight)
+  }
+
   
   return(merged)
 }
@@ -653,16 +685,18 @@ occr_events <- function(location, base_path, species_list = c('All')) {
 #' 
 occurrence_plot <- function(location, base_path, species_list = c('All')) {
   library(stringr)
-  df <- occr_events(location, base_path, species_list)
+  library(scales)
+  df <- occr_events(location, base_path, species_list) %>%
+    mutate(hour = as.numeric(substr(time_hour, 1, 2)))
   
   all_days <- seq(min(df$day), max(df$day), by = "1 day")
   week <- seq(min(df$day), max(df$day), by = "7 days")
   shadow <- df %>% filter(!daylight)
   
   breaks <- sprintf("%02d:00", seq(0, 24, by = 6))
-  #loc_str <- str_replace(location, "(?<=.)(?=[A-Z])", " ")
+
   
-  p <- ggplot(df, aes(x = day, y = time_hour, fill = total_duration)) +
+  p <- ggplot(df, aes(x = day, y = hour, fill = total_duration)) +
     geom_tile(data = shadow, fill='black', alpha = 0.25) +
     geom_tile() +
     facet_wrap(~species, ncol=1) +
@@ -676,7 +710,7 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
         barheight = unit(6, 'cm')
       )) +
     
-    scale_y_discrete(breaks=breaks, expand=c(0,0)) +
+    scale_y_continuous(breaks=breaks_extended(), expand=c(0,0)) +
     scale_x_date(breaks = week,
                  minor_breaks = all_days,
                  date_labels = "%b %d",
@@ -691,19 +725,21 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
       panel.background = element_rect(fill = "#F2F2F2", color = NA),
       legend.position = "right",
       legend.title = element_text(angle = 270, vjust = 0.5,
-                                  color=text, family=font),
+                                  color=text, family=font, 
+                                  size = font_sizes['legend title']),
       legend.text = element_text(color=text, 
                                  family=font, 
-                                 margin = margin(r=4)),
+                                 margin = margin(r=4), 
+                                 size = font_sizes['legend text']),
       
       strip.text = element_text(hjust = 0, family=font, color=text,
-                                size=12),
-      axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title.y = element_text(family=font, color=text, margin=margin(r=10), size = 14),
+                                size=font_sizes['facets']),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = font_sizes['ticks']),
+      axis.text.y = element_text(size = font_sizes['ticks']),
+      axis.title.y = element_text(family=font, color=text, margin=margin(r=10), size = font_sizes['axis labels']),
       
       plot.title = element_text(hjust = 0.5, margin = margin(b=10),
-                                color=text, family=font, size=14),
+                                color=text, family=font, size=font_sizes['title']),
       
       panel.grid.major.x = element_line(color = "gray60", size = 0.4),
       panel.grid.minor.x = element_line(color = "gray80", size = 0.4),
