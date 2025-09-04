@@ -48,77 +48,6 @@ mod_analysis_ui <- function(id) {
     
     tabsetPanel(
       tabPanel(
-        "Effort & Detections",
-        br(),
-        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
-          fluidRow(
-            column(
-              width = 3,
-              selectInput(ns("location"), "Select Location", choices = NULL),
-              checkboxInput(ns("see_duty"), "Show Full Duty Cycle", value = FALSE),
-              uiOutput(ns("duty_text"))
-              #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
-            ),
-            column(
-              width = 1, 
-              align = "middle",
-              div(style = "height: 100%; border-right: 2px solid black;")
-            ),
-            column(
-              width = 2,
-              tags$div(
-                style = "margin-bottom: 10px;",
-                actionButton(ns("render_plot"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
-              ),
-              downloadButton(ns("download_effort_plot"), "Download Plot", class = "btn-success")
-            )
-          ),
-        ),
-        div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
-          actionButton(ns("effort_description"), "", icon = shiny::icon("question"), class = "custom-btn")
-        ),
-        br(),
-        plotOutput(ns("effort_plot"),height = "600px")
-      ),
-      tabPanel(
-        "Distribution",
-        br(),
-        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
-            fluidRow(
-              column(
-                width = 3,
-                selectInput(ns("location_dis"), "Select Location", choices = NULL, multiple = TRUE),
-                selectInput(ns("event_filter"), "Select Events", choices = c("All"), selected = "ALL", multiple = TRUE)
-              ),
-              column(
-                width = 2,
-                selectInput(ns("distribution_variable"), "Select Variable", selected = "freqbeg", choices = names(var_names)),
-                selectInput(ns("species_filter"), "Select Species", choices = c("All"), selected = "ALL", multiple = TRUE)
-              ),
-              column(
-                width = 1, 
-                align = "middle",
-                div(style = "height: 100%; border-right: 2px solid black;")
-              ),
-              column(
-                width = 2,
-                tags$div(
-                  style = "margin-bottom: 10px;",
-                  actionButton(ns("render_distribution"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
-                ),
-                downloadButton(ns("download_distribution_plot"), "Download Plot", class = "btn-success")
-              )
-            ),
-        ),
-        div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
-          actionButton(ns("dstrb_description"), "", icon = shiny::icon("question"), class = "custom-btn")
-        ),
-        br(),
-        plotOutput(ns("distribution_plot"), height = "600px")
-      ),
-      tabPanel(
         "Occurrence",
         br(),
         div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
@@ -152,7 +81,93 @@ mod_analysis_ui <- function(id) {
           actionButton(ns("occr_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
-        plotOutput(ns("occr_plot"),height = "600px")
+        withSpinner(
+          plotOutput(ns("occr_plot"), height = "700px"),
+          type = 4,        # spinner style (1–8)
+          color = "#001f3f" # customize color (green here)
+        )
+        #plotOutput(ns("occr_plot"),height = "600px")
+      ),
+      tabPanel(
+        "Call Measurments",
+        br(),
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
+            fluidRow(
+              column(
+                width = 3,
+                selectInput(ns("location_dis"), "Select Location", choices = NULL, multiple = TRUE),
+                selectInput(ns("event_filter"), "Select Events", choices = c("All"), selected = "ALL", multiple = TRUE)
+              ),
+              column(
+                width = 2,
+                selectInput(ns("distribution_variable"), "Select Variable", selected = "freqbeg", choices = names(var_names)),
+                selectInput(ns("species_filter"), "Select Species", choices = c("All"), selected = "ALL", multiple = TRUE)
+              ),
+              column(
+                width = 1, 
+                align = "middle",
+                div(style = "height: 100%; border-right: 2px solid black;")
+              ),
+              column(
+                width = 2,
+                tags$div(
+                  style = "margin-bottom: 10px;",
+                  actionButton(ns("render_distribution"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
+                ),
+                downloadButton(ns("download_distribution_plot"), "Download Plot", class = "btn-success")
+              )
+            ),
+        ),
+        div(
+          style = "display: flex; justify-content: flex-end; width: 100%;",
+          actionButton(ns("dstrb_description"), "", icon = shiny::icon("question"), class = "custom-btn")
+        ),
+        br(),
+        withSpinner(
+          plotOutput(ns("distribution_plot"), height = "700px"),
+          type = 4,        # spinner style (1–8)
+          color = "#001f3f" # customize color (green here)
+        )
+        #plotOutput(ns("distribution_plot"), height = "600px")
+      ),
+      tabPanel(
+        "Effort & Detections",
+        br(),
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
+            fluidRow(
+              column(
+                width = 3,
+                selectInput(ns("location"), "Select Location", choices = NULL),
+                checkboxInput(ns("see_duty"), "Show Full Duty Cycle", value = FALSE),
+                uiOutput(ns("duty_text"))
+                #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
+              ),
+              column(
+                width = 1, 
+                align = "middle",
+                div(style = "height: 100%; border-right: 2px solid black;")
+              ),
+              column(
+                width = 2,
+                tags$div(
+                  style = "margin-bottom: 10px;",
+                  actionButton(ns("render_plot"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
+                ),
+                downloadButton(ns("download_effort_plot"), "Download Plot", class = "btn-success")
+              )
+            ),
+        ),
+        div(
+          style = "display: flex; justify-content: flex-end; width: 100%;",
+          actionButton(ns("effort_description"), "", icon = shiny::icon("question"), class = "custom-btn")
+        ),
+        br(),
+        withSpinner(
+          plotOutput(ns("effort_plot"), height = "700px"),
+          type = 4,        # spinner style (1–8)
+          color = "#001f3f" # customize color (green here)
+        )
+        #plotOutput(ns("effort_plot"),height = "600px")
       )
     )
   )
@@ -266,6 +281,10 @@ mod_analysis_server <- function(id, data){
     })
     
     observeEvent(input$render_distribution, {
+      if (is.null(input$location_dis) || length(input$location_dis) == 0) {
+        showNotification("Please select a location before rendering the plot.", type = "warning")
+        return(NULL)  # Exit early
+      }
       distribution_plot_obj({
         isolate({
           req(input$location_dis, input$distribution_variable) 
