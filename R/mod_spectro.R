@@ -64,7 +64,10 @@ mod_spectro_ui <- function(id) {
 mod_spectro_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+    library(uuid)
+    base_path <- reactive({
+      req(data$selected_dir())
+    })
     tree <- reactive(data$acoustic_file_tree())
     
     audio_dir <- file.path(tempdir(), "audio")
@@ -119,7 +122,51 @@ mod_spectro_server <- function(id, data) {
           wav_path_val <- input[[fileInput]]
           wl_val <- input[[paste0("wl_", index)]]
           if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
-          audio_name <- paste0("audio_", index, ".wav")
+          
+          # === Find event name from folder selection ===
+          selected_loc <- input[[locationInput]]
+          selected_name <- input[[folderInput]]
+          
+          # Build comments path
+          comments_path <- file.path(base_path(), "Audio", selected_loc, paste0(selected_loc, "_species_list.csv"))
+          
+          if (file.exists(comments_path)) {
+            comments_df <- read.csv(comments_path, stringsAsFactors = FALSE)
+            comments_df <- comments_df[, c("Event", "Description", "Analyst_Comments")]
+          } else {
+            comments_df <- data.frame(
+              Event = character(0), 
+              Description = character(0), 
+              Analyst_Comments = character(0)
+            )
+          }
+          
+          # Match current Event row (if exists)
+          current_desc <- ""
+          current_analysis <- ""
+          
+          if (nrow(comments_df) > 0) {
+            row_match <- comments_df[comments_df$Event == selected_name, ]
+            if (nrow(row_match) > 0) {
+              current_desc <- row_match$Description[1]
+              current_analysis <- row_match$Analyst_Comments[1]
+            }
+          }
+          
+          # Render event + description + analysis to UI
+          # output[[paste0("event_name_", index)]] <- renderText({
+          #   selected_name
+          # })
+          output[[paste0("description_", index)]] <- renderText({
+            current_desc
+          })
+          output[[paste0("analysis_", index)]] <- renderText({
+            current_analysis
+          })
+          
+          # This collects the audio file
+          unique_tag <- gsub("-", "", uuid::UUIDgenerate())
+          audio_name <- paste0("audio_", index, "_", unique_tag, ".wav")
           temp_audio_path <- file.path(audio_dir, audio_name)
           
           ####!!!!!!!!!!!!!!!!!!!
@@ -127,19 +174,22 @@ mod_spectro_server <- function(id, data) {
           session$sendCustomMessage("stopAudio", list(id = ns(paste0("audio_element_", index))))
           
           later::later(function() {
-            if (file.exists(temp_audio_path)) {
-              file.remove(temp_audio_path)
-            }
+            # remove old file for this index (optional) - removes any previous audio_N_*.wav for this index
+            old_files <- list.files(audio_dir, pattern = paste0("^audio_", index, "_.*\\.wav$"), full.names = TRUE)
+            if (length(old_files) > 0) file.remove(old_files)
+            
+            # copy into unique file
             file.copy(from = wav_path_val, to = temp_audio_path, overwrite = TRUE)
             
-            # Now render the audio player and spectrogram
+            # Now render the audio player and spectrogram; add a cache-busting query param
             output[[paste0("audio_", index)]] <- renderUI({
               tagList(
                 tags$audio(
                   id = ns(paste0("audio_element_", index)),
-                  controls = T,
+                  controls = TRUE,
                   style = "width: 50%; margin-top: 5px;",
-                  tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
+                  # append timestamp query so browser always re-fetches the correct file
+                  tags$source(src = paste0(file.path("temp_audio", audio_name), "?v=", unique_tag), type = "audio/wav"),
                   "Your browser does not support the audio element."
                 )
               #   tags$script(HTML(sprintf("
