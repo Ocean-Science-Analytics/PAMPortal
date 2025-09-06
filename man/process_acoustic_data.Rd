@@ -7,7 +7,7 @@
 process_acoustic_data(acou_data)
 }
 \description{
-Process the acoustic data from a specific PAMPal rds file.
+Processes the acoustic data from a specific PAMPal rds file.
 }
 \examples{
 process_acoustic_data(acou_data)

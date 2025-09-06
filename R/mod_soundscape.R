@@ -129,7 +129,7 @@ mod_soundscape_server <- function(id, data){
       } else {
         bandwidths <- sub(" Hz", "", selected_band)
       }
-      browser()
+      
       df <- all_data(sites, bandwidths, base_path)
       
       col_pal <- c("#4A90A4", "#DB9A8E", "#849F99", "#9D9B90")
