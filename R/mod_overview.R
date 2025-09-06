@@ -96,6 +96,11 @@ mod_overview_ui <- function(id) {
           word-wrap: break-word !important;
           max-width: 120px;  /* keep Event column narrower */
         }
+        table th:nth-child(2), table td:nth-child(2) {
+          white-space: normal !important;
+          word-wrap: break-word !important;
+          max-width: 120px;  /* keep Event column narrower */
+        }
       "))
     ),
     
@@ -252,7 +257,7 @@ mod_overview_server <- function(id, data){
                    class = "custom-card",
                    bslib::card_header(HTML(paste0(
                      as.character(shiny::icon("list-alt")), 
-                     "<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Events</span>"
+                     "<span style='font-weight: bold; font-size: 1.4em; margin-left: 8px;'>Species Events</span>"
                    ))),
                    uiOutput(ns("dynamic_accordion"))
                  )
@@ -388,6 +393,7 @@ mod_overview_server <- function(id, data){
 
       # Species dataframe from your process_acoustic_data
       species_df <- species_data()
+      print(species_df)
 
       # Load analyst comments file
       comments_path <- file.path(base_path(), "Audio", selected_name, paste0(selected_name, "_species_list.csv"))
@@ -411,7 +417,7 @@ mod_overview_server <- function(id, data){
       )
       str(merged_df)
       # Split into species-specific tables
-      species_list <- split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")],
+      species_list <- split(merged_df[, c("Event", "Detector", "Start", "Finish")], # split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")]
                             merged_df$Species)
       #print(species_list)
 
@@ -462,7 +468,7 @@ mod_overview_server <- function(id, data){
         by = "Event"
       )
       
-      species2_list <- split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")],
+      species2_list <- split(merged_df[, c("Event", "Detector", "Start", "Finish")],
                              merged_df$Species)
       
       purrr::imap(species2_list, function(df, species_name) {
@@ -487,6 +493,23 @@ mod_overview_server <- function(id, data){
     #########################################################################
     # Interactive Pie Chart
     #########################################################################
+    # Make sure the same species are colored the same across pie charts
+    species_colors <- reactive({
+      # Get all unique species across both datasets
+      sp1 <- unique(species_data()$Species)
+      sp2 <- if (isTRUE(input$compare)) unique(species2_data()$Species) else character(0)
+      all_species <- sort(unique(c(sp1, sp2)))
+      
+      # Pick a palette long enough for all species
+      palette <- RColorBrewer::brewer.pal(max(3, min(length(all_species), 12)), "Set3")
+      
+      # Recycle colors if needed
+      colors <- rep(palette, length.out = length(all_species))
+      
+      # Create named vector mapping
+      setNames(colors, all_species)
+    })
+    
     output$card2 <- renderPlotly({
       req(data$rds_data())
       species_df <- species_data()  # <-- reuse the reactive result
@@ -499,6 +522,8 @@ mod_overview_server <- function(id, data){
       }
       
       species_counts <- table(species_df$Species)
+      color_map <- species_colors()
+      
       
       # Create a pie chart
       plot_ly(
@@ -508,7 +533,8 @@ mod_overview_server <- function(id, data){
         textinfo = "label+percent",
         textposition = "inside", 
         hoverinfo = "label+value+percent",
-        marker = list(colors = RColorBrewer::brewer.pal(length(species_counts), "RdYlBu"))) %>% # Also like 'Set3', 'Blues', and 'RdYlBu'. See https://r-graph-gallery.com/38-rcolorbrewers-palettes
+        marker = list(colors = unname(color_map[names(species_counts)])) #marker = list(colors = RColorBrewer::brewer.pal(length(species_counts), "RdYlBu"))) %>% # Also like 'Set3', 'Blues', and 'RdYlBu'. See https://r-graph-gallery.com/38-rcolorbrewers-palettes
+        ) %>% 
         layout(title = NULL, 
                legend = list(
                  orientation = "h", 
@@ -536,6 +562,7 @@ mod_overview_server <- function(id, data){
       }
       
       species_counts <- table(species2_df$Species)
+      color_map <- species_colors()
       
       plot_ly(
         labels = names(species_counts),
@@ -544,7 +571,7 @@ mod_overview_server <- function(id, data){
         textinfo = "label+percent",
         textposition = "inside",
         hoverinfo = "label+value+percent",
-        marker = list(colors = RColorBrewer::brewer.pal(length(species_counts), "Set3"))
+        marker = list(colors = unname(color_map[names(species_counts)])) #marker = list(colors = RColorBrewer::brewer.pal(length(species_counts), "Set3"))
       ) %>%
         layout(
           title = NULL,
