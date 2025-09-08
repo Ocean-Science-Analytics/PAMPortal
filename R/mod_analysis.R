@@ -211,7 +211,7 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     # Effort & Detection Plot
     ###################################################################
-    effort_plot_event <- eventReactive(input$render_plot, {
+    effort_plot_obj <- eventReactive(input$render_plot, {
       req(base_path(), input$location)
       showNotification("Loading Effort & Detection Plot...", type = "message")
       
@@ -222,11 +222,9 @@ mod_analysis_server <- function(id, data){
       } else {
         list()
       }
-      #print(dc_file)
-      #print(duty_lookup)
       
       duty_min <- if (isTRUE(input$see_duty)) duty_lookup[[input$location]] else 60
-      # call heavy work here
+      
       effort_plot(
         location = input$location,
         base_path = base_path(),
@@ -236,9 +234,8 @@ mod_analysis_server <- function(id, data){
     }, ignoreNULL = TRUE)
     
     output$effort_plot <- renderPlot({
-      # render only when eventReactive has produced a plot
-      req(effort_plot_event())
-      effort_plot_event()
+      req(effort_plot_obj())
+      effort_plot_obj()
     })
     
     # still provide the duty text UI
@@ -277,14 +274,8 @@ mod_analysis_server <- function(id, data){
       updateSelectInput(session, "event_filter", choices = c("All", event_choices), selected = "All")
     })
     
-    distribution_plot_event <- eventReactive(input$render_distribution, {
-      # validate inputs up front
-      if (is.null(input$location_dis) || length(input$location_dis) == 0) {
-        showNotification("Please select a location before rendering the plot.", type = "warning")
-        return(NULL)
-      }
+    distribution_plot_obj <- eventReactive(input$render_distribution, {
       req(base_path(), input$location_dis, input$distribution_variable)
-      
       showNotification("Loading Distribution Plot...", type = "message")
       
       distribution_plot(
@@ -297,8 +288,8 @@ mod_analysis_server <- function(id, data){
     }, ignoreNULL = TRUE)
     
     output$distribution_plot <- renderPlot({
-      req(distribution_plot_event())
-      distribution_plot_event()
+      req(distribution_plot_obj())
+      distribution_plot_obj()
     })
     
     
@@ -317,7 +308,7 @@ mod_analysis_server <- function(id, data){
                         selected = "All")
     })
     
-    occurrence_plot_event <- eventReactive(input$render_occr, {
+    occurrence_plot_obj <- eventReactive(input$render_occr, {
       req(base_path(), input$location_occr, input$species_filter_occr)
       showNotification("Rendering Occurrence Plot...", type = "message")
       
@@ -329,8 +320,8 @@ mod_analysis_server <- function(id, data){
     }, ignoreNULL = TRUE)
     
     output$occr_plot <- renderPlot({
-      req(occurrence_plot_event())
-      occurrence_plot_event()
+      req(occurrence_plot_obj())
+      occurrence_plot_obj()
     })
     
     ###################################################################
