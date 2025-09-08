@@ -74,7 +74,7 @@ palette_main <- function(){
 
 #' secondary color palette used for data viz elements.
 palette_secondary <- c("#4A90A4", "#DB9A8E", "#2B7A78", "#D6C4A2", "#1C3D57",
-             "#F4C542", "#E69F00", "#7F8B89", "#00CED1", "#CC79A7")
+             "#F4C542", "#E69F00", "#00CED1", "#CC79A7", "#35AD6B", "#724887")
 
 
 background = '#F2F2F2'
@@ -302,10 +302,10 @@ sp_annotations <- function(location, base_path, duty_cycle_min=60) {
     hour = 0:23, minute = 0:59)
   
   species_df <- pull_events(location, base_path)
-  #browser()
+  
   annotated <- full_grid %>%
     left_join(day_hour_present %>% 
-                mutate(effort = TRUE), by = c("day", "hour")) %>%
+                mutate(effort = TRUE), by = c("day", "hour"), relationship = "many-to-many") %>%
     mutate(effort = replace_na(effort, FALSE)) %>%
     left_join(species_df, by = c("day", "hour", "minute")) %>%
     mutate(presence = case_when(
@@ -361,60 +361,76 @@ sp_annotations <- function(location, base_path, duty_cycle_min=60) {
   return(annotated)
 }
 
-
 #' Effort Plot
 #' 
 #' @description This function creates the effort/detection plot for the data visualization tab
 #'
 effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_min = 60) {
   
+  # Get annotated data
   annotated <- sp_annotations(location, base_path, duty_cycle_min)
-  species_colors <- setdiff(unique(annotated$presence), 
-                            c("Not Sampled", "No Events"))
-  species_palette <- setNames(palette_secondary[seq_along(species_colors)], species_colors)
   
-  annotated$presence <- factor(annotated$presence, 
-                               levels = c("No Events", "Not Sampled", species_colors,
-                                          "Night time", "No effort"))
-
+  # Recode "No Events" into separate Day/Night categories
+  annotated <- annotated %>%
+    mutate(
+      presence = case_when(
+        presence == "No Events" & daylight ~ "No Events (Day)",
+        presence == "No Events" & !daylight ~ "No Events (Night)",
+        TRUE ~ presence
+      )
+    )
+  
+  # Build color palette
+  species_colors <- setdiff(
+    unique(annotated$presence), 
+    c("Not Sampled", "No Events (Day)", "No Events (Night)")
+  )
+  species_palette <- setNames(
+    palette_secondary[seq_along(species_colors)], 
+    species_colors
+  )
+  
+  annotated$presence <- factor(
+    annotated$presence,
+    levels = c("No Events (Day)", "No Events (Night)", "Not Sampled", species_colors, "No effort")
+  )
+  
   hour_labels <- sprintf("%02d:00", 0:23)
   y_breaks <- levels(annotated$day)[seq(1, length(levels(annotated$day)), by = 7)]
-
-  if (see_duty_cycle==FALSE) {
-    annotated <- annotated[annotated$presence != 'Not Sampled', ]
+  
+  if (see_duty_cycle == FALSE) {
+    annotated <- annotated[annotated$presence != "Not Sampled", ]
   }
   
+  # Plot
   p <- ggplot(annotated, aes(x = time_str, y = day)) +
     
-    geom_tile(aes(fill = presence)) +
+    geom_tile(aes(fill = presence), alpha = 0.5) +
     
-    # Background tiles for night (adds legend entry with dummy fill)
-    geom_tile(data = subset(annotated, daylight == FALSE),
-              aes(fill = "Night"), alpha = 0.4) +
-    
-    # No-effort tiles (adds legend entry with dummy fill)
-    geom_tile(data = subset(annotated, presence == "Not Sampled"),
-              aes(fill = "No effort"), alpha = 0.5) +
-    
-    
+    # No-effort tiles (dummy fill for legend)
+    geom_tile(
+      data = subset(annotated, presence == "Not Sampled"),
+      aes(fill = "No effort"),
+      alpha = 0.5
+    ) +
     
     scale_fill_manual(
-      values = c("No Events" = background, 
-                 "Not Sampled" = alpha(text, 0.25),
-                 species_palette,
-                 "spacer" = NA, 
-                 "Night" = "#2e4482",  
-                 "No events" = "#9D9B90",
-                 "No effort" = "#F2F2F2"),
-      breaks = c(species_colors, "Night", "No effort", "No events"),
-      labels = c(species_colors, "Night", "No effort", "No events")
+      values = c(
+        "No Events (Day)" = background,
+        "No Events (Night)" = "#AEC2CF",
+        "Not Sampled" = alpha(text, 0.25),
+        species_palette,
+        "No effort" = "#F2F2F2"
+      ),
+      breaks = c(species_colors, "No Events (Day)", "No Events (Night)", "No effort"),
+      labels = c(species_colors, "No Events (Day)", "No Events (Night)", "No effort")
     ) +
     
     scale_x_discrete(breaks = hour_labels, position = "top") +
     scale_y_discrete(
-      breaks = levels(annotated$day),  # Tick mark at every day
-      labels = function(x) ifelse(x %in% y_breaks, x, "")  # Label only every 7th
-    )+
+      breaks = levels(annotated$day),
+      labels = function(x) ifelse(x %in% y_breaks, x, "")
+    ) +
     
     theme(
       axis.text.x = element_text(angle = 45, hjust = 0, size = font_sizes['ticks'], family = font, color = text),
@@ -426,14 +442,14 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
       axis.line = element_blank(),
       
       plot.title = element_text(hjust = 0.5, margin = margin(b=20),
-                                color=text, family=font, size=font_sizes['title']),
+                                color = text, family = font, size = font_sizes['title']),
       
-      legend.text = element_text(color=text, 
-                                 family=font,
+      legend.text = element_text(color = text, 
+                                 family = font,
                                  size = font_sizes['legend text'],
                                  margin = margin(r=15, l=5)),
-      legend.title = element_text(color=text, 
-                                  family=font,
+      legend.title = element_text(color = text, 
+                                  family = font,
                                   size = font_sizes['legend title']),
       legend.position = "bottom",
       legend.direction = "horizontal",
@@ -448,16 +464,17 @@ effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_
       fill = guide_legend(
         nrow = 2,
         byrow = TRUE,
-        override.aes = list(colour = "black", size = 0.2)  # Outline around each swatch
+        override.aes = list(colour = "black", size = 0.2)
       )
     ) +
     
     labs(x = NULL, y = NULL, 
-         title=paste(location, "Event Detections"),
-         fill="")
+         title = paste(location, "Event Detections"),
+         fill = "")
   
   return(p) 
 }
+
 
 #' Concat Whistes
 #' 
