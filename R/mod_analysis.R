@@ -43,6 +43,10 @@ mod_analysis_ui <- function(id) {
           background-color: lightskyblue !important;
           cursor: pointer;
         }
+        .load-container {
+          align-items: flex-start !important; /* move spinner to the top */
+          padding-top: 20px;                  /* add some spacing from top */
+        }
         "))
     ),
     
@@ -81,11 +85,12 @@ mod_analysis_ui <- function(id) {
           actionButton(ns("occr_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
-        withSpinner(
-          plotOutput(ns("occr_plot"), height = "700px"),
-          type = 4,        # spinner style (1–8)
-          color = "#001f3f" # customize color (green here)
-        )
+        # withSpinner(
+        #   plotOutput(ns("occr_plot"), height = "700px"),
+        #   type = 4,        # spinner style (1–8)
+        #   color = "#001f3f" # customize color (green here)
+        # )
+        withSpinner(plotOutput(ns("occr_plot"), height = "700px"), type = 4, color = "#001f3f",caption="Loading Occurrence Plot...")
         #plotOutput(ns("occr_plot"),height = "600px")
       ),
       tabPanel(
@@ -123,11 +128,7 @@ mod_analysis_ui <- function(id) {
           actionButton(ns("dstrb_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
-        withSpinner(
-          plotOutput(ns("distribution_plot"), height = "700px"),
-          type = 4,        # spinner style (1–8)
-          color = "#001f3f" # customize color (green here)
-        )
+        withSpinner(plotOutput(ns("distribution_plot"), height = "700px"), type = 4, color = "#001f3f",caption="Loading Distribution Plot...")
         #plotOutput(ns("distribution_plot"), height = "600px")
       ),
       tabPanel(
@@ -162,11 +163,7 @@ mod_analysis_ui <- function(id) {
           actionButton(ns("effort_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
-        withSpinner(
-          plotOutput(ns("effort_plot"), height = "700px"),
-          type = 4,        # spinner style (1–8)
-          color = "#001f3f" # customize color (green here)
-        )
+        withSpinner(plotOutput(ns("effort_plot"), height = "700px"), type = 4, color = "#001f3f", caption="Loading Effort Plot...")
         #plotOutput(ns("effort_plot"),height = "600px")
       )
     )
@@ -214,47 +211,47 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     # Effort & Detection Plot
     ###################################################################
-    observeEvent(input$render_plot, {
-      req(base_path)
+    effort_plot_event <- eventReactive(input$render_plot, {
+      req(base_path(), input$location)
+      showNotification("Loading Effort & Detection Plot...", type = "message")
+      
       dc_file <- file.path(base_path(), "Duty_Cycles.csv")
+      duty_lookup <- if (file.exists(dc_file)) {
+        dc_df <- read.csv(dc_file, stringsAsFactors = FALSE)
+        setNames(dc_df$dc, dc_df$location)
+      } else {
+        list()
+      }
+      print(dc_file)
+      print(duty_lookup)
+      
+      duty_min <- if (isTRUE(input$see_duty)) duty_lookup[[input$location]] else 60
+      # call heavy work here
+      effort_plot(
+        location = input$location,
+        base_path = base_path(),
+        see_duty_cycle = input$see_duty,
+        duty_cycle_min = if (is.null(duty_min)) 60 else duty_min
+      )
+    }, ignoreNULL = TRUE)
+    
+    output$effort_plot <- renderPlot({
+      # render only when eventReactive has produced a plot
+      req(effort_plot_event())
+      effort_plot_event()
+    })
+    
+    # still provide the duty text UI
+    output$duty_text <- renderUI({
+      req(input$see_duty, input$location)
+      dc_file <- file.path(base_path(), "Duty_Cycles.csv")
+      if (!file.exists(dc_file)) return(NULL)
       duty_cycles_df <- read.csv(dc_file, stringsAsFactors = FALSE)
-      duty_lookup <- setNames(duty_cycles_df$dc, duty_cycles_df$site)
-      
-      effort_plot_obj({
-        isolate({
-          req(input$location)
-          showNotification("Loading Effort & Detection Plot...", type = "message")
-          effort_plot(
-            location = input$location,
-            base_path = base_path(),
-            see_duty_cycle = input$see_duty,
-            duty_cycle_min = if (isTRUE(input$see_duty)) {
-              duty_lookup[[input$location]]
-            } else {
-              60
-            }
-          )
-        })
-      })
-      output$duty_text <- renderUI({
-        req(input$see_duty, input$location)
-        
-        # Read CSV when needed
-        dc_file <- file.path(base_path(), "Duty_Cycles.csv")
-        if (!file.exists(dc_file)) return(NULL)
-        
-        duty_cycles_df <- read.csv(dc_file, stringsAsFactors = FALSE)
-        duty_lookup <- setNames(duty_cycles_df$dc, duty_cycles_df$site)
-        
-        duty_val <- duty_lookup[[input$location]]
-        if (is.null(duty_val)) return(NULL)
-        
-        HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>Duty cycle at <b>{input$location}</b> was <b>{duty_val} minutes</b> every hour.</div>"))
-      })
-      
-      output$effort_plot <- renderPlot({
-        effort_plot_obj()
-      })
+      duty_lookup <- setNames(duty_cycles_df$dc, duty_cycles_df$location)
+      print(duty_lookup)
+      duty_val <- duty_lookup[[input$location]]
+      if (is.null(duty_val)) return(NULL)
+      HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>Duty cycle at <b>{input$location}</b> was <b>{duty_val} minutes</b> every hour.</div>"))
     })
     
     
@@ -280,28 +277,28 @@ mod_analysis_server <- function(id, data){
       updateSelectInput(session, "event_filter", choices = c("All", event_choices), selected = "All")
     })
     
-    observeEvent(input$render_distribution, {
+    distribution_plot_event <- eventReactive(input$render_distribution, {
+      # validate inputs up front
       if (is.null(input$location_dis) || length(input$location_dis) == 0) {
         showNotification("Please select a location before rendering the plot.", type = "warning")
-        return(NULL)  # Exit early
+        return(NULL)
       }
-      distribution_plot_obj({
-        isolate({
-          req(input$location_dis, input$distribution_variable) 
-          showNotification("Loading Distribution Plot...", type = "message")
-          distribution_plot(
-            location_list = input$location_dis,
-            base_path = base_path(),
-            event_list = input$event_filter,
-            variable = input$distribution_variable,
-            species_list = input$species_filter
-          )
-        })
-      })
+      req(base_path(), input$location_dis, input$distribution_variable)
       
-      output$distribution_plot <- renderPlot({
-        distribution_plot_obj()
-      })
+      showNotification("Loading Distribution Plot...", type = "message")
+      
+      distribution_plot(
+        location_list = input$location_dis,
+        base_path = base_path(),
+        event_list = input$event_filter,
+        variable = input$distribution_variable,
+        species_list = input$species_filter
+      )
+    }, ignoreNULL = TRUE)
+    
+    output$distribution_plot <- renderPlot({
+      req(distribution_plot_event())
+      distribution_plot_event()
     })
     
     
@@ -320,24 +317,21 @@ mod_analysis_server <- function(id, data){
                         selected = "All")
     })
     
-    observeEvent(input$render_occr, {
-      occurrence_plot_obj({
-        isolate({
-          req(input$location_occr, input$species_filter_occr)
-          showNotification("Rendering Occurrence Plot...", type = "message")
-          occurrence_plot(
-            location = input$location_occr,
-            base_path = base_path(),
-            species_list = input$species_filter_occr
-          )
-        })
-      })
+    occurrence_plot_event <- eventReactive(input$render_occr, {
+      req(base_path(), input$location_occr, input$species_filter_occr)
+      showNotification("Rendering Occurrence Plot...", type = "message")
       
-      output$occr_plot <- renderPlot({
-        occurrence_plot_obj()
-      })
-    })
+      occurrence_plot(
+        location = input$location_occr,
+        base_path = base_path(),
+        species_list = input$species_filter_occr
+      )
+    }, ignoreNULL = TRUE)
     
+    output$occr_plot <- renderPlot({
+      req(occurrence_plot_event())
+      occurrence_plot_event()
+    })
     
     ###################################################################
     # Download Plot Logic

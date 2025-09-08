@@ -732,8 +732,11 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
                                  margin = margin(r=4), 
                                  size = font_sizes['legend text']),
       
-      strip.text = element_text(hjust = 0, family=font, color=text,
-                                size=font_sizes['facets']),
+      strip.text = element_text(hjust = 0, 
+                                family=font, 
+                                color=text,
+                                size=font_sizes['facets'],
+                                face = "bold"),
       axis.text.x = element_text(angle = 45, hjust = 1, size = font_sizes['ticks']),
       axis.text.y = element_text(size = font_sizes['ticks']),
       axis.title.y = element_text(family=font, color=text, margin=margin(r=10), size = font_sizes['axis labels']),
