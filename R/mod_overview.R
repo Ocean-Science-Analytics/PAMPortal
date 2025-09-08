@@ -393,7 +393,7 @@ mod_overview_server <- function(id, data){
 
       # Species dataframe from your process_acoustic_data
       species_df <- species_data()
-      print(species_df)
+      #print(species_df)
 
       # Load analyst comments file
       comments_path <- file.path(base_path(), "Audio", selected_name, paste0(selected_name, "_species_list.csv"))
@@ -415,7 +415,7 @@ mod_overview_server <- function(id, data){
         comments_df,
         by = "Event"
       )
-      str(merged_df)
+      #str(merged_df)
       # Split into species-specific tables
       species_list <- split(merged_df[, c("Event", "Detector", "Start", "Finish")], # split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")]
                             merged_df$Species)
