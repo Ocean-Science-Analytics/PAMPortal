@@ -222,8 +222,8 @@ mod_analysis_server <- function(id, data){
       } else {
         list()
       }
-      print(dc_file)
-      print(duty_lookup)
+      #print(dc_file)
+      #print(duty_lookup)
       
       duty_min <- if (isTRUE(input$see_duty)) duty_lookup[[input$location]] else 60
       # call heavy work here
@@ -248,7 +248,7 @@ mod_analysis_server <- function(id, data){
       if (!file.exists(dc_file)) return(NULL)
       duty_cycles_df <- read.csv(dc_file, stringsAsFactors = FALSE)
       duty_lookup <- setNames(duty_cycles_df$dc, duty_cycles_df$location)
-      print(duty_lookup)
+      #print(duty_lookup)
       duty_val <- duty_lookup[[input$location]]
       if (is.null(duty_val)) return(NULL)
       HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>Duty cycle at <b>{input$location}</b> was <b>{duty_val} minutes</b> every hour.</div>"))
