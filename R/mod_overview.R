@@ -410,15 +410,37 @@ mod_overview_server <- function(id, data){
       }
       
       # Merge species data with analyst comments by Event
+      # merged_df <- dplyr::left_join(
+      #   species_df,
+      #   comments_df,
+      #   by = "Event"
+      # )
       merged_df <- dplyr::left_join(
         species_df,
         comments_df,
         by = "Event"
-      )
-      #str(merged_df)
+      ) 
+      
+      merged_df_clean <- merged_df %>%
+        mutate(
+          Detector = case_when(
+            Detector == "Whistle_and_Moan_Detector" ~ "Whistle & Moan",
+            grepl("^Click", Detector)               ~ "Click",
+            TRUE                                    ~ Detector
+          )
+        ) %>%
+        group_by(Event, Detector) %>%
+        summarise(
+          Start  = if (first(Detector) == "Click") min(Start) else first(Start),
+          Finish = if (first(Detector) == "Click") max(Finish) else first(Finish),
+          Species = first(Species),
+          Description = first(Description),
+          .groups = "drop"
+        )
+      
       # Split into species-specific tables
-      species_list <- split(merged_df[, c("Event", "Detector", "Start", "Finish")], # split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")]
-                            merged_df$Species)
+      species_list <- split(merged_df_clean[, c("Event", "Detector", "Start", "Finish")], # split(merged_df[, c("Event", "Start", "Finish", "Description", "Analyst_Comments")]
+                            merged_df_clean$Species)
       #print(species_list)
 
       accordion_boxes <- purrr::imap(species_list, function(df, species_name) {
@@ -468,8 +490,25 @@ mod_overview_server <- function(id, data){
         by = "Event"
       )
       
-      species2_list <- split(merged_df[, c("Event", "Detector", "Start", "Finish")],
-                             merged_df$Species)
+      merged_df_clean <- merged_df %>%
+        mutate(
+          Detector = case_when(
+            Detector == "Whistle_and_Moan_Detector" ~ "Whistle & Moan",
+            grepl("^Click", Detector)               ~ "Click",
+            TRUE                                    ~ Detector
+          )
+        ) %>%
+        group_by(Event, Detector) %>%
+        summarise(
+          Start  = if (first(Detector) == "Click") min(Start) else first(Start),
+          Finish = if (first(Detector) == "Click") max(Finish) else first(Finish),
+          Species = first(Species),
+          Description = first(Description),
+          .groups = "drop"
+        )
+      
+      species2_list <- split(merged_df_clean[, c("Event", "Start", "Finish")],
+                             merged_df_clean$Species)
       
       purrr::imap(species2_list, function(df, species_name) {
         safe_id <- paste0("cmp_", gsub("[^A-Za-z0-9]", "_", species_name))
