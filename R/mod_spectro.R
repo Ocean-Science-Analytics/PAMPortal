@@ -174,6 +174,11 @@ mod_spectro_server <- function(id, data) {
           session$sendCustomMessage("stopAudio", list(id = ns(paste0("audio_element_", index))))
           
           later::later(function() {
+            
+            if (!dir.exists(audio_dir)) {
+              dir.create(audio_dir, showWarnings = FALSE, recursive = TRUE)
+            }
+            
             # remove old file for this index (optional) - removes any previous audio_N_*.wav for this index
             old_files <- list.files(audio_dir, pattern = paste0("^audio_", index, "_.*\\.wav$"), full.names = TRUE)
             if (length(old_files) > 0) file.remove(old_files)

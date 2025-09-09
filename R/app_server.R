@@ -27,15 +27,29 @@ app_server <- function(input, output, session) {
         #modal_ok {
           background-color: #001f3f;
           color: white;
-          border: 1px solid black;
-          padding: 5px 15px;
+          border: none;
+          border-radius: 6px;
+          padding: 8px 20px;
+          font-weight: 500;
           transition: background-color 0.3s, color 0.3s, transform 0.2s;
         }
         #modal_ok:hover {
-          background-color: #004080;   /* Darker blue */
-          color: #ffcc00;               /* Optional text color */
-          cursor: pointer;
-          transform: scale(1.05);       /* Slightly enlarge button on hover */
+          background-color: #004080;
+          color: #ffcc00;
+          transform: translateY(-2px);
+        }
+        .modal-content {
+          border-radius: 12px;
+          box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+          border: none;  /* Remove harsh border */
+        }
+        .modal-body {
+          font-size: 15px;
+          line-height: 1.6;
+          color: #333;
+        }
+        .modal-body li {
+          margin-bottom: 12px;
         }
       "))
     )
@@ -45,33 +59,20 @@ app_server <- function(input, output, session) {
   showModal(modalDialog(
     title = "Settings Notice",
     easyClose = TRUE,
-    footer = actionButton(
-      "modal_ok", 
-      "Got it!"
-    ),
+    footer = actionButton("modal_ok", "Got it!"),
     size = "m",
     tags$div(
-      style = "font-size: 16px; line-height: 1.5;",
-      HTML("1.) To be able to utilize the <u>Example Data</u> the application requires that your browser allows popups."),
-      tags$b("Please make sure popups are enabled before continuing."), # Bold second line
-      tags$br(), tags$br(),
-      tags$hr(style = "border: 1px solid black; margin-top: 20px;"),
+      class = "modal-body",
+      HTML("
+      <ol style='padding-left:20px;'>
+        <li><b>Example Data</b>: In order to use the example data loaded into this app, the application requires that your browser allows popups. <b>Please make sure popups are enabled before continuing.</b></li>
+        <li><b>Zoom Settings</b>: You can adjust the screen size by going to the Settings panel and adjusting the Zoom options.</li>
+      </ol>
+    "),
       tags$div(
-        style = "margin-top: 10px;",  # some spacing below the line
-        "2.) You can adjust the size of the screen by going to the Settings panel and adjusting the Zoom options."
-      ),
-      tags$br(),
-      # Flex container for side-by-side images
-      tags$div(
-        style = "display: flex; justify-content: space-around; margin-top: 10px;",
-        tags$div(
-          style = "flex: 1; text-align: center;",
-          tags$img(src = "www/zoom1.png", width = "170px")
-        ),
-        tags$div(
-          style = "flex: 1; text-align: center;",
-          tags$img(src = "www/zoom2.png", width = "170px")
-        )
+        style = "display: flex; justify-content: space-around; margin-top: 20px;",
+        tags$div(style = "flex: 1; text-align: center;", tags$img(src = "www/zoom1.png", width = "170px")),
+        tags$div(style = "flex: 1; text-align: center;", tags$img(src = "www/zoom2.png", width = "170px"))
       )
     )
   ))
