@@ -71,7 +71,7 @@ mod_soundscape_ui <- function(id) {
 mod_soundscape_server <- function(id, data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
- 
+    
     observeEvent(data$soundscape_data(), {
       sites <- data$soundscape_data()
       if (!is.null(sites) && length(sites) > 0) {
@@ -90,7 +90,7 @@ mod_soundscape_server <- function(id, data){
       
       # Construct path to the "PSD_plots" folder for the selected site
       base_path <- data$selected_dir()  # this assumes `selected_dir()` is globally available
-      site_folder <- file.path(base_path, "Soundscape", input$site_select, "PSD_plots")
+      site_folder <- file.path(base_path, "Soundscape", input$site_select, "PSD_Plots")
       req(dir.exists(site_folder))
       
       # Get all .png files in the folder

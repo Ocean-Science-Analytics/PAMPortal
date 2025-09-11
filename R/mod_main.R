@@ -172,6 +172,12 @@ mod_main_server <- function(id){
 # DIRECTORY OUTPUT LOGIC
 ##############################################################
     selected_dir <- reactiveVal(NULL)
+    rds_names <- reactiveVal(NULL)
+    rds_data <- reactiveVal(NULL)
+    acoustic_names <- reactiveVal(NULL)
+    acoustic_file_tree <- reactiveVal(NULL)
+    soundscape_data <- reactiveVal(NULL)
+    use_example <- reactiveVal(FALSE)
     
     # volumes <- c(
     #   Home = fs::path_home(),
@@ -379,6 +385,7 @@ mod_main_server <- function(id){
       acoustic_names(result$acoustic_names)
       acoustic_file_tree(result$acoustic_tree)
       soundscape_data(result$soundscape)
+      use_example(TRUE)
       
       output$load_status <- renderText({
         if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
@@ -394,13 +401,6 @@ mod_main_server <- function(id){
 ##############################################################
 # FILE HANDLING LOGIC
 ##############################################################
-    
-    rds_names <- reactiveVal(NULL)
-    rds_data <- reactiveVal(NULL)
-    acoustic_names <- reactiveVal(NULL)
-    acoustic_file_tree <- reactiveVal(NULL)
-    soundscape_data <- reactiveVal(NULL)
-    selected_dir <- reactiveVal(NULL)
     
     observeEvent(input$submit_files, {
       req(input$zip_file)  # Wait for zip upload
@@ -419,6 +419,7 @@ mod_main_server <- function(id){
         acoustic_names(result$acoustic_names)
         acoustic_file_tree(result$acoustic_tree)
         soundscape_data(result$soundscape)
+        use_example(FALSE)
         ### browser()
         # Status
         output$load_status <- renderText({
@@ -582,7 +583,8 @@ mod_main_server <- function(id){
       acoustic_names = acoustic_names,
       acoustic_file_tree = acoustic_file_tree,
       soundscape_data = soundscape_data,
-      selected_dir = selected_dir
+      selected_dir = selected_dir,
+      use_example = use_example
     ))
     
     
