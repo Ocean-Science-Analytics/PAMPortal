@@ -5,8 +5,7 @@
 #' @return The return value, if any, from executing the utility.
 #'
 #' @noRd
-
-
+#' 
 #' @title Add red "beta" ribbon to the bottom left of the UI
 #'
 #' @description To be used within Shiny UI
@@ -73,7 +72,7 @@ palette_main <- function(){
 }
 
 #' secondary color palette used for data viz elements.
-palette_secondary <- c("#4A90A4", "#DB9A8E", "#2B7A78", "#D6C4A2", "#1C3D57",
+palette_secondary <- c("#4A90A4", "#DB9A8E", "#198F7D", "#D6C4A2", "#1C3D57",
              "#F4C542", "#E69F00", "#00CED1", "#CC79A7", "#35AD6B", "#724887")
 
 
@@ -89,7 +88,6 @@ font_sizes <- c(
   "legend title" = 14,
   "legend text" = 12
 )
-
 
 #' Process Zip File
 #' 
@@ -243,237 +241,291 @@ process_acoustic_data <- function(acou_data) {
 
 #' Pull Events for Effort/Detection Figure
 #' 
-#' @description This code pulls all events for a specific location RDS file
+#' @description This code pulls all events for a specific location RDS file.  Output will be in original time zone (UTC or local)
 #'
-#' @examples
-#' example <- pull_events(location=input$location)
+
 pull_events <- function(location, base_path) {
   rds_path <- file.path(base_path, "RDS", paste0(location, ".rds"))
   rds <- readRDS(rds_path)
-  species_df <- data.frame()
+  
   detectors <- unique(unlist(lapply(rds@events, function(event) names(event@detectors))))
-  for (event in rds@events) {
-    for (detector in detectors) {
+  
+  # Collect results in a list of data frames
+  species_list <- lapply(rds@events, function(event) {
+    dfs <- lapply(detectors, function(detector) {
       data <- event[[detector]]
-      if (!is.null(data)) {
-        df <- tibble(datetime = data$UTC,
-                     day = as.Date(data$UTC),
-                     hour = hour(data$UTC),
-                     minute = minute(data$UTC),
-                     species = event@species$id)
-        
-        unique_minutes <- df %>%
-          distinct(day, hour, minute, species)
-        
-        species_df <- rbind(species_df, unique_minutes)
-      }
-    }
-  }
-  species_df <- species_df %>% 
-    group_by(day, hour, minute) %>%
+      if (is.null(data)) return(NULL)
+      
+      utc <- as.POSIXct(data$UTC, tz = "UTC")
+      df <- tibble(
+        date     = as.Date(utc),
+        hour     = lubridate::hour(utc),
+        minute   = lubridate::minute(utc),
+        species  = event@species$id
+      )
+
+      df %>% distinct(date, hour, minute, species)
+    })
+
+    dfs <- dfs[!sapply(dfs, is.null)]
+    if (length(dfs) > 0) bind_rows(dfs) else NULL
+  })
+  
+  species_list <- species_list[!sapply(species_list, is.null)]
+  
+  species_df <- bind_rows(species_list) %>%
+    group_by(date, hour, minute) %>%
     mutate(species = if (n() > 1) "Multiple Species" else species) %>%
-    distinct(day, hour, minute, .keep_all = TRUE)
-  return(species_df[order(species_df$day, species_df$hour, species_df$minute), ])
+    distinct(date, hour, minute, .keep_all = TRUE) %>%
+    arrange(date, hour, minute) %>%
+    ungroup() %>%
+    mutate(datetime = make_datetime(
+      year = year(date), month = month(date),
+      day = day(date), hour = hour, min = minute
+    )) %>%
+    select(datetime, species)
+  
+  return(species_df)
 }
 
+### pull_events("HYDBBA106", "C:\\Users\\mtoll\\OneDrive\\Ocean Science Analytics\\PAMportal\\OSA_OOI_Demo")
 
-#' sp annotation
+
+
+
+#' effort table
 #' 
-#' @description This function annotates date/time information for the effort/detection figure
-#'
-sp_annotations <- function(location, base_path, duty_cycle_min=60) {
+#' @description This function aggregates data on which time periods were analyzed.  Output will be in local time zone.
+#' 
+
+effort_table <- function(location, base_path) {
   library(lubridate)
+  library(dplyr)
   library(stringr)
-  library(ggplot2)
-  library("ggdist")
-  library(tidyr)
-  library(tidyverse)
-  #**may need to specify full path name here too
-  files <- read.csv(file.path(base_path, "Audio", paste0(location, "_file_list.csv")))
-  #parsed <- parse_date_time(str_remove(files$Filename, "\\.wav$"), orders = "ymd-HMS")
-  if ("UTC_DateTime" %in% colnames(files)) {
-    parsed <- parse_date_time(files$UTC_DateTime, orders = "ymd-HMS")
-  } else {
-    parsed <- parse_date_time(str_remove(files$Filename, "\\.wav$"), orders = "ymd-HMS")
-  }
-  day_hour_present <- data.frame(day = as.Date(parsed), hour = hour(parsed))
-  full_grid <- expand_grid(
-    day = unique(day_hour_present$day),
-    hour = 0:23, minute = 0:59)
+  library(lutz)
   
-  species_df <- pull_events(location, base_path)
-  
-  annotated <- full_grid %>%
-    left_join(day_hour_present %>% 
-                mutate(effort = TRUE), by = c("day", "hour"), relationship = "many-to-many") %>%
-    mutate(effort = replace_na(effort, FALSE)) %>%
-    left_join(species_df, by = c("day", "hour", "minute")) %>%
-    mutate(presence = case_when(
-      minute < duty_cycle_min & !is.na(species) ~ species,
-      minute < duty_cycle_min & effort          ~ "No Events",
-      TRUE                         ~ "Not Sampled")) %>%
-    mutate(time_str = sprintf("%02d:%02d", hour, minute),
-           time_hms = hms::as_hms(sprintf("%02d:%02d:00", hour, minute)),
-           day = factor(day, levels = rev(sort(unique(day))))) %>%
-    select(day, time_str, time_hms, presence)
-  #browser()
+  #pull spatial / time zone data
   spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
   spatial$Site <- sub(".*?_", "", spatial$Site)
   
   latitude <- spatial[spatial$Site==location,'Latitude']
   longitude <- spatial[spatial$Site==location,'Longitude']
+  
   tz <- suppressWarnings(
     lutz::tz_lookup_coords(lat = latitude,
                            lon = longitude,
                            method = "fast"))
   
-  unique_days <- unique(as.Date(levels(annotated$day)))
-  sun_times <- getSunlightTimes(
-    date = unique_days,
-    lat = latitude,
-    lon = longitude,
-    tz = tz,
-    keep = c("sunrise", "sunset")
-  ) %>% mutate(day = as.factor(as.Date(date))) %>%
-    select(day, sunrise, sunset)
   
-  annotated <- annotated %>%
-    left_join(sun_times, by = "day") %>%
-    mutate(
-      day_date = as.Date(as.character(day)),
-      sunrise_hms = hms::as_hms(format(sunrise, "%H:%M:%S")),
-      sunset_hms  = hms::as_hms(format(sunset, "%H:%M:%S")),
-      
-      daylight = case_when(
-        (is.na(sunrise) | is.na(sunset)) & lubridate::month(day_date) %in% 4:9 ~
-          TRUE, 
-        
-        sunset_hms > sunrise_hms ~ 
-          time_hms >= sunrise_hms & time_hms < sunset_hms,
-        
-        sunset_hms < sunrise_hms ~ 
-          time_hms >= sunrise_hms | time_hms < sunset_hms, 
-        
-        TRUE ~ NA
-      )) %>%
-    select(day, time_str, presence, daylight)
+  # read audio file list
+  files <- read.csv(file.path(base_path, "Audio", paste0(location, "_file_list.csv")))
+  parsed <- if ("UTC_DateTime" %in% colnames(files)) {
+    parse_date_time(files$UTC_DateTime, orders = "ymd-HMS")
+  } else {
+    parse_date_time(str_remove(files$Filename, "\\.wav$"), orders = "ymd-HMS")
+  }
+  files_present <- as.POSIXct(parsed)
   
-  return(annotated)
-}
+  # read duty cycle info
+  char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
+  row_info <- char_df[char_df$location == location, ]
+  file_length <- row_info$file_length
+  time_zone <- row_info$tz
+  duty_cycle  <- row_info$dc
 
-#' Effort Plot
-#' 
-#' @description This function creates the effort/detection plot for the data visualization tab
-#'
-effort_plot <- function(location, base_path, see_duty_cycle = FALSE, duty_cycle_min = 60) {
+  # create full minute grid
+  start_day <- min(files_present)
+  end_day   <- max(files_present)
+  full_grid <- tibble(datetime = seq(start_day, end_day, by = "1 min"))
   
-  # Get annotated data
-  annotated <- sp_annotations(location, base_path, duty_cycle_min)
+  # create effort blocks vectorized
+  start_times <- files_present
+  end_times   <- files_present + minutes(file_length - 1)
   
-  # Recode "No Events" into separate Day/Night categories
-  annotated <- annotated %>%
+  # vectorized effort check
+  full_grid <- full_grid %>%
     mutate(
-      presence = case_when(
-        presence == "No Events" & daylight ~ "No Events (Day)",
-        presence == "No Events" & !daylight ~ "No Events (Night)",
-        TRUE ~ presence
-      )
-    )
+      effort = sapply(datetime, function(x) any(x >= start_times & x <= end_times)),
+      minute = minute(datetime),
+      effort = if_else(minute > duty_cycle, FALSE, effort)
+    ) %>%
+    select(datetime, effort)
   
-  # Build color palette
-  species_colors <- setdiff(
-    unique(annotated$presence), 
-    c("Not Sampled", "No Events (Day)", "No Events (Night)")
-  )
-  species_palette <- setNames(
-    palette_secondary[seq_along(species_colors)], 
-    species_colors
-  )
-  
-  annotated$presence <- factor(
-    annotated$presence,
-    levels = c("No Events (Day)", "No Events (Night)", "Not Sampled", species_colors, "No effort")
-  )
-  
-  hour_labels <- sprintf("%02d:00", 0:23)
-  y_breaks <- levels(annotated$day)[seq(1, length(levels(annotated$day)), by = 7)]
-  
-  if (see_duty_cycle == FALSE) {
-    annotated <- annotated[annotated$presence != "Not Sampled", ]
+  #change time zones if in utc
+  if (time_zone == "utc") {
+    full_grid <- full_grid %>%
+      mutate(datetime = with_tz(datetime, tzone = tz))
   }
   
-  # Plot
-  p <- ggplot(annotated, aes(x = time_str, y = day)) +
-    
-    geom_tile(aes(fill = presence), alpha = 0.5) +
-    
-    # No-effort tiles (dummy fill for legend)
-    geom_tile(
-      data = subset(annotated, presence == "Not Sampled"),
-      aes(fill = "No effort"),
-      alpha = 0.5
-    ) +
-    
-    scale_fill_manual(
-      values = c(
-        "No Events (Day)" = background,
-        "No Events (Night)" = "#AEC2CF",
-        "Not Sampled" = alpha(text, 0.25),
-        species_palette,
-        "No effort" = "#F2F2F2"
+  #pad first/last day to midnight
+  all_times <- tibble(datetime = seq(
+    floor_date(min(full_grid$datetime), "day"),
+    ceiling_date(max(full_grid$datetime), "day") - minutes(1),
+    by = "1 min"
+  ))
+  
+  effort <- all_times %>%
+    left_join(full_grid, by = "datetime") %>%
+    mutate(effort = replace_na(effort, FALSE))
+  
+  return(effort)
+}
+
+## effort_table("HYDBBA106", "C:\\Users\\mtoll\\OneDrive\\Ocean Science Analytics\\PAMportal\\OSA_OOI_Demo")
+
+
+#' species annotations
+#' 
+#' @description This function merges event records with effort, changes time zone to local, and pads 
+#' 
+#' 
+sp_annotations <- function(location, base_path) {
+  library(suncalc)
+  
+  #pull spatial / time zone data
+  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
+  spatial$Site <- sub(".*?_", "", spatial$Site)
+  
+  latitude <- spatial[spatial$Site==location,'Latitude']
+  longitude <- spatial[spatial$Site==location,'Longitude']
+  
+  tz <- suppressWarnings(
+    lutz::tz_lookup_coords(lat = latitude,
+                           lon = longitude,
+                           method = "fast"))
+  
+  char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
+  row_info <- char_df[char_df$location == location, ]
+  time_zone <- row_info$tz
+  
+  events <- pull_events(location, base_path)
+  
+  #convert species table to local time if in utc
+  if (time_zone == "utc") {
+    events <- events %>%
+      mutate(datetime = with_tz(datetime, tzone = tz))
+  }
+  
+  #merge events and effort dataframes
+  effort <- effort_table(location, base_path)
+  
+  annotated <- effort %>%
+    left_join(events, by = "datetime") %>%
+    mutate(
+      date = as.Date(datetime, tz = tz),
+      hour = hour(datetime), 
+      minute = minute(datetime)
+    )
+
+  #get sunrise/sunset times
+  unique_days <- unique(as.Date(annotated$datetime, tz = tz))
+  sun_times <- getSunlightTimes(
+    date = unique_days,
+    lat = latitude, lon = longitude,
+    tz = tz, keep = c("sunrise", "sunset")) %>%
+    select(date, sunrise, sunset)
+  
+  #merge with data table and calculate daylight
+  annotated <- annotated %>%
+    left_join(sun_times, by = c("date")) %>%
+    mutate(
+      daylight = case_when(
+        !is.na(sunrise) & !is.na(sunset) & datetime >= sunrise & datetime <= sunset ~ TRUE,
+        !is.na(sunrise) & !is.na(sunset) ~ FALSE,
+        
+        ((is.na(sunrise) | is.na(sunset)) & latitude > 0 & lubridate::month(date) %in% 4:9) ~ TRUE,  # polar day - Northern Hemisphere (Apr–Sep)
+        ((is.na(sunrise) | is.na(sunset)) & latitude > 0 & lubridate::month(date) %in% c(10:12, 1:3)) ~ FALSE, # polar night - Northern Hemisphere (Oct–Mar)
+        ((is.na(sunrise) | is.na(sunset)) & latitude < 0 & lubridate::month(date) %in% c(10:12, 1:2)) ~ TRUE,  # polar day - Southern Hemisphere (Oct–Feb)
+        ((is.na(sunrise) | is.na(sunset)) & latitude < 0 & lubridate::month(date) %in% 4:9) ~ FALSE         # polar night - Southern Hemisphere (Apr–Sep)
       ),
-      breaks = c(species_colors, "No Events (Day)", "No Events (Night)", "No effort"),
-      labels = c(species_colors, "No Events (Day)", "No Events (Night)", "No effort")
+      hour = hour(datetime),
+      minute = minute(datetime),
+      annotation = case_when(
+        !effort ~ "No effort",
+        is.na(species) & daylight & effort ~ "No detections (day)",
+        is.na(species) & !daylight & effort ~ "No detections (night)",
+        TRUE ~ as.character(species)
+      )
+    ) %>%
+    select(datetime, date, hour, minute, effort, species, daylight, annotation)
+  
+  return(annotated)
+  
+}
+
+### sp_annotations("HYDBBA106", "C:\\Users\\mtoll\\OneDrive\\Ocean Science Analytics\\PAMportal\\OSA_OOI_Demo")
+
+
+effort_plot <- function(location, base_path, see_duty_cycle = TRUE) {
+  library(scales)
+  
+  df <- sp_annotations(location, base_path) %>%
+    mutate(time_of_day = hour * 60 + minute)
+  
+  #define color palette
+  fixed_colors <- c(
+    "No effort" = text,
+    "No detections (day)" = background,   # light gray
+    "No detections (night)" = "#AEC2CF"  # darker gray
+  )
+  
+  species <- setdiff(unique(df$annotation), names(fixed_colors))
+  sp_colors <- setNames(palette_secondary[seq_along(species)], species)
+  color_map <- c(sp_colors, fixed_colors)
+  df$annotation <- factor(df$annotation, levels = c(species, names(fixed_colors)))
+  
+  #remove duty cycle periods if specified
+  if (see_duty_cycle == FALSE) {
+    char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
+    duty_cycle  <- char_df[char_df$location == location, "dc"]
+    df <- df %>%
+      filter(minute < duty_cycle)
+  }
+  
+  x_brks <- seq(min(df$date),max(df$date),
+              length.out = 10)
+  
+  p <- ggplot(df, aes(x = date, y = time_of_day)) +
+    geom_tile(aes(fill = annotation)) +
+    scale_fill_manual(values = color_map) +
+
+    scale_y_continuous(
+      breaks = seq(0, 24*60, by = 180),
+      limits = c(0, 24*60),
+      labels = function(x) sprintf("%02d:00", x %/% 60),
+      expand = c(0,0)
     ) +
     
-    scale_x_discrete(breaks = hour_labels, position = "top") +
-    scale_y_discrete(
-      breaks = levels(annotated$day),
-      labels = function(x) ifelse(x %in% y_breaks, x, "")
-    ) +
+    scale_x_date(breaks = x_brks,
+                 labels = label_date_short(),
+                 expand = c(0,0)) +
     
+    ggtitle(paste0(location, " Effort and All Detections")) +
+    ylab("Time of Day") +
+    
+    theme_minimal() +
     theme(
-      axis.text.x = element_text(angle = 45, hjust = 0, size = font_sizes['ticks'], family = font, color = text),
-      axis.text.y = element_text(family = font, color = text, size = font_sizes['ticks']),
-      
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
       panel.background = element_blank(),
-      axis.line = element_blank(),
       
-      plot.title = element_text(hjust = 0.5, margin = margin(b=20),
-                                color = text, family = font, size = font_sizes['title']),
+      axis.title.y = element_text(size = font_sizes['axis labels'], color = text),
+      axis.title.x = element_blank(),
+      axis.text = element_text(size = font_sizes['ticks'], color = text),
       
-      legend.text = element_text(color = text, 
-                                 family = font,
-                                 size = font_sizes['legend text'],
-                                 margin = margin(r=15, l=5)),
-      legend.title = element_text(color = text, 
-                                  family = font,
-                                  size = font_sizes['legend title']),
+      plot.title = element_text(size = font_sizes['title'], color = text, hjust = 0.5,
+                                margin = margin(b=15)),
+      
+      legend.title = element_blank(),
+      legend.text = element_text(size = font_sizes['legend text'], color = text),
       legend.position = "bottom",
-      legend.direction = "horizontal",
-      legend.justification = "center",
-      legend.box = "horizontal",
-      legend.box.just = "center",
-      legend.margin = margin(t = 10),
-      plot.margin = margin(20, 20, 20, 20)
-    ) +
-    
-    guides(
-      fill = guide_legend(
-        nrow = 2,
-        byrow = TRUE,
-        override.aes = list(colour = "black", size = 0.2)
+      legend.justification = "center"
       )
-    ) +
-    
-    labs(x = NULL, y = NULL, 
-         title = paste(location, "Event Detections"),
-         fill = "")
   
-  return(p) 
+  return(p)
 }
+  
+### effort_plot("HYDBBA106", "C:\\Users\\mtoll\\OneDrive\\Ocean Science Analytics\\PAMportal\\OSA_OOI_Demo", see_duty_cycle = FALSE)
 
 
 #' Concat Whistes
@@ -769,7 +821,6 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
   
   return(p)
 }
-
 
 #' Spectrogram Card
 #' 
