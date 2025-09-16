@@ -2,10 +2,10 @@
 % Please edit documentation in R/utils_helpers.R
 \name{sp_annotations}
 \alias{sp_annotations}
-\title{sp annotation}
+\title{species annotations}
 \usage{
-sp_annotations(location, base_path, duty_cycle_min = 60)
+sp_annotations(location, base_path)
 }
 \description{
-This function annotates date/time information for the effort/detection figure
+This function merges event records with effort, changes time zone to local, and pads
 }

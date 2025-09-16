@@ -21,7 +21,7 @@ app_ui <- function(request) {
     ),
     
     golem_add_external_resources(),
-    add_beta_ribbon(),
+    #add_beta_ribbon(),
     
     # Custom CSS for specific UI settings
     tags$head(

@@ -5,7 +5,7 @@
 \alias{palette_secondary}
 \title{secondary color palette used for data viz elements.}
 \format{
-An object of class \code{character} of length 10.
+An object of class \code{character} of length 11.
 }
 \usage{
 palette_secondary

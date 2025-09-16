@@ -508,6 +508,9 @@ effort_plot <- function(location, base_path, see_duty_cycle = TRUE) {
       panel.grid.minor = element_blank(),
       panel.background = element_blank(),
       
+      axis.line = element_line(color = "black"),
+      axis.ticks = element_line(color = "black"),
+      
       axis.title.y = element_text(size = font_sizes['axis labels'], color = text),
       axis.title.x = element_blank(),
       axis.text = element_text(size = font_sizes['ticks'], color = text),
@@ -606,6 +609,8 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
                                 color=text, face='bold', size = font_sizes['facets']),
       
       axis.title.y = element_text(margin = margin(r = 10), size = font_sizes['axis labels']),
+      axis.line = element_line(color = "black"),
+      axis.ticks = element_line(color = "black"),
       
       panel.spacing = unit(1, "lines"),
       
@@ -826,6 +831,9 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
       axis.text.x = element_text(angle = 45, hjust = 1, size = font_sizes['ticks']),
       axis.text.y = element_text(size = font_sizes['ticks']),
       axis.title.y = element_text(family=font, color=text, margin=margin(r=10), size = font_sizes['axis labels']),
+      axis.line = element_line(color = "black"),
+      axis.ticks = element_line(color = "black"),
+      
       
       plot.title = element_text(hjust = 0.5, margin = margin(b=10),
                                 color=text, family=font, size=font_sizes['title']),

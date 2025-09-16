@@ -176,7 +176,7 @@ mod_analysis_ui <- function(id) {
 mod_analysis_server <- function(id, data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
-    
+    library(lubridate)
     effort_plot_obj <- reactiveVal(NULL)
     distribution_plot_obj <- reactiveVal(NULL)
     occurrence_plot_obj <- reactiveVal(NULL)
@@ -228,8 +228,8 @@ mod_analysis_server <- function(id, data){
       effort_plot(
         location = input$location,
         base_path = base_path(),
-        see_duty_cycle = input$see_duty,
-        duty_cycle_min = if (is.null(duty_min)) 60 else duty_min
+        see_duty_cycle = input$see_duty
+        #duty_cycle_min = if (is.null(duty_min)) 60 else duty_min
       )
     }, ignoreNULL = TRUE)
     

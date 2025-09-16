@@ -7,8 +7,5 @@
 pull_events(location, base_path)
 }
 \description{
-This code pulls all events for a specific location RDS file
-}
-\examples{
-example <- pull_events(location=input$location)
+This code pulls all events for a specific location RDS file.  Output will be in original time zone (UTC or local)
 }
