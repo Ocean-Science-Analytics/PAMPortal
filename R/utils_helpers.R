@@ -48,7 +48,6 @@ add_beta_ribbon <- function(){
   return(beta_div)
 }
 
-
 #' Color palettes
 #' 
 #' PAMPortal color palette. Primarily used for static UI elements.
@@ -629,6 +628,23 @@ distribution_plot <- function(base_path, location_list, event_list, variable, sp
 #' 
 occr_events <- function(location, base_path, species_list = c('All')) {
   library(lubridate)
+  library(suncalc)
+  library(lutz)
+  
+  
+  char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
+  row_info <- char_df[char_df$location == location, ]
+  time_zone <- row_info$tz
+  
+  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
+  spatial$Site <- sub(".*?_", "", spatial$Site)
+  
+  latitude <- spatial[spatial$Site==location,'Latitude']
+  longitude <- spatial[spatial$Site==location,'Longitude']
+  tz <- suppressWarnings(
+    lutz::tz_lookup_coords(lat = latitude,
+                           lon = longitude,
+                           method = "fast"))
   
   #rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
   rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
@@ -657,6 +673,17 @@ occr_events <- function(location, base_path, species_list = c('All')) {
     }
   }
   
+  species_df <- species_df %>%
+    mutate(datetime = as.POSIXct(day) + hours(hour)) %>%
+    mutate(total_duration = pmin(total_duration, 3600))
+  
+  if (time_zone == "utc") {
+    species_df <- species_df %>%
+      mutate(datetime = with_tz(datetime, tzone = tz)) %>%
+      mutate(hour = hour(datetime),
+             day = as.Date(datetime))
+  }
+  
   all_days <- seq(min(species_df$day), 
                   max(species_df$day), by="day")
   
@@ -671,23 +698,13 @@ occr_events <- function(location, base_path, species_list = c('All')) {
   )
   
   merged <- full_grid %>%
-    left_join(species_df, by = c("day", "hour", "species")) %>%
-    mutate(datetime = as.POSIXct(day) + hours(hour))
+    left_join(species_df, by = c("day", "hour", "species"))
+    
   
   if (!('All' %in% species_list)) {
     merged <- merged %>%
       filter(species %in% species_list)
   }
-  
-  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
-  spatial$Site <- sub(".*?_", "", spatial$Site)
-  
-  latitude <- spatial[spatial$Site==location,'Latitude']
-  longitude <- spatial[spatial$Site==location,'Longitude']
-  tz <- suppressWarnings(
-    lutz::tz_lookup_coords(lat = latitude,
-                           lon = longitude,
-                           method = "fast"))
   
   sun_times <- getSunlightTimes(
     date = unique(merged$day),
@@ -821,6 +838,8 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
   
   return(p)
 }
+
+
 
 #' Spectrogram Card
 #' 
