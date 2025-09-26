@@ -507,7 +507,7 @@ mod_overview_server <- function(id, data){
           .groups = "drop"
         )
       
-      species2_list <- split(merged_df_clean[, c("Event", "Start", "Finish")],
+      species2_list <- split(merged_df_clean[, c("Event", "Detector", "Start", "Finish")],
                              merged_df_clean$Species)
       
       purrr::imap(species2_list, function(df, species_name) {

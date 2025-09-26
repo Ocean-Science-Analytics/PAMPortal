@@ -349,7 +349,7 @@ mod_main_server <- function(id){
     ##############################################################
     observeEvent(input$load_example, {
       showModal(modalDialog(
-        title = "Example Data",
+        title = "OOI Example Data",
         tagList(
           p("The National Science Foundation-funded Ocean Observatories Initiative (OOI) maintains a series of coastal and oceanic monitoring sites that consists of a multitude of physical and biological sensors."),
           p("As part of this program, OOI collects continuous data from a cabled array along the continental shelf and slope off Newport, Oregon."),
@@ -359,6 +359,25 @@ mod_main_server <- function(id){
             a("Ocean Observatory Initiative", href = "https://ooinet.oceanobservatories.org/", target = "_blank"), 
             " or the ",
             a("Coastal and Offshore Oregon Marine Mammal Ecological Study", href = "https://www.oceanscienceanalytics.com/coastal-OR-marine-mammal-study", target = "_blank"),"."
+          ),
+          p("Follow these links if you want to learn more about these specific OOI hydrophone deployments."),
+          strong("HYDBBA103"),
+          tags$ul(
+            tags$li(
+              a("Mooring Information", href = "https://oceanobservatories.org/site/rs01sbps/", target = "_blank")
+            ),
+            tags$li(
+              a("Raw Data", href = "https://rawdata.oceanobservatories.org/files/RS01SBPS/PC01A/HYDBBA103/", target = "_blank")
+            )
+          ),
+          strong("HYDBBA106"),
+          tags$ul(
+            tags$li(
+              a("Mooring Information", href = "https://oceanobservatories.org/site/ce02shbp/", target = "_blank")
+            ),
+            tags$li(
+              a("Raw Data", href = "https://rawdata.oceanobservatories.org/files/CE02SHBP/LJ01D/HYDBBA106/", target = "_blank")
+            )
           ),
           tags$img(src = "www/OOI.png", width = "100%", style = "margin-top: 15px; border: 1px solid #ddd;")
         ),
