@@ -101,6 +101,11 @@ app_ui <- function(request) {
             title = "SOUNDSCAPE",
             value = "soundscape",
             mod_soundscape_ui("soundscape_1")
+          ),
+          bslib::nav_panel(
+            title = "CLICK DETECTOR SCREENSHOTS",
+            value = "click_detector",
+            mod_click_detector_ui("click_detector_1")
           )
         )
       )

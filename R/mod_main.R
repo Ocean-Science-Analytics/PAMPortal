@@ -177,6 +177,7 @@ mod_main_server <- function(id){
     acoustic_names <- reactiveVal(NULL)
     acoustic_file_tree <- reactiveVal(NULL)
     soundscape_data <- reactiveVal(NULL)
+    click_detector_data <-reactiveVal(NULL)
     use_example <- reactiveVal(FALSE)
     
     # volumes <- c(
@@ -404,6 +405,7 @@ mod_main_server <- function(id){
       acoustic_names(result$acoustic_names)
       acoustic_file_tree(result$acoustic_tree)
       soundscape_data(result$soundscape)
+      click_detector_data(result$click_detector)
       use_example(TRUE)
       
       output$load_status <- renderText({
@@ -438,6 +440,7 @@ mod_main_server <- function(id){
         acoustic_names(result$acoustic_names)
         acoustic_file_tree(result$acoustic_tree)
         soundscape_data(result$soundscape)
+        click_detector_data(result$click_detector)
         use_example(FALSE)
         ### browser()
         # Status
@@ -602,6 +605,7 @@ mod_main_server <- function(id){
       acoustic_names = acoustic_names,
       acoustic_file_tree = acoustic_file_tree,
       soundscape_data = soundscape_data,
+      click_detector_data = click_detector_data,
       selected_dir = selected_dir,
       use_example = use_example
     ))

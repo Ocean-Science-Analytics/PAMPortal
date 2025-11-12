@@ -107,6 +107,7 @@ process_zip <- function(zip_path) {
   rds_folder <- file.path(root_path, "RDS")
   acoustic_dir <- file.path(root_path, "Audio")
   soundscape_dir <- file.path(root_path, "Soundscape")
+  click_detector_dir <- file.path(root_path, "Click_Detector_Screenshots")
   
   ## ---- RDS LOADING ---- ##
   rds_names <- NULL
@@ -174,13 +175,23 @@ process_zip <- function(zip_path) {
     }
   }
   
+  ## ---- CLICK DETECTOR SCREENSHOTS LOADING ---- ##
+  click_detector <- NULL
+  if (dir.exists(click_detector_dir)) {
+    site_folders <- list.dirs(click_detector_dir, recursive = FALSE, full.names = TRUE)
+    if (length(site_folders) > 0) {
+      click_detector <- site_folders
+    }
+  }
+  
   list(
     root_path = root_path,
     rds_names = rds_names,
     rds_data = rds_data,
     acoustic_names = acoustic_names,
     acoustic_tree = acoustic_tree,
-    soundscape = soundscape
+    soundscape = soundscape,
+    click_detector = click_detector
   )
 }
 

@@ -25,6 +25,7 @@ golem::add_module(name = "overview", with_test = FALSE)
 golem::add_module(name = "spectro", with_test = FALSE)
 golem::add_module(name = "analysis", with_test = FALSE)
 golem::add_module(name = "soundscape", with_test = FALSE)
+golem::add_module(name = "click_detector", with_test = FALSE)
 
 ## Add helper functions ----
 ## Creates fct_* and utils_*

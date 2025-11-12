@@ -11,6 +11,7 @@ app_server <- function(input, output, session) {
   mod_spectro_server("spectro_1", data)
   mod_analysis_server("analysis_1", data)
   mod_soundscape_server("soundscape_1", data)
+  mod_click_detector_server("click_detector_1", data)
   
   observeEvent(input$help, {
     guide$init()$start()
