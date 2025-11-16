@@ -52,6 +52,14 @@ app_ui <- function(request) {
         }
         .btn-lightgrey:hover {
         background-color: #b0b0b0 !important; /* Darker grey on hover */
+        transform: scale(1.05);
+        }
+        .header-logo {
+          border-radius: 6px;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+        }
+        .pam-title {
+          text-shadow: 2px 2px 4px rgba(0,0,0,0.35);
         }
       "))
     ),
@@ -66,9 +74,9 @@ app_ui <- function(request) {
       # Title with image
       div(
         style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
-        img(src = "www/white_square_OSA_med.jpg", height = 45, style = "margin-right: 10px;"),
-        h2("PAMPortal", style = "margin: 0; color: white; flex-grow: 1;"),
-        actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey")  # Guide button
+        img(src = "www/white_square_OSA_med.jpg",height = 45,class = "header-logo",style = "margin: 0 10px 0 25px;"),
+        h2("PAMPortal", class = "pam-title", style = "margin: 0; color: white; flex-grow: 1;"),
+        actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey", style = "margin: 0 20px 0 10px;")  # Guide button
       ),
       
       bslib::layout_sidebar(

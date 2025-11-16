@@ -30,6 +30,7 @@ mod_main_ui <- function(id) {
         }
         .input-group-btn .btn:hover {
           background-color: lightskyblue !important;
+          transform: scale(1.05);
         }
         .input-section {
           border: 2px solid black; 
@@ -45,7 +46,8 @@ mod_main_ui <- function(id) {
           border-color: black !important;
         }
         .custom-btn:hover {
-          background-color: lightskyblue !important; /*  /*
+          background-color: lightskyblue !important; 
+          transform: scale(1.05);
         }
         .example-btn {
           background-color: #CD950C !important;   /* named CSS color */
@@ -55,6 +57,7 @@ mod_main_ui <- function(id) {
         .load-example-btn:hover {
           background-color: #FFD700 !important;
           color: black !important;
+          transform: scale(1.05);
         }
         .success-text {
           color: darkgreen;

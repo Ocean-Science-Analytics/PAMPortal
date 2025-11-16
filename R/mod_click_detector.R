@@ -12,56 +12,95 @@ mod_click_detector_ui <- function(id) {
   ns <- NS(id)
   
   tagList(
-    # Top control card
-    bslib::card(
-      style = "min-height: 150px; display: flex; flex-direction: column; justify-content: center;",
-      bslib::card_header("Click Detector Controls"),
-      bslib::card_body(
-        # Flex layout for controls
-        div(
-          style = "display: flex; align-items: center; justify-content: space-between;",
-          
-          # Left side: Deployment + conditional Species input
-          div(
-            style = "display: flex; align-items: center; gap: 15px;",
-            
-            # Deployment input
-            selectInput(
-              ns("deployment"),
-              "Deployment",
-              choices = NULL,
-              width = "200px"
-            ),
-            
-            # Conditional species selector
-            conditionalPanel(
-              condition = sprintf("input['%s'] == true", ns("filter_species")),
-              selectInput(
-                ns("species"),
-                "Species",
-                choices = NULL,
-                width = "200px"
-              )
-            )
-          ),
-          
-          # Divider
-          div(
-            style = "border-left: 2px solid black; height: 60px; margin: 0 20px;"
-          ),
-          
-          # Right side: single checkbox
-          div(
-            style = "display: flex; flex-direction: column; justify-content: center;",
-            checkboxInput(ns("filter_species"), "Filter by Species", value = FALSE)
-          )
-        )
+    bslib::layout_sidebar(
+      sidebar = bslib::card(
+        style = "background-color: #f8f9fa; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0.08,0.2); padding: 10px;",
+        selectInput(ns("deployment"), "Deployment", choices = NULL),
+        conditionalPanel(
+          condition = sprintf("input['%s']", ns("filter_species")),
+          selectInput(ns("species"), "Species", choices = NULL)
+        ),
+        checkboxInput(ns("filter_species"), "Filter by Species"),
+      ),
+
+      bslib::card(
+        style = "
+         margin-top: 20px;
+         background-color: #f8f9fa;
+         border-radius: 12px;
+         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+       ",
+        bslib::card_header(uiOutput(ns("gallery_title"))),
+        bslib::card_body(pixture::pixgalleryOutput(ns("gallery")))
       )
-    ),
+    )
     
-    # Output
-    uiOutput(ns("gallery_title")),
-    pixture::pixgalleryOutput(ns("gallery"))
+    ### THIS IS THE ORIGINAL UI LAYOUT THAT DOESN'T USE A SIDEBAR ###
+    # Top control card
+    # bslib::card(
+    #   style = "
+    #     min-height: 180px;
+    #     padding: 18px;
+    #     background-color: #f8f9fa;
+    #     border-radius: 12px;
+    #     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    #   ",
+    #   
+    #   bslib::card_header(
+    #     div(
+    #       style = "font-size: 20px; font-weight: 600;",
+    #       "Click Detector Controls"
+    #     ),
+    #     div(
+    #       style = "font-size: 13px; color: #6c757d; margin-top: -4px;",
+    #       "Choose deployment and (optionally) filter by species"
+    #     )
+    #   ),
+    #   
+    #   bslib::card_body(
+    #     div(
+    #       style = "display: flex; align-items: center; justify-content: space-between; gap: 20px;",
+    #       
+    #       # Left inputs
+    #       div(
+    #         style = "display: flex; align-items: center; gap: 18px;",
+    #         
+    #         selectInput(ns("deployment"), "Deployment", choices = NULL, width = "200px"),
+    #         
+    #         conditionalPanel(
+    #           condition = sprintf("input['%s'] == true", ns("filter_species")),
+    #           selectInput(ns("species"), "Species", choices = NULL, width = "200px")
+    #         )
+    #       ),
+    #       
+    #       # Soft divider
+    #       div(style = "border-left: 1px solid #d0d0d0; height: 45px;"),
+    #       
+    #       # Filter checkbox
+    #       div(
+    #         checkboxInput(ns("filter_species"), "Filter by Species", value = FALSE)
+    #       )
+    #     )
+    #   )
+    # ),
+    # 
+    # # Output
+    # bslib::card(
+    #   style = "
+    #     margin-top: 20px;
+    #     background-color: #f8f9fa;
+    #     border-radius: 12px;
+    #     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    #   ",
+    # 
+    #   bslib::card_header(
+    #     uiOutput(ns("gallery_title"))
+    #   ),
+    # 
+    #   bslib::card_body(
+    #     pixture::pixgalleryOutput(ns("gallery"))
+    #   )
+    # )
   )
 }
     
@@ -178,6 +217,7 @@ mod_click_detector_server <- function(id, data) {
       pixture::pixgallery(
         path = imgs,
         caption = captions,
+        caption_valign = "below",
         layout = "grid"
       )
     })

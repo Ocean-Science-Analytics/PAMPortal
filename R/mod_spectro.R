@@ -40,6 +40,7 @@ mod_spectro_ui <- function(id) {
         }
         .custom-btn:hover {
           background-color: lightskyblue !important;
+          transform: scale(1.05);
           cursor: pointer;
         }
       "))

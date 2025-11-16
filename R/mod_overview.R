@@ -20,7 +20,7 @@ mod_overview_ui <- function(id) {
     tags$head(
       tags$style(HTML("
         .custom-card {
-          box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 8px 10px rgba(0,0,0.08,0.4); 
           border-radius: 10px;
           background-color: #fafafa;
           padding: 15px;
@@ -69,6 +69,7 @@ mod_overview_ui <- function(id) {
         }
         .export-button:hover {
           background-color: #77DD77 !important;
+          transform: scale(1.05);
         }
         .selectInput {
           max-height: 200px;
@@ -108,7 +109,7 @@ mod_overview_ui <- function(id) {
         div(class = "content-wrapper",
             tags$h4("Species Analysis:"),
             div(id = ns("overview_input"),
-                style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 20px;",
+                style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
                 fluidRow(
                   column(3,
                          selectInput(ns("rds_select"), "Select Main Data File:", choices = NULL, width = "100%")
@@ -139,7 +140,7 @@ mod_overview_ui <- function(id) {
             div(id = ns("overview_datatable"),
             # Add the three checkboxes
             tags$h4("Data Table:"),
-            div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 5px;",
+            div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 5px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
               div(class = "checkbox-group-tight",
                   prettyCheckbox(ns("all_events"), label = "Display All Events", value = FALSE,
                                  outline = TRUE, plain = TRUE, bigger = TRUE, icon = icon("square-check")),

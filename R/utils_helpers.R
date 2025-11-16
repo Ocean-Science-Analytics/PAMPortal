@@ -867,7 +867,8 @@ occurrence_plot <- function(location, base_path, species_list = c('All')) {
 card_spectro <- function(ns, id, index) {
   tagList(
     div(
-      style = "display: flex; flex-direction: row; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 20px; padding: 15px; height: 700px; background-color: #f9f9f9;",
+      style = "display: flex; flex-direction: row; border: 1px solid #ccc; border-radius: 8px;
+      margin-bottom: 20px; padding: 15px; height: 700px; background-color: #f9f9f9; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
       
       # Left panel with inputs
       div(
@@ -886,21 +887,58 @@ card_spectro <- function(ns, id, index) {
                      )
       ),
       
+      # # Right panel with spectrogram plot
+      # div(
+      #   style = "flex: 2; height: 100%;",
+      #   uiOutput(ns(paste0("audio_", index)), style = "height: 10%;"),
+      #   uiOutput(ns(paste0("plot_ui_", index)), style = "height: 90%;"),
+      #   
+      #   div(
+      #     style = "height: 20%; margin-top: 5px; padding: 8px; border-top: 1px solid #ddd;
+      #     font-size: 16px; background-color: #fff; min-height: 120px;",
+      #     # strong("Event: "),
+      #     # uiOutput(ns(paste0("event_name_", index))),   # NEW line
+      #     # tags$br(),
+      #     strong("Description:"),
+      #     uiOutput(ns(paste0("description_", index))),
+      #     tags$br(),
+      #     strong("Analysis Comments:"),
+      #     uiOutput(ns(paste0("analysis_", index)))
+      #   )
+      # )
       # Right panel with spectrogram plot
       div(
-        style = "flex: 2; height: 100%;",
-        uiOutput(ns(paste0("audio_", index)), style = "height: 10%;"),
-        uiOutput(ns(paste0("plot_ui_", index)), style = "height: 90%;"),
+        style = "
+          flex: 2; 
+          display: flex; 
+          flex-direction: column; 
+          gap: 10px; 
+          height: 100%;
+        ",
         
+        # Audio player
+        uiOutput(ns(paste0("audio_", index))),
+        
+        # Spectrogram plot — flexible, fills remaining space
         div(
-          style = "height: 20%; margin-top: 5px; padding: 8px; border-top: 1px solid #ddd; font-size: 16px; background-color: #fff;",
-          # strong("Event: "), 
-          # uiOutput(ns(paste0("event_name_", index))),   # NEW line
-          # tags$br(),
-          strong("Description:"), 
+          style = "flex: 1; border: 1px solid #ccc;",
+          uiOutput(ns(paste0("plot_ui_", index)))
+        ),
+        
+        # Description / Analysis Comments
+        div(
+          style = "
+            padding: 8px; 
+            border-top: 1px solid #ddd; 
+            font-size: 16px; 
+            background-color: #fff;
+            box-shadow: 0 8px 10px rgba(0,0,0.08,0.1);
+            min-height: 120px;
+          ",
+          strong("Description:"),
           uiOutput(ns(paste0("description_", index))),
           tags$br(),
-          strong("Analysis Comments:"), 
+          strong("Analysis Comments:"),
           uiOutput(ns(paste0("analysis_", index)))
         )
       )

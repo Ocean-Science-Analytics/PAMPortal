@@ -40,7 +40,13 @@ mod_analysis_ui <- function(id) {
           border-color: black !important;
         }
         .custom-btn:hover {
-          background-color: lightskyblue !important;
+          background-color: #8DB6CD !important;
+          transform: scale(1.05);
+          cursor: pointer;
+        }
+        .custom-btn-success:hover {
+          background-color: darkolivegreen43!important;
+          transform: scale(1.05);
           cursor: pointer;
         }
         .load-container {
@@ -54,7 +60,7 @@ mod_analysis_ui <- function(id) {
       tabPanel(
         "Occurrence",
         br(),
-        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
             fluidRow(
               column(
                 width = 3,
@@ -76,7 +82,7 @@ mod_analysis_ui <- function(id) {
                   style = "margin-bottom: 10px;",
                   actionButton(ns("render_occr"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
                 ),
-                downloadButton(ns("download_occr_plot"), "Download Plot", class = "btn-success")
+                downloadButton(ns("download_occr_plot"), "Download Plot", class = "btn-success custom-btn-success")
               )
             ),
         ),
@@ -96,7 +102,7 @@ mod_analysis_ui <- function(id) {
       tabPanel(
         "Call Measurments",
         br(),
-        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
             fluidRow(
               column(
                 width = 3,
@@ -119,7 +125,7 @@ mod_analysis_ui <- function(id) {
                   style = "margin-bottom: 10px;",
                   actionButton(ns("render_distribution"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
                 ),
-                downloadButton(ns("download_distribution_plot"), "Download Plot", class = "btn-success")
+                downloadButton(ns("download_distribution_plot"), "Download Plot", class = "btn-success custom-btn-success")
               )
             ),
         ),
@@ -134,7 +140,7 @@ mod_analysis_ui <- function(id) {
       tabPanel(
         "Effort & Detections",
         br(),
-        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px;",
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
             fluidRow(
               column(
                 width = 3,
@@ -154,7 +160,7 @@ mod_analysis_ui <- function(id) {
                   style = "margin-bottom: 10px;",
                   actionButton(ns("render_plot"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
                 ),
-                downloadButton(ns("download_effort_plot"), "Download Plot", class = "btn-success")
+                downloadButton(ns("download_effort_plot"), "Download Plot", class = "btn-success custom-btn-success")
               )
             ),
         ),

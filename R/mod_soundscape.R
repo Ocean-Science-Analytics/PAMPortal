@@ -16,9 +16,10 @@ mod_soundscape_ui <- function(id) {
     tags$head(
       tags$style(HTML(sprintf("
         #%s:hover {
-          background-color: lightskyblue !important;
+          background-color: #8DB6CD !important;
           color: white !important;
           border-color: black !important;
+          transform: scale(1.05);
           cursor: pointer;
         }
       ", ns("render_plot"))))
@@ -31,7 +32,8 @@ mod_soundscape_ui <- function(id) {
         pixture::pixgalleryOutput(ns("gallery"))
       ),
       tabPanel("SPL Measurements",
-               br(),
+              br(),
+              div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
                fluidRow(
                  column(
                    width = 3,
@@ -60,6 +62,7 @@ mod_soundscape_ui <- function(id) {
                br(),br(),br(),
                #plotlyOutput(ns("spl_plot"), height = "500px")
                uiOutput(ns("spl_plot_ui"))
+              )
       )
     )
   )
