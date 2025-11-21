@@ -316,7 +316,7 @@ effort_table <- function(location, base_path) {
   
   #pull spatial / time zone data
   spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
-  spatial$Site <- sub(".*?_", "", spatial$Site)
+  #spatial$Site <- sub(".*?_", "", spatial$Site)
   
   latitude <- spatial[spatial$Site==location,'Latitude']
   longitude <- spatial[spatial$Site==location,'Longitude']
@@ -342,7 +342,7 @@ effort_table <- function(location, base_path) {
   file_length <- row_info$file_length
   time_zone <- row_info$tz
   duty_cycle  <- row_info$dc
-
+  
   # create full minute grid
   start_day <- min(files_present)
   end_day   <- max(files_present)
@@ -394,7 +394,7 @@ sp_annotations <- function(location, base_path) {
   
   #pull spatial / time zone data
   spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
-  spatial$Site <- sub(".*?_", "", spatial$Site)
+  #spatial$Site <- sub(".*?_", "", spatial$Site)
   
   latitude <- spatial[spatial$Site==location,'Latitude']
   longitude <- spatial[spatial$Site==location,'Longitude']
@@ -427,6 +427,7 @@ sp_annotations <- function(location, base_path) {
       minute = minute(datetime)
     )
 
+  browser()
   #get sunrise/sunset times
   unique_days <- unique(as.Date(annotated$datetime, tz = tz))
   sun_times <- getSunlightTimes(
@@ -434,7 +435,7 @@ sp_annotations <- function(location, base_path) {
     lat = latitude, lon = longitude,
     tz = tz, keep = c("sunrise", "sunset")) %>%
     select(date, sunrise, sunset)
-  
+  browser()
   #merge with data table and calculate daylight
   annotated <- annotated %>%
     left_join(sun_times, by = c("date")) %>%
@@ -651,9 +652,9 @@ occr_events <- function(location, base_path, species_list = c('All')) {
   char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
   row_info <- char_df[char_df$location == location, ]
   time_zone <- row_info$tz
-  
+
   spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
-  spatial$Site <- sub(".*?_", "", spatial$Site)
+  #spatial$Site <- sub(".*?_", "", spatial$Site)
   
   latitude <- spatial[spatial$Site==location,'Latitude']
   longitude <- spatial[spatial$Site==location,'Longitude']
@@ -661,6 +662,22 @@ occr_events <- function(location, base_path, species_list = c('All')) {
     lutz::tz_lookup_coords(lat = latitude,
                            lon = longitude,
                            method = "fast"))
+  
+  # tz_lutz <- suppressWarnings(
+  #   lutz::tz_lookup_coords(lat = latitude,
+  #                          lon = longitude,
+  #                          method = "fast"))
+  
+  #tz_site <- unique(time_zone)[1]  # from Duty_Cycles.csv
+  # if (is.null(tz_site) || tz_site == "" || length(tz_site) == 0) {
+  #   tz_site <- "UTC"
+  # }
+  # 
+  # tz_final <- if (!is.null(tz_lutz) && !is.na(tz_lutz) && tz_lutz != "") {
+  #   tz_lutz
+  # } else {
+  #   tz_site
+  # }
   
   #rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
   rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
@@ -692,6 +709,8 @@ occr_events <- function(location, base_path, species_list = c('All')) {
   species_df <- species_df %>%
     mutate(datetime = as.POSIXct(day) + hours(hour)) %>%
     mutate(total_duration = pmin(total_duration, 3600))
+  print("Checkpoint A: species_df built")
+  print(head(species_df))
   
   if (time_zone == "utc") {
     species_df <- species_df %>%
@@ -699,6 +718,14 @@ occr_events <- function(location, base_path, species_list = c('All')) {
       mutate(hour = hour(datetime),
              day = as.Date(datetime))
   }
+  
+  # species_df <- species_df %>%
+  #   mutate(datetime = with_tz(datetime, tzone = tz_site)) %>%
+  #   mutate(
+  #     hour = hour(datetime),
+  #     day  = as.Date(datetime))
+  print("Checkpoint B: after timezone fix")
+  print(head(species_df))
   
   all_days <- seq(min(species_df$day), 
                   max(species_df$day), by="day")
@@ -715,7 +742,8 @@ occr_events <- function(location, base_path, species_list = c('All')) {
   
   merged <- full_grid %>%
     left_join(species_df, by = c("day", "hour", "species"))
-    
+  print("Checkpoint C: after merged")
+  print(head(merged))
   
   if (!('All' %in% species_list)) {
     merged <- merged %>%
@@ -727,10 +755,12 @@ occr_events <- function(location, base_path, species_list = c('All')) {
     lat = latitude,
     lon = longitude,
     tz = tz,
+    #tz = tz_site,
     keep = c("sunrise", "sunset")) %>% 
     mutate(day = as.Date(date)) %>%
     select(day, sunrise, sunset)
-  
+  print("Checkpoint D: after sun_times")
+  print(head(sun_times))
   if (latitude >= 0) {
     merged <- merged %>%
       left_join(sun_times, by = "day", relationship = "many-to-many") %>%
