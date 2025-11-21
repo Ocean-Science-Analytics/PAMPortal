@@ -315,11 +315,14 @@ effort_table <- function(location, base_path) {
   library(lutz)
   
   #pull spatial / time zone data
-  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
+  #spatial <- read.csv(file.path(base_path, "Spatial_Data.csv")) # <---
+  meta <- read.csv(file.path(base_path, "Metadata.csv"))
   #spatial$Site <- sub(".*?_", "", spatial$Site)
   
-  latitude <- spatial[spatial$Site==location,'Latitude']
-  longitude <- spatial[spatial$Site==location,'Longitude']
+  # latitude <- spatial[spatial$Site==location,'Latitude'] # <---
+  # longitude <- spatial[spatial$Site==location,'Longitude'] # <---
+  latitude <- meta[meta$Site==location,'Latitude']
+  longitude <- meta[meta$Site==location,'Longitude']
   
   tz <- suppressWarnings(
     lutz::tz_lookup_coords(lat = latitude,
@@ -337,8 +340,8 @@ effort_table <- function(location, base_path) {
   files_present <- as.POSIXct(parsed)
   
   # read duty cycle info
-  char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
-  row_info <- char_df[char_df$location == location, ]
+  #char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv")) # <---
+  row_info <- meta[meta$Site == location, ]
   file_length <- row_info$file_length
   time_zone <- row_info$tz
   duty_cycle  <- row_info$dc
@@ -393,19 +396,22 @@ sp_annotations <- function(location, base_path) {
   library(suncalc)
   
   #pull spatial / time zone data
-  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
+  #spatial <- read.csv(file.path(base_path, "Spatial_Data.csv")) # <---
+  meta <- read.csv(file.path(base_path, "Metadata.csv"))
   #spatial$Site <- sub(".*?_", "", spatial$Site)
   
-  latitude <- spatial[spatial$Site==location,'Latitude']
-  longitude <- spatial[spatial$Site==location,'Longitude']
+  # latitude <- spatial[spatial$Site==location,'Latitude']
+  # longitude <- spatial[spatial$Site==location,'Longitude']
+  latitude <- meta[meta$Site==location,'Latitude']
+  longitude <- meta[meta$Site==location,'Longitude']
   
   tz <- suppressWarnings(
     lutz::tz_lookup_coords(lat = latitude,
                            lon = longitude,
                            method = "fast"))
   
-  char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
-  row_info <- char_df[char_df$location == location, ]
+  #char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
+  row_info <- meta[meta$Site == location, ]
   time_zone <- row_info$tz
   
   events <- pull_events(location, base_path)
@@ -648,16 +654,19 @@ occr_events <- function(location, base_path, species_list = c('All')) {
   library(suncalc)
   library(lutz)
   
-  
-  char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
-  row_info <- char_df[char_df$location == location, ]
+  meta <- read.csv(file.path(base_path, "Metadata.csv"))
+  #char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
+  row_info <- meta[meta$Site == location, ]
   time_zone <- row_info$tz
 
-  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
+  #spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
   #spatial$Site <- sub(".*?_", "", spatial$Site)
   
-  latitude <- spatial[spatial$Site==location,'Latitude']
-  longitude <- spatial[spatial$Site==location,'Longitude']
+  # latitude <- spatial[spatial$Site==location,'Latitude']
+  # longitude <- spatial[spatial$Site==location,'Longitude']
+  latitude <- meta[meta$Site==location,'Latitude']
+  longitude <- meta[meta$Site==location,'Longitude']
+  
   tz <- suppressWarnings(
     lutz::tz_lookup_coords(lat = latitude,
                            lon = longitude,
