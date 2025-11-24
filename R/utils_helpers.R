@@ -71,8 +71,9 @@ palette_main <- function(){
 }
 
 #' secondary color palette used for data viz elements.
-palette_secondary <- c("#4A90A4", "#DB9A8E", "#198F7D", "#D6C4A2", "#1C3D57",
-             "#F4C542", "#E69F00", "#00CED1", "#CC79A7", "#35AD6B", "#724887")
+palette_secondary <- c("#67A9C4", "#15686A", "#CC8266", "#F4C542", 
+                       "#8ECFB7", "#A88AC4", "#E69F00", "#9ED6E8",
+                       "#D85F54", "#C18C57", "#2E6F9E", "#D7A592")
 
 
 background = '#F2F2F2'
@@ -87,6 +88,34 @@ font_sizes <- c(
   "legend title" = 14,
   "legend text" = 12
 )
+
+library(ggplot2)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(lubridate)
+
+theme_set(
+  theme_minimal(base_size = 12) +
+    theme(
+      text = element_text(color = text, 
+                          size = font_sizes['text']),
+      axis.title = element_text(color = text, 
+                                size = font_sizes['axis labels']),
+      axis.text.x = element_text(color = text, margin = margin(t = 5), 
+                                 size = font_sizes['axis labels']),
+      axis.text.y = element_text(color = text, margin = margin(r = 5),
+                                 size = font_sizes['axis labels']),
+      strip.text = element_text(color = text, hjust = 0, 
+                                size = font_sizes['facets']), 
+      legend.text = element_text(color = text, 
+                                 size = font_sizes['legend text']),
+      legend.title = element_text(color = text, 
+                                  size = font_sizes['legend title']),
+      plot.title = element_text(color = text, size = font_sizes['title'], 
+                                hjust = 0.5, margin = margin(b=10))
+    ))
+
 
 #' Process Zip File
 #' 
@@ -249,6 +278,197 @@ process_acoustic_data <- function(acou_data) {
 }
 
 
+#' Get data
+#' 
+#' @description Retrieves and concatenates all data from the RDS for a 
+#' particular time frame (if specified) into a dataframe.
+#'
+#' @examples
+#' get_data(location, base_path, months_of_interest = c(6,7))
+#' output: df with UTC, species, callType, and duration
+get_data <- function(location, base_path, 
+                     months_of_interest = c('All')) {
+  
+  rds_path <- file.path(base_path, "RDS", paste0(location, ".rds"))
+  rds <- readRDS(rds_path)
+  
+  detectors <- unique(unlist(lapply(rds@events, function(event) names(event@detectors))))
+  
+  species_list <- lapply(rds@events, function(event) {
+    dfs <- lapply(detectors, function(detector) {
+      data <- event[[detector]]
+      if (is.null(data)) return(NULL)
+      
+      utc <- as.POSIXct(data$UTC, tz = "UTC")
+      df <- tibble(
+        UTC     = data$UTC,
+        species  = event@species$id,
+        callType = detector,
+        duration = data$duration
+      )
+    })
+    
+    dfs <- dfs[!sapply(dfs, is.null)]
+    if (length(dfs) > 0) bind_rows(dfs) else NULL
+    
+  })
+  
+  species_list <- species_list[!sapply(species_list, is.null)]
+  species_df <- bind_rows(species_list)
+  
+  species_df <- species_df %>%
+    mutate(callType = sub("_.*", "", callType),
+           duration = if_else(callType == "Click", duration / 1e6, duration))
+  
+  
+  return(species_df)
+}
+
+
+#' Get metadata
+#' 
+#' @description Retrieves specific metadata variables 
+#' (Latitude, Longitude, Depth_m, dc, dc_per_hour, tz) 
+#' from csv files in the PAMportal folder.
+#'
+#' @examples
+#' get_metadata(location, base_path, variable = "Latitude")
+#' output: entry for the site/variable combo in Metadata.csv
+get_metadata <- function(location, base_path, variable) {
+  csv_path <- paste0(base_path, '\\Metadata.csv')
+  df <- read.csv(csv_path)
+  return(df[(df$Site==location), variable])
+}
+
+
+#' Get time zone
+#' 
+#' @description Retrieves time zone for the location.
+#'
+#' @examples
+#' get_timezone(location, base_path)
+#' ex. output: "Pacific/Wake"
+get_timezone <- function(location, base_path) {
+  library(lutz)
+  
+  latitude <- get_metadata(location, base_path, "Latitude")
+  longitude <- get_metadata(location, base_path, "Longitude")
+  
+  tz <- suppressWarnings(lutz::tz_lookup_coords(
+    lat = latitude, lon = longitude, method = "fast"
+  ))
+  
+  return(tz)
+}
+
+
+
+#' Time zone conversion
+#' 
+#' @description If metadata reflects current time zone in UTC, 
+#' converts an input dataframe to local time zone with day/hour/minute columns
+#' for future use.  Input dataframe MUST have a UTC col.
+#'
+#' @examples
+#' timezone_conversion(location, base_path)
+#' Output: modified df with local_time, species, callType, duration, day, hour, minute
+#' 
+timezone_conversion <- function(df, data_tz, local_tz) {
+  converted <- df
+  
+  if (data_tz == 'utc') {
+    converted$UTC <- with_tz(converted$UTC, tzone = local_tz)
+  }
+  
+  converted <- converted %>%
+    mutate(day = as.Date(UTC, tz = local_tz),
+           hour = hour(UTC),
+           minute = minute(UTC)) %>%
+    rename(local_time = UTC)
+  
+  return(converted)
+}
+
+
+#' Make an expanded grid
+#' 
+#' @description Takes an input dataframe (must have columns "day" and "species"), a list of species of interest, 
+#' and specification of minute resolution (T/F) and returns a dataframe with a row for each
+#' day/hour/species/(minute) combination in the given time frame
+#'
+#' @examples
+#' get_grid(df, species_list = c("Fin whale", "Blue whale"), minutes = FALSE))
+#' 
+get_grid <- function(df, species_list, minutes = FALSE) {
+  all_days <- seq(min(df$day), max(df$day), by="day")
+  all_hours <- seq(0,23)
+  all_minutes <- seq(0,60)
+  
+  if ('All' %in% species_list) {
+    species_list = unique(df$species)
+  } else {
+    species_list = intersect(species_list, unique(df$species))
+  }
+  
+  if (minutes) {
+    grid <- expand_grid(
+      day = all_days,
+      hour = all_hours, 
+      minute = all_minutes,
+      species = species_list)
+  } else {
+    grid <- expand_grid(
+      day = all_days,
+      hour = all_hours,
+      species = species_list)
+  }
+  
+  return(grid)
+}
+
+
+
+df <- get_data(wake_location, wake_basepath)
+local_tz <- get_timezone(wake_location, wake_basepath)
+data_tz <- get_metadata(wake_location, wake_basepath, "tz")
+df <- timezone_conversion(df, data_tz, local_tz)
+
+get_grid(df, species_list = c("Delphinid species"), minutes=TRUE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #' Pull Events for Effort/Detection Figure
 #' 
 #' @description This code pulls all events for a specific location RDS file.  Output will be in original time zone (UTC or local)
@@ -299,6 +519,7 @@ pull_events <- function(location, base_path) {
 }
 
 ### pull_events("HYDBBA106", "C:\\Users\\mtoll\\OneDrive\\Ocean Science Analytics\\PAMportal\\OSA_OOI_Demo")
+
 
 
 
