@@ -431,6 +431,7 @@ get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
   return(sound_map)
 }
 
+
 #' Get environmental data
 #' 
 #' @description Retrieves environmental df from csv and filters to months of interest.
@@ -452,6 +453,40 @@ get_environmental <- function(location, base_path, months_of_interest = c("All")
     environmental$moon_illum * 100
   
   return(environmental)
+  
+}
+
+
+#' Set species colors
+#' 
+#' @description Creates a map of colors so that species are consistently represented across figures.
+#'
+#' @examples
+#' 
+#' 
+set_colors <- function(location, base_path) {
+  set.seed(47)
+  
+  sp_order <- get_data(location, base_path) %>%
+    group_by(species) %>%
+    summarise(n = n()) %>%
+    arrange(desc(n))
+  
+  n_sp <- nrow(sp_order)
+  n_needed <- n_sp - length(palette_secondary)
+  
+  if (n_needed <= 0) {
+    sp_order$color <- palette_secondary[1:n_sp]
+  } else if (n_needed > 0) {
+    new_colors <- colorRampPalette(palette_secondary)(n_needed*2)
+    new_colors <- new_colors[!new_colors %in% palette_secondary]
+    colors <- c(palette_secondary, sample(new_colors)[1:n_needed])
+    sp_order$color <- colors
+  }
+  
+  color_map <- setNames(sp_order$color, sp_order$species)
+  
+  return(color_map)
   
 }
 
@@ -823,19 +858,97 @@ plot_call_count <- function(location, base_path,
 }
 
 
+
+#' Call density plot
+#' 
+#' @description View the relative call density of each species across time.
+#'
+#' @examples
+#' plot_call_count()
+#' 
+plot_call_density <- function(location, base_path, 
+                              months_of_interest = c("All"), species_of_interest = c("All"), 
+                              environmental_variable = NA) {
+  
+  #retrieve and convert all data
+  df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  local_tz <- get_timezone(location, base_path)
+  data_tz <- get_metadata(location, base_path, "tz")
+  df <- convert_timezone(df, data_tz, local_tz)
+  
+  #get all dates for effort
+  sound_df <- get_soundmap(location, base_path, months_of_interest) %>%
+    mutate(day = as.Date(local_time, tz = local_tz))
+  
+  start_day <- min(sound_df$day, na.rm = TRUE)
+  end_day <- max(sound_df$day, na.rm = TRUE)
+  
+  title = paste(str_replace(loc, "_", " "), "Relative Call Density")
+  color_map = set_colors(location, base_path)
+  
+  p <- ggplot(df, aes(x = day, color = species, fill = species)) + 
+    geom_density(alpha = 0.5) +
+    labs(title = title, x = "", y = "Normalized Call Density",
+         fill = '', color = '') +
+    scale_y_continuous(expand = c(0,0)) +
+    scale_color_manual(values = color_map) + 
+    scale_fill_manual(values = color_map) + 
+    scale_x_date(labels = label_date_short(),
+                 expand = c(0,0),
+                 limits = c(start_day, end_day)) +
+    theme(legend.position = "bottom")
+  
+  if (!(is.na(environmental_variable))) {
+    environmental_df <- get_environmental(location, base_path, months_of_interest)
+    
+    var_name <- enviro_data[[environmental_variable]]$title
+    val_name <- enviro_data[[environmental_variable]]$var
+    title = paste0(title, "\nwith ", var_name)
+    
+    pd <- ggplot_build(p)
+    
+    environmental_df$scaled <- environmental_df[[val_name]] - 
+      min(environmental_df[[val_name]], na.rm = TRUE)
+    
+    scalar = max(pd$data[[1]]$y) / max(environmental_df$scaled, na.rm = TRUE)
+    
+    environmental_df$scaled <- environmental_df$scaled * scalar
+    
+    environmental_df <- environmental_df %>%
+      drop_na(scaled) %>%
+      mutate(day = as.Date(day))
+    
+    p <- p +
+      geom_line(data = environmental_df, 
+                aes(x = day, y = scaled), 
+                color = alpha(text, .75), linewidth = 0.5,
+                inherit.aes = FALSE) +
+      labs(title = title) +  
+      scale_y_continuous(
+        sec.axis = sec_axis(~ . / scalar + 
+                              min(environmental_df[[val_name]], na.rm = TRUE), 
+                            name = enviro_data[[enviro_var]]$axis),
+        expand = c(0,0))
+  }
+  
+  
+  return(p)
+  
+}
+
+
+
 #loc <- ctbto_location
 loc <- wake_location
 #base <- ctbto_basepath
 base <- wake_basepath
 
-species_list <- c("Delphinid species", "Cuvier's beaked whale")
+species_list <- c("Beaked whale species", "Cuvier's beaked whale", "Delphinid species")
 show_duty_cycle <- TRUE
-month_list <- c(7,8)
+month_list <- c(6,7)
 enviro_var <- "KD490"
 
-plot_call_count(loc, base, month_list, species_list, 
-                environmental_variable = enviro_var, log_scale = TRUE)
-
+plot_call_density(loc, base, month_list, species_list, enviro_var)
 
 
 
