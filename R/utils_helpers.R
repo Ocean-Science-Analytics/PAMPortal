@@ -70,10 +70,12 @@ palette_main <- function(){
   )
 }
 
-#' secondary color palette used for data viz elements.
+#' secondary color palettes used for data viz elements.
 palette_secondary <- c("#67A9C4", "#15686A", "#CC8266", "#F4C542", 
                        "#8ECFB7", "#A88AC4", "#E69F00", "#9ED6E8",
                        "#D85F54", "#C18C57", "#2E6F9E", "#D7A592")
+
+palette_constant <- c("#4A90A4", "#DB9A8E", "#1C3D57","#D6C4A2", "#7F8B89")
 
 
 background = '#F2F2F2'
@@ -94,6 +96,7 @@ library(tidyverse)
 library(tidyr)
 library(dplyr)
 library(lubridate)
+library(scales)
 
 #set theme for all plots
 theme_set(
@@ -147,7 +150,7 @@ enviro_data <- list(
     dataset_id = "R:Suncalc",
     var = "moon_illum",
     title = "Lunar Phase",
-    axis = "Moon illumination %"
+    axis = "Moon illumination percentage"
   )
 )
 
@@ -323,7 +326,7 @@ process_acoustic_data <- function(acou_data) {
 #' get_data(location, base_path, months_of_interest = c(6,7))
 #' output: df with UTC, species, callType, and duration
 get_data <- function(location, base_path, 
-                     months_of_interest = c('All')) {
+                     months_of_interest = c('All'), species_of_interest = c("All")) {
   
   rds_path <- file.path(base_path, "RDS", paste0(location, ".rds"))
   rds <- readRDS(rds_path)
@@ -359,6 +362,11 @@ get_data <- function(location, base_path,
   if (!("All" %in% months_of_interest)) {
     species_df <- species_df %>%
       filter(month(UTC) %in% months_of_interest)
+  }
+  
+  if (!("All") %in% species_of_interest) {
+    species_df <- species_df %>%
+      filter(species %in% species_of_interest)
   }
   
   
@@ -403,6 +411,50 @@ get_timezone <- function(location, base_path) {
 }
 
 
+#' Get sound map
+#' 
+#' @description Retrieves sound map df from csv and filters to months of interest.
+#'
+#' @examples
+#' get_soundmap(location, base_path, c(6,7))
+#' 
+get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
+
+  file_name = paste0(base_path, "\\", location, "_sound_map.csv")
+  sound_map = read.csv(file_name)
+  
+  if(!("All" %in% months_of_interest)) {
+    sound_map <- sound_map %>%
+      filter(month(local_time) %in% months_of_interest)
+  }
+  
+  return(sound_map)
+}
+
+#' Get environmental data
+#' 
+#' @description Retrieves environmental df from csv and filters to months of interest.
+#'
+#' @examples
+#' get_environmental(location, base_path, c(6,7))
+#' 
+get_environmental <- function(location, base_path, months_of_interest = c("All")) {
+  
+  file_name = paste0(base_path, "\\", location, "_environmental_data.csv")
+  environmental = read.csv(file_name)
+  
+  if(!("All" %in% months_of_interest)) {
+    environmental <- environmental %>%
+      filter(month(day) %in% months_of_interest)
+  }
+  
+  environmental$moon_illum <- 
+    environmental$moon_illum * 100
+  
+  return(environmental)
+  
+}
+
 
 #' Time zone conversion
 #' 
@@ -440,18 +492,12 @@ convert_timezone <- function(df, data_tz, local_tz) {
 #' @examples
 #' get_grid(df, species_list = c("Fin whale", "Blue whale"), minutes = FALSE))
 #' 
-get_grid <- function(df, location, basepath,
+get_grid <- function(df, location, base_path,
                      months_of_interest = c("All"), species_of_interest = c("All"),
                      minutes = FALSE) {
-  #get all days of effort from sound_map
-  file_name = paste0(basepath, "\\", location, "_sound_map.csv")
-  sound_map = read.csv(file_name)
-  sound_map$day = as.Date(sound_map$local_time)
   
-  if(!("All" %in% months_of_interest)) {
-    sound_map <- sound_map %>%
-      filter(month(day) %in% months_of_interest)
-  }
+  sound_map = get_soundmap(location, base_path, months_of_interest) %>%
+    mutate(day = as.Date(local_time))
   
   all_days <- seq(min(sound_map$day), max(sound_map$day), by="day")
   all_hours <- seq(0,23)
@@ -480,7 +526,6 @@ get_grid <- function(df, location, basepath,
 }
 
 
-
 #' Return daylight classification
 #' 
 #' @description Takes an input dataframe (full grid, converted TZ; must have "day" col) and returns daylight T/F for each row.
@@ -489,12 +534,12 @@ get_grid <- function(df, location, basepath,
 #' get_daylight(df, local_tz = "Pacific/Wake", location, basepath)
 #' 
 get_daylight <- function(df, local_tz, 
-                         location, basepath) {
+                         location, base_path) {
   
   library(suncalc)
   
-  lat = get_metadata(location, basepath, "Latitude")
-  lon = get_metadata(location, basepath, "Longitude")
+  lat = get_metadata(location, base_path, "Latitude")
+  lon = get_metadata(location, base_path, "Longitude")
   
   #convert dates to UTC because getSunlightTimes will only interpret input in UTC... no matter what...
   utc_dates = as.Date(force_tz(as.POSIXct(df$day, tz = 'UTC'), tzone = local_tz))
@@ -553,7 +598,6 @@ get_daylight <- function(df, local_tz,
 }
 
 
-
 #' Occurrence plot
 #' 
 #' @description Plot of number of minutes an animal was detected with option to show total number of 
@@ -561,54 +605,246 @@ get_daylight <- function(df, local_tz,
 #' with environmental variable of interest (options "SSH", "SST", "LUNAR", "CHL", "KD490")
 #'
 #' @examples
-#' occurrence_plot()
+#' plot_occurrence()
 #' 
-occurrence_plot <- function(location, basepath,
+plot_occurrence <- function(location, base_path,
                             months_of_interest = c("All"), species_of_interest = c("All"), 
                             environmental_variable = NA, show_effort = FALSE) {
   
   #pull data and prep grid
-  df <- get_data(location, basepath, months_of_interest)
-  local_tz <- get_timezone(loc, base)
-  data_tz <- get_metadata(loc, base, "tz")
+  df <- get_data(location, base_path, months_of_interest)
+  local_tz <- get_timezone(location, base_path)
+  data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz)
-  grid <- get_grid(df, location, basepath, months_of_interest,
-                   species_of_interest, minutes = TRUE)
+  grid <- get_grid(df, location, base_path, months_of_interest,
+                   species_of_interest, minutes = FALSE) %>%
+    distinct(day, species)
   
   #filter for species of interest
   if (!('All' %in% species_list)) {
     df <- df %>% filter(species %in% species_list)
   }
   
+  #count number of occurrences in unique day/hour/min/species combinations
   df <- df %>%
     distinct(day, hour, minute, species) %>%
-    group_by(day, hour, species) %>%
-    summarise(minute_count = n(), .groups = "drop")
+    group_by(day, species) %>%
+    summarise(detected = n(), .groups = "drop")
   
-  return(df)
+  #pull sound map information to calculate daily effort
+  sound_map <- get_soundmap(location, base_path, months_of_interest) %>%
+    mutate(Status = str_trim(Status),
+           day = as.Date(local_time, tz = tz_func$tz)) %>%
+    filter(Status %in% c("Start", "Continue")) %>%
+    group_by(day) %>%
+    summarise(monitored = n())
+  
+  color_levels = c(detected = "Detected", undetected = "Undetected")
+  
+  #join with grid
+  merged <- grid %>%
+    left_join(df, by = c("species", "day")) %>%
+    mutate(detected = replace_na(detected, 0)) %>%
+    left_join(sound_map, by="day") %>%
+    mutate(undetected = monitored - detected) %>%
+    select(-monitored) %>%
+    pivot_longer(c(detected, undetected),
+                 names_to = "segment", values_to = "minutes") %>%
+    mutate(fill_color = factor(color_levels[segment],
+                               levels = c("Undetected", "Detected")))
+  
+  title = paste(str_replace(loc, "_", " "), "Daily Detections")
+  
+  if(show_effort) {
+    p <- ggplot(merged, aes(x = day, y = minutes, fill = fill_color)) +
+                  geom_bar(stat = "identity") +
+                  scale_fill_manual(values = c("Undetected" = alpha(palette_constant[4], 0.25),
+                                               "Detected" = palette_constant[1])) +
+                  labs(y = "Monitored minutes", fill = "") +
+      theme(legend.position = "bottom")
+  } else {
+    merged <- merged %>% filter(segment=='detected')
+    p <- ggplot(merged, aes(x = day, y = minutes)) +
+      geom_bar(stat = "identity", fill = palette_constant[1]) +
+      labs(y = "Detected minutes", fill = "")
+  }
+  
+  p <- p +
+    facet_wrap(~species, ncol = 1, scales = "free_y") +
+    labs(title = title, x = "") + 
+    scale_y_continuous(expand = c(0,0)) +
+    scale_x_date(labels = label_date_short(), 
+                 #breaks = function(x) c(pretty(x), max(x)),
+                 expand = c(0,0))
+  
+  #add environmental data to graph if specified
+  if(!(is.na(environmental_variable))) {
+    environmental_df <- get_environmental(location, base_path, months_of_interest)
+    
+    var_name <- enviro_data[[environmental_variable]]$title
+    val_name <- enviro_data[[environmental_variable]]$var
+    title = paste0(title, "\nwith ", var_name)
+    
+    max_count <- merged %>%
+      group_by(day, species) %>%
+      summarise(minutes = sum(minutes, na.rm = TRUE), .groups = "drop") %>%
+      summarise(max_value = max(minutes, na.rm = TRUE))
+    
+    environmental_df$scaled <- environmental_df[[val_name]] - 
+      min(environmental_df[[val_name]], na.rm = TRUE)
+    
+    scalar = max_count$max_value / max(environmental_df$scaled, na.rm = TRUE)
+    
+    environmental_df$scaled <- environmental_df$scaled * scalar
+    
+    environmental_df <- environmental_df %>%
+        drop_na(scaled) %>%
+      mutate(day = as.Date(day))
+    
+    p <- p +
+      geom_line(data = environmental_df, 
+                aes(x = day, y = scaled),
+                na.rm = TRUE,
+                color = alpha(text),
+                linewidth = 0.5,
+                inherit.aes = FALSE) +
+      scale_y_continuous(
+        sec.axis = sec_axis(~ . / scalar + 
+                              min(environmental_df[[val_name]], na.rm = TRUE), 
+                            name = enviro_data[[environmental_variable]]$axis),
+        expand = c(0,0)
+      ) +
+      labs(title = title)
+    
+    
+  }
+
+  return(p)
   
 }
 
 
 
-loc <- ctbto_location
-#loc <- wake_location
-base <- ctbto_basepath
-#base <- wake_basepath
 
-species_list <- c("Possible whale")
+#' Call count plot
+#' 
+#' @description Plot the number of calls recorded per day (on a regular or logarithmic scale) along with call type.
+#' Option to add environmental data.
+#'
+#' @examples
+#' plot_call_count()
+#' 
+plot_call_count <- function(location, base_path, 
+                            months_of_interest = c("All"), species_of_interest = c("All"), 
+                            environmental_variable = NA, log_scale = FALSE) {
+  #prep data
+  df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  local_tz <- get_timezone(location, base_path)
+  data_tz <- get_metadata(location, base_path, "tz")
+  df <- convert_timezone(df, data_tz, local_tz) %>%
+    group_by(callType, day, species) %>%
+    summarise(callCount = n(), .groups = 'drop') %>%
+    mutate(callType = str_to_title(callType))
+  
+  #get start/end effort from soundmap
+  sound_df <- get_soundmap(location, base_path, months_of_interest) %>%
+    mutate(day = as.Date(local_time, tz = local_tz))
+  
+  start_day <- min(sound_df$day, na.rm = TRUE)
+  end_day <- max(sound_df$day, na.rm = TRUE)
+  
+  title = paste(str_replace(loc, "_", " "), "Daily Calls")
+  ylabel = "Number of Calls"
+  
+  if (log_scale) {
+    df$callCount <- log10(df$callCount)
+    ylabel <- paste0(ylabel, "\n(log10 scale)")
+  }
+  
+  p <- ggplot(df, aes(x = day, y = callCount, fill = callType)) +
+    geom_bar(stat = "identity") +
+    facet_wrap(~species, ncol = 1, scales = "free_y") +
+    scale_x_date(limits = c(start_day, end_day),
+                 labels = label_date_short(), expand = c(0,0)) +
+    scale_fill_manual(values = palette_constant) +
+    labs(title = title, y = ylabel, x = "", fill = "")
+  
+  if (length(unique(df$callType)) > 1) {
+    p <- p + 
+      theme(legend.position = "bottom",
+            legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
+            plot.margin = margin(t = 10, r = 10, b = 20, l = 10)) 
+  } else {
+    p <- p +
+      theme(legend.position = "none")
+  }
+  
+  
+  if (!(is.na(environmental_variable))) {
+    environmental_df <- get_environmental(location, base_path, months_of_interest)
+    
+    var_name <- enviro_data[[environmental_variable]]$title
+    val_name <- enviro_data[[environmental_variable]]$var
+    title = paste0(title, "\nwith ", var_name)
+    
+    max_count <- df %>%
+      group_by(day, species) %>%
+      summarise(totalCalls = sum(callCount, na.rm = TRUE), .groups = "drop") %>%
+      summarise(max_value = max(totalCalls, na.rm = TRUE))
+    
+    environmental_df$scaled <- environmental_df[[val_name]] - 
+      min(environmental_df[[val_name]], na.rm = TRUE)
+    
+    scalar = max_count$max_value / max(environmental_df$scaled, na.rm = TRUE)
+    
+    environmental_df$scaled <- environmental_df$scaled * scalar
+    
+    environmental_df <- environmental_df %>%
+      drop_na(scaled) %>%
+      mutate(day = as.Date(day))
+    
+    p <- p +
+      labs(title = title) + 
+      geom_line(data = environmental_df, 
+                aes(x = day, y = scaled),
+                na.rm = TRUE,
+                color = alpha(text),
+                linewidth = 0.5,
+                inherit.aes = FALSE) +   # secondary axis on the right
+      scale_y_continuous(
+        name = ylabel,
+        sec.axis = sec_axis(~ . / scalar + min(environmental_df[[val_name]], na.rm = TRUE), 
+                            name = enviro_data[[environmental_variable]]$axis), expand = c(0,0)
+      )
+  }
+  
+  return(p)
+  
+}
+
+
+#loc <- ctbto_location
+loc <- wake_location
+#base <- ctbto_basepath
+base <- wake_basepath
+
+species_list <- c("Delphinid species", "Cuvier's beaked whale")
 show_duty_cycle <- TRUE
-month_list <- c(6,7,8)
-enviro_var <- NA
+month_list <- c(7,8)
+enviro_var <- "KD490"
 
-occurrence_plot(loc, base, species_list, month_list,
-                environmental_variable = enviro_var, show_effort = FALSE)
+plot_call_count(loc, base, month_list, species_list, 
+                environmental_variable = enviro_var, log_scale = TRUE)
 
-#df <- get_data(loc, base)
-#local_tz <- get_timezone(loc, base)
-#data_tz <- get_metadata(loc, base, "tz")
-#df <- convert_timezone(df, data_tz, local_tz)
-grid <- get_grid(df, loc, base, species_list = c("All"), months_of_interest, minutes=TRUE)
+
+
+
+
+df <- get_data(loc, base)
+local_tz <- get_timezone(loc, base)
+data_tz <- get_metadata(loc, base, "tz")
+df <- convert_timezone(df, data_tz, local_tz)
+grid <- get_grid(df, loc, base, month_list, species_list, minutes=TRUE)
 #plot_df <- get_daylight(grid, local_tz, loc, base)
 
 
