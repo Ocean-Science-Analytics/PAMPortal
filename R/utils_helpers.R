@@ -95,6 +95,7 @@ library(tidyr)
 library(dplyr)
 library(lubridate)
 
+#set theme for all plots
 theme_set(
   theme_minimal(base_size = 12) +
     theme(
@@ -115,6 +116,41 @@ theme_set(
       plot.title = element_text(color = text, size = font_sizes['title'], 
                                 hjust = 0.5, margin = margin(b=10))
     ))
+
+#list of reference data for environmental variables
+enviro_data <- list(
+  "SSH"= list(
+    dataset_id = "noaacwBLENDEDsshDaily",
+    var = 'sla',
+    title = "Sea Surface Height",
+    axis = "Sea level anomaly (m)"
+  ),
+  "SST" = list(
+    dataset_id = "noaacrwsstDaily",
+    var = 'analysed_sst',
+    title = "Sea Surface Temperature",
+    axis = "Analyzed SST (°C)"
+  ),
+  "CHL" = list(
+    dataset_id = "noaacwNPPVIIRSSQchlaDaily",
+    var = 'chlor_a',
+    title = "Chlorophyll Concentration",
+    axis = "Chlorophyll (mg m-3)"
+  ),
+  "KD490" = list(
+    dataset_id = "noaacwNPPVIIRSSQkd490Daily",
+    var = 'kd_490',
+    title = "Kd490",
+    axis = "Diffuse attenuation coefficient (m-1)"
+  ),
+  "LUNAR" = list(
+    dataset_id = "R:Suncalc",
+    var = "moon_illum",
+    title = "Lunar Phase",
+    axis = "Moon illumination %"
+  )
+)
+
 
 
 #' Process Zip File
@@ -320,6 +356,11 @@ get_data <- function(location, base_path,
     mutate(callType = sub("_.*", "", callType),
            duration = if_else(callType == "Click", duration / 1e6, duration))
   
+  if (!("All" %in% months_of_interest)) {
+    species_df <- species_df %>%
+      filter(month(UTC) %in% months_of_interest)
+  }
+  
   
   return(species_df)
 }
@@ -370,10 +411,10 @@ get_timezone <- function(location, base_path) {
 #' for future use.  Input dataframe MUST have a UTC col.
 #'
 #' @examples
-#' timezone_conversion(location, base_path)
+#' convert_timezone(df, data_tz = "UTC", local_tz = "Pacific/Wake")
 #' Output: modified df with local_time, species, callType, duration, day, hour, minute
 #' 
-timezone_conversion <- function(df, data_tz, local_tz) {
+convert_timezone <- function(df, data_tz, local_tz) {
   converted <- df
   
   if (data_tz == 'utc') {
@@ -399,15 +440,27 @@ timezone_conversion <- function(df, data_tz, local_tz) {
 #' @examples
 #' get_grid(df, species_list = c("Fin whale", "Blue whale"), minutes = FALSE))
 #' 
-get_grid <- function(df, species_list, minutes = FALSE) {
-  all_days <- seq(min(df$day), max(df$day), by="day")
+get_grid <- function(df, location, basepath,
+                     months_of_interest = c("All"), species_of_interest = c("All"),
+                     minutes = FALSE) {
+  #get all days of effort from sound_map
+  file_name = paste0(basepath, "\\", location, "_sound_map.csv")
+  sound_map = read.csv(file_name)
+  sound_map$day = as.Date(sound_map$local_time)
+  
+  if(!("All" %in% months_of_interest)) {
+    sound_map <- sound_map %>%
+      filter(month(day) %in% months_of_interest)
+  }
+  
+  all_days <- seq(min(sound_map$day), max(sound_map$day), by="day")
   all_hours <- seq(0,23)
   all_minutes <- seq(0,60)
   
-  if ('All' %in% species_list) {
-    species_list = unique(df$species)
+  if ('All' %in% species_of_interest) {
+    species_of_interest = unique(df$species)
   } else {
-    species_list = intersect(species_list, unique(df$species))
+    species_of_interest = intersect(species_of_interest, unique(df$species))
   }
   
   if (minutes) {
@@ -415,12 +468,12 @@ get_grid <- function(df, species_list, minutes = FALSE) {
       day = all_days,
       hour = all_hours, 
       minute = all_minutes,
-      species = species_list)
+      species = species_of_interest)
   } else {
     grid <- expand_grid(
       day = all_days,
       hour = all_hours,
-      species = species_list)
+      species = species_of_interest)
   }
   
   return(grid)
@@ -428,14 +481,135 @@ get_grid <- function(df, species_list, minutes = FALSE) {
 
 
 
-df <- get_data(wake_location, wake_basepath)
-local_tz <- get_timezone(wake_location, wake_basepath)
-data_tz <- get_metadata(wake_location, wake_basepath, "tz")
-df <- timezone_conversion(df, data_tz, local_tz)
+#' Return daylight classification
+#' 
+#' @description Takes an input dataframe (full grid, converted TZ; must have "day" col) and returns daylight T/F for each row.
+#'
+#' @examples
+#' get_daylight(df, local_tz = "Pacific/Wake", location, basepath)
+#' 
+get_daylight <- function(df, local_tz, 
+                         location, basepath) {
+  
+  library(suncalc)
+  
+  lat = get_metadata(location, basepath, "Latitude")
+  lon = get_metadata(location, basepath, "Longitude")
+  
+  #convert dates to UTC because getSunlightTimes will only interpret input in UTC... no matter what...
+  utc_dates = as.Date(force_tz(as.POSIXct(df$day, tz = 'UTC'), tzone = local_tz))
+  
+  sun_times = getSunlightTimes(
+    date = unique(utc_dates),
+    lat = lat, lon = lon,
+    tz = local_tz, 
+    keep = c("sunrise", "sunset")
+  )
+  
+  #replace UTC dates with original ones, select relevant cols for merge
+  sun_times <- sun_times %>%
+    mutate(day = unique(df$day)) %>%
+    select(-date, -lat, -lon)
+  
+  #merge sunrise/sunset times with original df
+  merged <- df %>%
+    left_join(sun_times, by = "day", relationship = "many-to-many") %>%
+    mutate(datetime = force_tz(as.POSIXct(day) + hours(hour), tzone = local_tz),
+           month = lubridate::month(day))
+  
+  if ("minute" %in% names(merged)) {
+    merged$datetime <- merged$datetime + merged$minute * 60
+  }
+  
+  merged <- merged %>% 
+    mutate(daylight = case_when(
+      !is.na(sunrise) & !is.na(sunset) ~ 
+        datetime >= sunrise & datetime <= sunset,
+      
+      #northern hemisphere, polar day
+      (is.na(sunrise) | is.na(sunset)) & lat > 0 & 
+        month %in% 5:8 ~ TRUE,
+      #northern hemisphere, polar night
+      (is.na(sunrise) | is.na(sunset)) & lat > 0 & 
+        month %in% c(10, 11, 12, 1, 2, 3) ~ FALSE,
+      
+      #southern hemisphere, polar day
+      (is.na(sunrise) | is.na(sunset)) & lat < 0 & 
+        month %in% c(10, 11, 12, 1, 2, 3) ~ TRUE,
+      #southern hemisphere, polar night
+      (is.na(sunrise) | is.na(sunset)) & lat < 0 & 
+        month %in% 5:8 ~ FALSE
+    ))
+  
+  #select relevant cols to return
+  if ("minute" %in% names(merged)) {
+    merged <- merged %>% select(species, day, hour, minute, daylight)
+  } else {
+    merged <- merged %>% select(species, day, hour, daylight)
+  }
 
-get_grid(df, species_list = c("Delphinid species"), minutes=TRUE)
+  
+  return(merged)
+}
 
 
+
+#' Occurrence plot
+#' 
+#' @description Plot of number of minutes an animal was detected with option to show total number of 
+#' minutes monitored (effort) for species of interest (default all) and months of interest (default all), 
+#' with environmental variable of interest (options "SSH", "SST", "LUNAR", "CHL", "KD490")
+#'
+#' @examples
+#' occurrence_plot()
+#' 
+occurrence_plot <- function(location, basepath,
+                            months_of_interest = c("All"), species_of_interest = c("All"), 
+                            environmental_variable = NA, show_effort = FALSE) {
+  
+  #pull data and prep grid
+  df <- get_data(location, basepath, months_of_interest)
+  local_tz <- get_timezone(loc, base)
+  data_tz <- get_metadata(loc, base, "tz")
+  df <- convert_timezone(df, data_tz, local_tz)
+  grid <- get_grid(df, location, basepath, months_of_interest,
+                   species_of_interest, minutes = TRUE)
+  
+  #filter for species of interest
+  if (!('All' %in% species_list)) {
+    df <- df %>% filter(species %in% species_list)
+  }
+  
+  df <- df %>%
+    distinct(day, hour, minute, species) %>%
+    group_by(day, hour, species) %>%
+    summarise(minute_count = n(), .groups = "drop")
+  
+  return(df)
+  
+}
+
+
+
+loc <- ctbto_location
+#loc <- wake_location
+base <- ctbto_basepath
+#base <- wake_basepath
+
+species_list <- c("Possible whale")
+show_duty_cycle <- TRUE
+month_list <- c(6,7,8)
+enviro_var <- NA
+
+occurrence_plot(loc, base, species_list, month_list,
+                environmental_variable = enviro_var, show_effort = FALSE)
+
+#df <- get_data(loc, base)
+#local_tz <- get_timezone(loc, base)
+#data_tz <- get_metadata(loc, base, "tz")
+#df <- convert_timezone(df, data_tz, local_tz)
+grid <- get_grid(df, loc, base, species_list = c("All"), months_of_interest, minutes=TRUE)
+#plot_df <- get_daylight(grid, local_tz, loc, base)
 
 
 
