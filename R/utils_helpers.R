@@ -864,7 +864,7 @@ plot_call_count <- function(location, base_path,
 #' @description View the relative call density of each species across time.
 #'
 #' @examples
-#' plot_call_count()
+#' plot_call_density()
 #' 
 plot_call_density <- function(location, base_path, 
                               months_of_interest = c("All"), species_of_interest = c("All"), 
@@ -937,18 +937,109 @@ plot_call_density <- function(location, base_path,
 }
 
 
+#' Hourly presence
+#' 
+#' @description View hourly presence and acoustic intensity by species.  Specify metric as "Count" or "Duration".
+#'
+#' @examples
+#' plot_hourly_presence()
+#' 
+plot_hourly_presence<- function(location, base_path, 
+                                months_of_interest = c("All"), species_of_interest = c("All"),
+                                metric = "Count", log_scale = FALSE) {
+  #get data and compile grid
+  df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  local_tz <- get_timezone(location, base_path)
+  data_tz <- get_metadata(location, base_path, "tz")
+  df <- convert_timezone(df, data_tz, local_tz)
+  grid <- get_grid(df, location, base_path, months_of_interest,
+                   species_of_interest, minutes = FALSE)
+  full_grid <- get_daylight(grid, local_tz, location, base_path)
+  
+  
+  #group by either count or duration
+  if (metric == "Duration") {
+    df <- df %>%
+      group_by(day, hour, species) %>%
+      summarise(metric = sum(duration), .groups = 'drop')
+  } else if (metric == "Count") {
+    df <- df %>%
+      group_by(day, hour, species) %>%
+      summarise(metric = n(), .groups = 'drop')
+  }
+  
+  #adjust for log scale if needed
+  if (log_scale) {
+    df$metric <- log10(df$metric)
+  }
+  
+  merged <- full_grid %>%
+    left_join(df, by = c("day", "hour", "species")) %>%
+    mutate(time_hour = substr(hms::as_hms(sprintf("%02d:00:00", hour)), 1, 5)) %>%
+    select(-hour)
+  
+  shadow <- merged %>% filter(!daylight)
+  merged$time_hour <- factor(merged$time_hour,
+                             levels = c(sprintf("%02d:00", 0:23), "24:00"))
+  n_species <- length(unique(df$species))
+  nbreaks <- case_when(
+    n_species == 1         ~ 4,
+    n_species == 2         ~ 6,
+    n_species %in% 3:4     ~ 8,
+    n_species >= 5         ~ 12
+  )
+  breaks <- sprintf("%02d:00", seq(0, 24, by = nbreaks))
+  title <- paste(str_replace(loc, "_", " "), "Hourly Acoustic Presence")
+  
+  p <- ggplot(merged, aes(x = day, y = time_hour, fill = metric)) +
+    geom_tile(data = shadow, fill='black', alpha = 0.25) +
+    geom_tile() +
+    facet_wrap(~species, ncol=1) +
+    scale_fill_gradientn(
+      colors = c(palette_constant[2], palette_constant[1], palette_constant[3]), 
+      na.value = alpha('#F2F2F2', 0.5),
+      guide = guide_colorbar(
+        title.position = "right", title.hjust = 0.5,
+        barheight = unit(6, 'cm')
+      )) +
+    scale_x_date(labels = label_date_short(),
+                 expand = c(0,0)) +
+    scale_y_discrete(breaks=breaks, 
+                     expand=c(0,1)) +
+    labs(title = title, x = "", y = "Time of Day") +
+    theme(legend.title = element_text(angle = 270))
+  
+  if (metric == "Duration" && log_scale == TRUE) {
+    p <- p +
+      labs(fill = "Total Call Duration\n(log10 scale)")
+  } else if (metric == "Count" && log_scale == TRUE) {
+    p <- p +
+      labs(fill = "Total Call Count\n(log10 scale)")
+  } else if (metric == "Duration" && log_scale == FALSE) {
+    p <- p +
+      labs(fill = "Total Call Duration\n(seconds)")
+  } else if (metric == "Count" && log_scale == FALSE) {
+    p <- p +
+      labs(fill = "Total Call Count")
+  }
+  
+  return(p)
+  
+}
+
+
 
 #loc <- ctbto_location
 loc <- wake_location
 #base <- ctbto_basepath
 base <- wake_basepath
 
-species_list <- c("Beaked whale species", "Cuvier's beaked whale", "Delphinid species")
+species_list <- c("Beaked whale species", "Cuvier's beaked whale")
 show_duty_cycle <- TRUE
 month_list <- c(6,7)
 enviro_var <- "KD490"
 
-plot_call_density(loc, base, month_list, species_list, enviro_var)
+plot_hourly_presence(loc, base, month_list, species_list, metric = "Count", log_scale = FALSE)
 
 
 
