@@ -133,13 +133,17 @@ mod_analysis_ui <- function(id) {
         div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
             fluidRow(
               column(
-                width = 3,
+                width = 4,
                 selectInput(ns("location_dis"), "Select Location", choices = NULL, multiple = TRUE),
                 selectInput(ns("event_filter"), "Select Events", choices = c("All"), selected = "ALL", multiple = TRUE)
               ),
               column(
+                width = 3,
+                selectInput(ns("distribution_variable"), "Select Variable", selected = "freqbeg", choices = names(var_names), multiple = TRUE),
+                selectInput(ns("detector_filter"), "Select Detector", choices = c("Whistle & Moan", "Click"), selected = "Whistle & Moan", multiple = FALSE)
+              ),
+              column(
                 width = 2,
-                selectInput(ns("distribution_variable"), "Select Variable", selected = "freqbeg", choices = names(var_names)),
                 selectInput(ns("species_filter"), "Select Species", choices = c("All"), selected = "ALL", multiple = TRUE)
               ),
               column(
@@ -212,7 +216,7 @@ mod_analysis_server <- function(id, data){
     ns <- session$ns
     library(lubridate)
     effort_plot_obj <- reactiveVal(NULL)
-    distribution_plot_obj <- reactiveVal(NULL)
+    plot_measurements_obj <- reactiveVal(NULL)
     occurrence_plot_obj <- reactiveVal(NULL)
     
     base_path <- reactive({
@@ -287,7 +291,7 @@ mod_analysis_server <- function(id, data){
     
     
     ###################################################################
-    # Distribution Plot
+    # Call Measurement Plot
     ###################################################################
     observeEvent(input$species_filter, {
       req(data$rds_data(), input$location_dis, input$species_filter)
@@ -308,22 +312,23 @@ mod_analysis_server <- function(id, data){
       updateSelectInput(session, "event_filter", choices = c("All", event_choices), selected = "All")
     })
     
-    distribution_plot_obj <- eventReactive(input$render_distribution, {
+    plot_measurements_obj <- eventReactive(input$render_distribution, {
       req(base_path(), input$location_dis, input$distribution_variable)
-      showNotification("Loading Distribution Plot...", type = "message")
+      showNotification("Loading Call Measurement Plot...", type = "message")
       
-      distribution_plot(
+      plot_measurements(
         location_list = input$location_dis,
         base_path = base_path(),
-        event_list = input$event_filter,
-        variable = input$distribution_variable,
-        species_list = input$species_filter
+        events_of_interest = input$event_filter,
+        variables_of_interest = input$distribution_variable,
+        species = input$species_filter,
+        detector_type = input$detector_filter
       )
     }, ignoreNULL = TRUE)
     
     output$distribution_plot <- renderPlot({
-      req(distribution_plot_obj())
-      distribution_plot_obj()
+      req(plot_measurements_obj())
+      plot_measurements_obj()
     })
     
     

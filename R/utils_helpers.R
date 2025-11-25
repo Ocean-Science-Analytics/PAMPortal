@@ -680,7 +680,7 @@ plot_occurrence <- function(location, base_path,
     distinct(day, species)
   species_list <- species_of_interest
   environmental_variable <- environmental_variable
-  browser()
+
   #filter for species of interest
   if (!('All' %in% species_list)) {
     df <- df %>% filter(species %in% species_list)
@@ -743,7 +743,6 @@ plot_occurrence <- function(location, base_path,
       !is.na(environmental_variable) &&
       environmental_variable != "None") {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
-    browser()
 
     # var_name <- enviro_data[[environmental_variable]]$title
     # val_name <- enviro_data[[environmental_variable]]$var
@@ -1265,7 +1264,7 @@ plot_measurements <- function(location_list, base_path,
     facet_wrap(~measurement, ncol = 1, scales = "free_y") +
     scale_fill_manual(values = palette_constant) +
     labs(x = "", y = "", title = title) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+    theme(axis.text.x = element_text(size = 3, angle = 45, hjust = 1),
           legend.position = "none") 
   
   return(p)
