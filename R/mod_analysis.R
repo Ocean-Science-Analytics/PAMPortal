@@ -12,21 +12,23 @@
 #' @import lutz
 #' @import glue
 
-var_names <- c(freqBeg = "Beginning Frequency (Hz)",
-               freqEnd = "Ending Frequency (Hz)",
-               freqMean = "Mean Frequency (Hz)",
-               freqStdDev = "Frequency Standard Deviation (Hz)",
-               duration = 'Duration (s)',
-               freqSlopeMean = 'Frequency Slope Mean (Hz)',
-               freqSlopeRatio = 'Frequency Slope Ratio (Hz)',
-               freqSpread= 'Frequency Spread (Hz)',
-               freqMin = 'Minimum Frequency (Hz)',
-               freqMax = 'Maximum Frequency (Hz)',
-               freqRange = 'Frequency Range (Hz)',
-               freqMedian = 'Frequency Median (Hz)',
-               freqMaxMinRatio = 'Frequency Maximum:Minimum Ratio (Hz)',
-               freqBegEndRatio = 'Frequency Beginning:End Ratio (Hz)',
-               stepDur = 'Step Duration (s)')
+var_names <- c(
+  "Beginning Frequency (Hz)" = "freqBeg",
+  "Ending Frequency (Hz)" = "freqEnd",
+  "Mean Frequency (Hz)" = "freqMean",
+  "Frequency Standard Deviation (Hz)" = "freqStdDev",
+  "Duration (s)" = "duration",
+  "Frequency Slope Mean (Hz)" = "freqSlopeMean",
+  "Frequency Slope Ratio (Hz)" = "freqSlopeRatio",
+  "Frequency Spread (Hz)" = "freqSpread",
+  "Minimum Frequency (Hz)" = "freqMin",
+  "Maximum Frequency (Hz)" = "freqMax",
+  "Frequency Range (Hz)" = "freqRange",
+  "Frequency Median (Hz)" = "freqMedian",
+  "Frequency Maximum:Minimum Ratio (Hz)" = "freqMaxMinRatio",
+  "Frequency Beginning:End Ratio (Hz)" = "freqBegEndRatio",
+  "Step Duration (s)" = "stepDur"
+)
 
 env_var_choices <- c(
   "None" = "None",
@@ -139,7 +141,7 @@ mod_analysis_ui <- function(id) {
               ),
               column(
                 width = 3,
-                selectInput(ns("distribution_variable"), "Select Variable", selected = "freqbeg", choices = names(var_names), multiple = TRUE),
+                selectInput(ns("distribution_variable"), "Select Variable", selected = "freqBeg", choices = var_names, multiple = TRUE),
                 selectInput(ns("detector_filter"), "Select Detector", choices = c("Whistle & Moan", "Click"), selected = "Whistle & Moan", multiple = FALSE)
               ),
               column(
@@ -425,7 +427,7 @@ mod_analysis_server <- function(id, data){
     
     observeEvent(input$dstrb_description, {
       showModal(modalDialog(
-        title = "Distribution Plot Description",
+        title = "Call Measurement Plot Description",
         size = "l",
         easyClose = TRUE,
         footer = modalButton("Close"),
@@ -433,8 +435,8 @@ mod_analysis_server <- function(id, data){
           p("This figure displays the distribution of selected call characteristics (e.g., duration, frequency max, frequency median, etc.)."),
           p("Each distribution corresponds to selected species and events, allowing comparison of call features across categories."),
           tags$ul(
-            tags$li("Violin plots show the full distribution of values for the selected variable."),
-            tags$li("The user can filter by acoustic event and species using the dropdowns above.")
+            tags$li("Violin plots show the full distribution of values for the selected variables."),
+            tags$li("The user can filter by species, the detector used, and the  acoustic event using the dropdowns above.")
           ),
           p("This tool is helpful for comparing how different species or events vary in acoustic properties.")
         )

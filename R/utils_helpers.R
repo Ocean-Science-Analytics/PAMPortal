@@ -750,7 +750,7 @@ plot_occurrence <- function(location, base_path,
     val_name <- environmental_variable  # this is the CSV column name
     var_name <- names(env_var_choices)[env_var_choices == val_name]
     title = paste0(title, "\nwith ", var_name)
-    browser()
+
     # If the column doesn't exist, stop with a helpful message
     if (!val_name %in% names(environmental_df)) {
       stop(paste("No data found for the selected environmental variable:", val_name))
@@ -1182,6 +1182,30 @@ plot_detections_by_minute <- function(location, base_path,
 }
 
 
+#' Species Title
+#' 
+#' @description This formats the selected species names into a title structure
+#' 
+format_species_title <- function(species_vec) {
+  n <- length(species_vec)
+  
+  if (n == 1) {
+    return(species_vec)
+  } 
+  if (n == 2) {
+    return(paste(species_vec, collapse = " & "))
+  }
+  
+  # For 3 or more: a, b, & c
+  return(
+    paste(
+      paste(species_vec[-n], collapse = ", "),
+      species_vec[n],
+      sep = ", & "
+    )
+  )
+}
+
 
 #' Measurements
 #' 
@@ -1196,8 +1220,27 @@ plot_measurements <- function(location_list, base_path,
                               detector_type, variables_of_interest,
                               species, events_of_interest = c("All")) {
   
-  sp_title <- species %>% str_to_title()
+  var_names <- c(
+    "Beginning Frequency (Hz)" = "freqBeg",
+    "Ending Frequency (Hz)" = "freqEnd",
+    "Mean Frequency (Hz)" = "freqMean",
+    "Frequency Standard Deviation (Hz)" = "freqStdDev",
+    "Duration (s)" = "duration",
+    "Frequency Slope Mean (Hz)" = "freqSlopeMean",
+    "Frequency Slope Ratio (Hz)" = "freqSlopeRatio",
+    "Frequency Spread (Hz)" = "freqSpread",
+    "Minimum Frequency (Hz)" = "freqMin",
+    "Maximum Frequency (Hz)" = "freqMax",
+    "Frequency Range (Hz)" = "freqRange",
+    "Frequency Median (Hz)" = "freqMedian",
+    "Frequency Maximum:Minimum Ratio (Hz)" = "freqMaxMinRatio",
+    "Frequency Beginning:End Ratio (Hz)" = "freqBegEndRatio",
+    "Step Duration (s)" = "stepDur"
+  )
   
+  sp_title <- species %>% str_to_title()
+  sp_title <- format_species_title(sp_title) 
+  browser()
   if (detector_type == "Whistle & Moan") {
     dfs <- list()
     
@@ -1212,6 +1255,10 @@ plot_measurements <- function(location_list, base_path,
           dfs <- append(dfs, list(data))
         }
       }
+    }
+    
+    if (length(dfs) == 0) {
+      stop("No Data found for the chosen Detector: Whistle & Moan")
     }
     
     title <- paste(sp_title, "Call Measurements")
@@ -1239,6 +1286,11 @@ plot_measurements <- function(location_list, base_path,
         }
       }
     }
+    
+    if (length(dfs) == 0) {
+      stop("No Data found for the chosen Detector: Click")
+    }
+    
     title <- paste(sp_title, "Echolocation Click Measurements")
     df <- do.call(rbind, dfs)
   }
@@ -1253,9 +1305,7 @@ plot_measurements <- function(location_list, base_path,
     pivot_longer(cols = variables_of_interest, 
                  names_to = "measurement", 
                  values_to = "value") %>%
-    mutate(measurement = measurement %>% 
-             str_replace_all("(?<=.)([A-Z])", " \\1") %>% 
-             str_to_title())
+    mutate(measurement = names(var_names)[match(measurement, var_names)])
   
   p <- ggplot(df, aes(x = eventId, y = value, fill = measurement)) +
     geom_violin(width=1, alpha = 0.75,
@@ -1266,12 +1316,12 @@ plot_measurements <- function(location_list, base_path,
     facet_wrap(~measurement, ncol = 1, scales = "free_y") +
     scale_fill_manual(values = palette_constant) +
     labs(x = "", y = "", title = title) +
-    theme(axis.text.x = element_text(size = 3, angle = 45, hjust = 1),
+    theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1),
           legend.position = "none") 
   
   return(p)
   
-  }
+}
 
 
 
