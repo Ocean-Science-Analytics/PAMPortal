@@ -29,12 +29,12 @@ var_names <- c(freqBeg = "Beginning Frequency (Hz)",
                stepDur = 'Step Duration (s)')
 
 env_var_choices <- c(
-  "None"                  = "",
-  "Salinity"              = "sla",
+  "None" = "None",
+  "Sea Surface Height"  = "sla",
   "Sea Surface Temperature" = "analysed_sst",
-  "Chlorophyll A"         = "chlor_a",
-  "KD 490"                = "kd_490",
-  "Moon Illumination"     = "moon_illum"
+  "Chlorophyll A"  = "chlor_a",
+  "KD490"  = "kd_490",
+  "Lunar Cycles" = "moon_illum"
 )
 
 mod_analysis_ui <- function(id) {

@@ -648,13 +648,27 @@ plot_occurrence <- function(location, base_path,
                             environmental_variable = NA, show_effort = FALSE) {
   
   env_var_choices <- c(
-    "None"                  = "",
-    "Salinity"              = "sla",
+    "None" = "None",
+    "Sea Surface Height"  = "sla",
     "Sea Surface Temperature" = "analysed_sst",
-    "Chlorophyll A"         = "chlor_a",
-    "KD 490"                = "kd_490",
-    "Moon Illumination"     = "moon_illum"
+    "Chlorophyll A"  = "chlor_a",
+    "KD490"  = "kd_490",
+    "Lunar Cycles" = "moon_illum"
   )
+  
+  months_of_interest <- months_of_interest
+  
+  # --- Check if months_of_interest are sequential ---
+  if (!("All" %in% months_of_interest)) {
+    
+    # Convert month names to numbers
+    month_nums <- match(months_of_interest, month.name)
+    
+    # Check if they are in strictly increasing order
+    if (!all(diff(month_nums) == 1)) {
+      stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
+    }
+  }
   
   #pull data and prep grid
   df <- get_data(location, base_path, months_of_interest)
@@ -665,7 +679,8 @@ plot_occurrence <- function(location, base_path,
                    species_of_interest, minutes = FALSE) %>%
     distinct(day, species)
   species_list <- species_of_interest
-
+  environmental_variable <- environmental_variable
+  browser()
   #filter for species of interest
   if (!('All' %in% species_list)) {
     df <- df %>% filter(species %in% species_list)
@@ -728,13 +743,14 @@ plot_occurrence <- function(location, base_path,
       !is.na(environmental_variable) &&
       environmental_variable != "None") {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
+    browser()
 
     # var_name <- enviro_data[[environmental_variable]]$title
     # val_name <- enviro_data[[environmental_variable]]$var
     val_name <- environmental_variable  # this is the CSV column name
     var_name <- names(env_var_choices)[env_var_choices == val_name]
     title = paste0(title, "\nwith ", var_name)
-    
+    browser()
     # If the column doesn't exist, stop with a helpful message
     if (!val_name %in% names(environmental_df)) {
       stop(paste("No data found for the selected environmental variable:", val_name))
