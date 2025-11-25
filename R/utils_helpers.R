@@ -122,19 +122,19 @@ theme_set(
 
 #list of reference data for environmental variables
 enviro_data <- list(
-  "SSH"= list(
+  "Sea surface height"= list(
     dataset_id = "noaacwBLENDEDsshDaily",
     var = 'sla',
     title = "Sea Surface Height",
     axis = "Sea level anomaly (m)"
   ),
-  "SST" = list(
+  "Sea surface temperature" = list(
     dataset_id = "noaacrwsstDaily",
     var = 'analysed_sst',
     title = "Sea Surface Temperature",
     axis = "Analyzed SST (°C)"
   ),
-  "CHL" = list(
+  "Chlorophyll" = list(
     dataset_id = "noaacwNPPVIIRSSQchlaDaily",
     var = 'chlor_a',
     title = "Chlorophyll Concentration",
@@ -146,7 +146,7 @@ enviro_data <- list(
     title = "Kd490",
     axis = "Diffuse attenuation coefficient (m-1)"
   ),
-  "LUNAR" = list(
+  "Lunar cycles" = list(
     dataset_id = "R:Suncalc",
     var = "moon_illum",
     title = "Lunar Phase",
@@ -637,7 +637,7 @@ get_daylight <- function(df, local_tz,
 #' 
 #' @description Plot of number of minutes an animal was detected with option to show total number of 
 #' minutes monitored (effort) for species of interest (default all) and months of interest (default all), 
-#' with environmental variable of interest (options "SSH", "SST", "LUNAR", "CHL", "KD490")
+#' with environmental variable of interest (options are in the enviro_data list)
 #'
 #' @examples
 #' plot_occurrence()
@@ -1160,354 +1160,89 @@ plot_detections_by_minute <- function(location, base_path,
 #' User can choose any of the variables 
 #'
 #' @examples
-#' plot_measurements()
+#' plot_measurements(location_list = c("H11S1_2024", "H11S1_2025"), base_path = "C://PAMPortal_CTBTO",
+#' detector_type = "Whistle & Moan", variables_of_interest = c("freqMean", "duration"), species = "Fin whale")
 #' 
-plot_measurements <- function(location, base_path,
+plot_measurements <- function(location_list, base_path,
                               detector_type, variables_of_interest,
                               species, events_of_interest = c("All")) {
   
-}
-
-
-loc <- ctbto_location
-#loc <- wake_location
-base <- ctbto_basepath
-#base <- wake_basepath
-
-species_list <- c("All")
-show_duty_cycle <- TRUE
-month_list <- c(1,2,3,4)
-enviro_var <- "KD490"
-
-plot_measurements(loc, base, detector_type = "Whistle", )
-
-
-
-
-df <- get_data(loc, base)
-local_tz <- get_timezone(loc, base)
-data_tz <- get_metadata(loc, base, "tz")
-df <- convert_timezone(df, data_tz, local_tz)
-grid <- get_grid(df, loc, base, month_list, species_list, minutes=TRUE)
-#plot_df <- get_daylight(grid, local_tz, loc, base)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-distribution_plot <- function(base_path, location_list, event_list, variable, species_list) {
+  sp_title <- species %>% str_to_title()
   
-  df <- concat_whistles(base_path, location_list)
-  
-  if (!identical(event_list, c("All"))) {
-    df <- df %>%
-      filter(eventName %in% event_list)}
-  if (!identical(species_list, c("All"))) {
-    df <- df %>%
-      filter(eventLabel %in% species_list)}
-  
-  space_caps <- function(string) {
-    gsub("(?<=[a-z])(?=[A-Z])", " ", string, perl = TRUE)
-  }
-  
-  df <- df %>% 
-    select(location, eventName, eventLabel, all_of(variable)) %>%
-    mutate(eventName = sub(".*\\.", "", eventName)) %>%
-    mutate(eventName = factor(eventName, 
-                              levels = unique(eventName[order(
-                                as.numeric(sub("DGL", "", eventName)))])))
-  
-  
-  p <- ggplot(df, aes(x = eventName, y = .data[[variable]])) +
-    geom_violin(aes(fill=eventLabel, color=eventLabel),
-                position = position_dodge(width=1),
-                width=1, alpha = 0.75,
-                linewidth = 0.4, color = text) +
+  if (detector_type == "Whistle & Moan") {
+    dfs <- list()
     
-    geom_boxplot(aes(group = interaction(eventName, eventLabel)),
-                 width = 0.075, position = position_dodge(width = 1),
-                 fill = 'white', alpha = 0.75,
-                 linewidth = 0.4, color = text) +
-    
-    facet_wrap(~ location, 
-               labeller = labeller(location = space_caps),
-               ncol = 1,
-               scales = "free_x") + 
-    
-    labs(x = "", y = var_names[[variable]], fill = "") +
-    scale_fill_manual(values = palette_secondary) +
-    
-    theme_minimal(base_size=14) +
-    theme(
-      axis.text.x = element_text(angle=45, hjust=1, size = font_sizes['ticks']),
-      text = element_text(family = font, color = text),
-      strip.text = element_text(hjust = 0, family=font, 
-                                color=text, face='bold', size = font_sizes['facets']),
-      
-      axis.title.y = element_text(margin = margin(r = 10), size = font_sizes['axis labels']),
-      axis.line = element_line(color = "black"),
-      axis.ticks = element_line(color = "black"),
-      
-      panel.spacing = unit(1, "lines"),
-      
-      panel.background = element_rect(fill = background, color = NA),
-      plot.background = element_rect(fill = background, color = NA),
-      legend.background = element_rect(fill = background, color = NA),
-      
-      legend.key = element_rect(fill = background, color = NA),
-      legend.position = "bottom",
-      legend.text = element_text(margin = margin(r=25, l=5), size = font_sizes['legend title'])
-    )
-  
-  return(p)
-}
-
-
-#' Occurrence plot events
-#' 
-#' @description Gathers acoustic event data for the Occurrence plot
-#' 
-occr_events <- function(location, base_path, species_list = c('All')) {
-  library(lubridate)
-  library(suncalc)
-  library(lutz)
-  
-  
-  char_df <- read.csv(file.path(base_path, "Duty_Cycles.csv"))
-  row_info <- char_df[char_df$location == location, ]
-  time_zone <- row_info$tz
-  
-  spatial <- read.csv(file.path(base_path, "Spatial_Data.csv"))
-  spatial$Site <- sub(".*?_", "", spatial$Site)
-  
-  latitude <- spatial[spatial$Site==location,'Latitude']
-  longitude <- spatial[spatial$Site==location,'Longitude']
-  tz <- suppressWarnings(
-    lutz::tz_lookup_coords(lat = latitude,
-                           lon = longitude,
-                           method = "fast"))
-  
-  #rds <- readRDS(paste(base_path, "\\RDS\\", location, ".rds", sep=""))
-  rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
-  species_df <- data.frame()
-  detectors <- unique(unlist(lapply(rds@events, 
-                                    function(event) names(event@detectors))))
-  for (event in rds@events) {
-    for (detector in detectors) {
-      data <- event[[detector]]
-      if (!is.null(data)) {
-        df <- tibble(day = as.Date(data$UTC),
-                     hour = hour(data$UTC),
-                     duration = data$duration,
-                     species = event@species$id,
-                     detector = detector)
-        
-        df <- df %>%
-          mutate(duration = if_else(detector != "Whistle_and_Moan_Detector", duration / 1000, duration))
-        
-        event_summary <- df %>%
-          group_by(day, hour, species) %>%
-          summarise(total_duration = sum(duration), .groups = 'drop')
-        
-        species_df <- rbind(species_df, event_summary)
+    for (location in location_list) {
+      rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
+      for (event in names(rds@events)) {
+        data <- rds@events[[event]][["Whistle_and_Moan_Detector"]]
+        if (!is.null(data) && is.data.frame(data)) {
+          data$eventName <- event
+          data$species <- rds@events[[event]]@species$id
+          data$location <- location
+          dfs <- append(dfs, list(data))
+        }
       }
     }
+    
+    title <- paste(sp_title, "Call Measurements")
+    df <- do.call(rbind, dfs) 
+    
+  } else if (detector_type == "Click") {
+    
+    dfs <- list()
+    
+    for (location in location_list) {
+      rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
+      
+      #print(str(rds))
+      for (event in names(rds@events)) {
+        for (detector in names(rds@events[[event]]@detectors)) {
+          if (grepl("Click_Detector", detector)) {
+            data <- rds@events[[event]][[detector]]
+            if (!is.null(data) && is.data.frame(data)) {
+              data$eventName <- event
+              data$species <- rds@events[[event]]@species$id
+              data$location <- location
+              dfs <- append(dfs, list(data))
+            }
+          }
+        }
+      }
+    }
+    title <- paste(sp_title, "Echolocation Click Measurements")
+    df <- do.call(rbind, dfs)
   }
   
-  species_df <- species_df %>%
-    mutate(datetime = as.POSIXct(day) + hours(hour)) %>%
-    mutate(total_duration = pmin(total_duration, 3600))
+  if (!identical(events_of_interest, c("All"))) {
+    df <- df %>% filter(eventName %in% events_of_interest)}
   
-  if (time_zone == "utc") {
-    species_df <- species_df %>%
-      mutate(datetime = with_tz(datetime, tzone = tz)) %>%
-      mutate(hour = hour(datetime),
-             day = as.Date(datetime))
-  }
+  df <- df %>%
+    filter(species %in% species) %>%
+    select(all_of(variables_of_interest), "eventName") %>%
+    mutate(eventId = str_replace(eventName, "^[^_]+_", "")) %>%
+    pivot_longer(cols = variables_of_interest, 
+                 names_to = "measurement", 
+                 values_to = "value") %>%
+    mutate(measurement = measurement %>% 
+             str_replace_all("(?<=.)([A-Z])", " \\1") %>% 
+             str_to_title())
   
-  all_days <- seq(min(species_df$day), 
-                  max(species_df$day), by="day")
-  
-  all_species <- unique(species_df$species)
-  
-  all_hours <- seq(0,24)
-  
-  full_grid <- expand_grid(
-    species = all_species,
-    day = all_days,
-    hour = all_hours
-  )
-  
-  merged <- full_grid %>%
-    left_join(species_df, by = c("day", "hour", "species"))
-    
-  
-  if (!('All' %in% species_list)) {
-    merged <- merged %>%
-      filter(species %in% species_list)
-  }
-  
-  sun_times <- getSunlightTimes(
-    date = unique(merged$day),
-    lat = latitude,
-    lon = longitude,
-    tz = tz,
-    keep = c("sunrise", "sunset")) %>% 
-    mutate(day = as.Date(date)) %>%
-    select(day, sunrise, sunset)
-  
-  if (latitude >= 0) {
-    merged <- merged %>%
-      left_join(sun_times, by = "day", relationship = "many-to-many") %>%
-      mutate(
-        #day_date = as.Date(as.character(day)),
-        time_hms = hms::as_hms(sprintf("%02d:00:00", hour)),
-        sunrise_hms = hms::as_hms(format(sunrise, "%H:%M:%S")),
-        sunset_hms  = hms::as_hms(format(sunset, "%H:%M:%S")),
-        
-        daylight = case_when(
-          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% 4:9 ~
-            TRUE,
-          
-          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% c(10, 11, 12, 1, 2, 3) ~ FALSE,
-          
-          sunset_hms > sunrise_hms ~ 
-            time_hms >= sunrise_hms & time_hms < sunset_hms,
-          sunset_hms < sunrise_hms ~ 
-            time_hms >= sunrise_hms | time_hms < sunset_hms
-        )) %>%
-      mutate(time_hour = substr(time_hms, 1,5))%>%
-      select(species, day, time_hour, total_duration, daylight)
-  } else {
-    merged <- merged %>%
-      left_join(sun_times, by = "day", relationship = "many-to-many") %>%
-      mutate(
-        time_hms = hms::as_hms(sprintf("%02d:00:00", hour)),
-        sunrise_hms = hms::as_hms(format(sunrise, "%H:%M:%S")),
-        sunset_hms  = hms::as_hms(format(sunset, "%H:%M:%S")),
-        
-        daylight = case_when(
-          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% 4:9 ~
-            FALSE,
-          
-          (is.na(sunrise) | is.na(sunset)) & lubridate::month(day) %in% c(10, 11, 12, 1, 2, 3) ~ TRUE,
-          
-          sunset_hms > sunrise_hms ~ 
-            time_hms >= sunrise_hms & time_hms < sunset_hms,
-          sunset_hms < sunrise_hms ~ 
-            time_hms >= sunrise_hms | time_hms < sunset_hms
-        )) %>%
-      mutate(time_hour = substr(time_hms, 1,5))%>%
-      select(species, day, time_hour, total_duration, daylight)
-  }
-
-  
-  return(merged)
-}
-
-
-#' Occurrence plot
-#' 
-#' @description Creates the Occurrence plot
-#' 
-occurrence_plot <- function(location, base_path, species_list = c('All')) {
-  library(stringr)
-  library(scales)
-  df <- occr_events(location, base_path, species_list) %>%
-    mutate(hour = as.numeric(substr(time_hour, 1, 2)))
-  
-  all_days <- seq(min(df$day), max(df$day), by = "1 day")
-  week <- seq(min(df$day), max(df$day), by = "7 days")
-  shadow <- df %>% filter(!daylight)
-  
-  breaks <- sprintf("%02d:00", seq(0, 24, by = 6))
-
-  
-  p <- ggplot(df, aes(x = day, y = hour, fill = total_duration)) +
-    geom_tile(data = shadow, fill='black', alpha = 0.25) +
-    geom_tile() +
-    facet_wrap(~species, ncol=1) +
-    scale_fill_gradientn(
-      colors = c(palette_secondary[9], palette_secondary[1], palette_secondary[5]),
-      na.value = alpha('#F2F2F2', 0.5),
-      name = 'Total Detection Duration\n(seconds)',
-      guide = guide_colorbar(
-        title.position = "right",   # put title to the left of colorbar
-        title.hjust = 0.5,
-        barheight = unit(6, 'cm')
-      )) +
-    
-    scale_y_continuous(breaks=breaks_extended(), expand=c(0,0)) +
-    scale_x_date(breaks = week,
-                 minor_breaks = all_days,
-                 date_labels = "%b %d",
-                 expand=c(0,0)) +
-    
-    theme_minimal() + 
-    labs(y = 'Hour of Day', x = '', 
-         title = location) +
-    
-    theme(
-      plot.background = element_rect(fill = "#F2F2F2", color = NA),  # overall background
-      panel.background = element_rect(fill = "#F2F2F2", color = NA),
-      legend.position = "right",
-      legend.title = element_text(angle = 270, vjust = 0.5,
-                                  color=text, family=font, 
-                                  size = font_sizes['legend title']),
-      legend.text = element_text(color=text, 
-                                 family=font, 
-                                 margin = margin(r=4), 
-                                 size = font_sizes['legend text']),
-      
-      strip.text = element_text(hjust = 0, 
-                                family=font, 
-                                color=text,
-                                size=font_sizes['facets'],
-                                face = "bold"),
-      axis.text.x = element_text(angle = 45, hjust = 1, size = font_sizes['ticks']),
-      axis.text.y = element_text(size = font_sizes['ticks']),
-      axis.title.y = element_text(family=font, color=text, margin=margin(r=10), size = font_sizes['axis labels']),
-      axis.line = element_line(color = "black"),
-      axis.ticks = element_line(color = "black"),
-      
-      
-      plot.title = element_text(hjust = 0.5, margin = margin(b=10),
-                                color=text, family=font, size=font_sizes['title']),
-      
-      panel.grid.major.x = element_line(color = "gray60", size = 0.4),
-      panel.grid.minor.x = element_line(color = "gray80", size = 0.4),
-      panel.grid.major.y = element_line(color = "gray60", size = 0.4),
-      panel.grid.minor.y = element_blank()
-    )
+  p <- ggplot(df, aes(x = eventId, y = value, fill = measurement)) +
+    geom_violin(width=1, alpha = 0.75,
+                linewidth = 0.4, color = text) +
+    geom_boxplot(width = 0.075,
+                 fill = 'white', alpha = 0.75,
+                 linewidth = 0.4, color = text) +
+    facet_wrap(~measurement, ncol = 1, scales = "free_y") +
+    scale_fill_manual(values = palette_constant) +
+    labs(x = "", y = "", title = title) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "none") 
   
   return(p)
-}
+  
+  }
 
 
 
