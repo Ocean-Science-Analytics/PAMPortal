@@ -646,6 +646,15 @@ plot_occurrence <- function(location, base_path,
                             months_of_interest = c("All"), species_of_interest = c("All"), 
                             environmental_variable = NA, show_effort = FALSE) {
   
+  env_var_choices <- c(
+    "None"                  = "",
+    "Salinity"              = "sla",
+    "Sea Surface Temperature" = "analysed_sst",
+    "Chlorophyll A"         = "chlor_a",
+    "KD 490"                = "kd_490",
+    "Moon Illumination"     = "moon_illum"
+  )
+  
   #pull data and prep grid
   df <- get_data(location, base_path, months_of_interest)
   local_tz <- get_timezone(location, base_path)
@@ -654,7 +663,8 @@ plot_occurrence <- function(location, base_path,
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest, minutes = FALSE) %>%
     distinct(day, species)
-  
+  species_list <- species_of_interest
+
   #filter for species of interest
   if (!('All' %in% species_list)) {
     df <- df %>% filter(species %in% species_list)
@@ -688,7 +698,7 @@ plot_occurrence <- function(location, base_path,
     mutate(fill_color = factor(color_levels[segment],
                                levels = c("Undetected", "Detected")))
   
-  title = paste(str_replace(loc, "_", " "), "Daily Detections")
+  title = paste(str_replace(location, "_", " "), "Daily Detections")
   
   if(show_effort) {
     p <- ggplot(merged, aes(x = day, y = minutes, fill = fill_color)) +
@@ -713,18 +723,27 @@ plot_occurrence <- function(location, base_path,
                  expand = c(0,0))
   
   #add environmental data to graph if specified
-  if(!(is.na(environmental_variable))) {
+  if(!is.null(environmental_variable) &&
+      !is.na(environmental_variable) &&
+      environmental_variable != "None") {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
-    
-    var_name <- enviro_data[[environmental_variable]]$title
-    val_name <- enviro_data[[environmental_variable]]$var
+
+    # var_name <- enviro_data[[environmental_variable]]$title
+    # val_name <- enviro_data[[environmental_variable]]$var
+    val_name <- environmental_variable  # this is the CSV column name
+    var_name <- names(env_var_choices)[env_var_choices == val_name]
     title = paste0(title, "\nwith ", var_name)
+    
+    # If the column doesn't exist, stop with a helpful message
+    if (!val_name %in% names(environmental_df)) {
+      stop(paste("No data found for the selected environmental variable:", val_name))
+    }
     
     max_count <- merged %>%
       group_by(day, species) %>%
       summarise(minutes = sum(minutes, na.rm = TRUE), .groups = "drop") %>%
       summarise(max_value = max(minutes, na.rm = TRUE))
-    
+
     environmental_df$scaled <- environmental_df[[val_name]] - 
       min(environmental_df[[val_name]], na.rm = TRUE)
     

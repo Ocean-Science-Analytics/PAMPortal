@@ -3,14 +3,14 @@
 \docType{data}
 \name{palette_secondary}
 \alias{palette_secondary}
-\title{secondary color palette used for data viz elements.}
+\title{secondary color palettes used for data viz elements.}
 \format{
-An object of class \code{character} of length 11.
+An object of class \code{character} of length 12.
 }
 \usage{
 palette_secondary
 }
 \description{
-secondary color palette used for data viz elements.
+secondary color palettes used for data viz elements.
 }
 \keyword{datasets}

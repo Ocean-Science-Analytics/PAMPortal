@@ -28,6 +28,15 @@ var_names <- c(freqBeg = "Beginning Frequency (Hz)",
                freqBegEndRatio = 'Frequency Beginning:End Ratio (Hz)',
                stepDur = 'Step Duration (s)')
 
+env_var_choices <- c(
+  "None"                  = "",
+  "Salinity"              = "sla",
+  "Sea Surface Temperature" = "analysed_sst",
+  "Chlorophyll A"         = "chlor_a",
+  "KD 490"                = "kd_490",
+  "Moon Illumination"     = "moon_illum"
+)
+
 mod_analysis_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -65,11 +74,30 @@ mod_analysis_ui <- function(id) {
               column(
                 width = 3,
                 selectInput(ns("location_occr"), "Select Location", choices = NULL),
+                selectInput(
+                  inputId = ns("env_var_occr"),
+                  label   = "Environmental Variable",
+                  choices = env_var_choices,
+                  multiple = FALSE,
+                  selected = ""
+                )
                 #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
               ),
               column(
                 width = 3,
-                selectInput(ns("species_filter_occr"), "Select Species", choices = NULL, multiple = TRUE)
+                selectInput(ns("species_filter_occr"), "Select Species", choices = NULL, multiple = TRUE),
+                div(
+                  style = "padding-top: 28px;",
+                  checkboxInput(
+                    inputId = ns("show_effort"),
+                    label = "Show Effort?",
+                    value = FALSE
+                  )
+                )
+              ),
+              column(
+                width = 3,
+                selectInput(ns("month_filter_occr"), "Select Month", choices = c("All", month.name), selected = "All", multiple = TRUE)
               ),
               column(
                 width = 1, 
@@ -318,10 +346,13 @@ mod_analysis_server <- function(id, data){
       req(base_path(), input$location_occr, input$species_filter_occr)
       showNotification("Rendering Occurrence Plot...", type = "message")
       
-      occurrence_plot(
+      plot_occurrence(
         location = input$location_occr,
         base_path = base_path(),
-        species_list = input$species_filter_occr
+        species_of_interest = input$species_filter_occr,
+        months_of_interest = input$month_filter_occr,
+        environmental_variable = input$env_var_occr,
+        show_effort = input$show_effort
       )
     }, ignoreNULL = TRUE)
     
