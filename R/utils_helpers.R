@@ -120,21 +120,22 @@ theme_set(
                                 hjust = 0.5, margin = margin(b=10))
     ))
 
+
 #list of reference data for environmental variables
 enviro_data <- list(
-  "Sea surface height"= list(
+  "Sea Surface Height"= list(
     dataset_id = "noaacwBLENDEDsshDaily",
     var = 'sla',
     title = "Sea Surface Height",
     axis = "Sea level anomaly (m)"
   ),
-  "Sea surface temperature" = list(
+  "Sea Surface Temperature" = list(
     dataset_id = "noaacrwsstDaily",
     var = 'analysed_sst',
     title = "Sea Surface Temperature",
     axis = "Analyzed SST (°C)"
   ),
-  "Chlorophyll" = list(
+  "Chlorophyll A" = list(
     dataset_id = "noaacwNPPVIIRSSQchlaDaily",
     var = 'chlor_a',
     title = "Chlorophyll Concentration",
@@ -146,7 +147,7 @@ enviro_data <- list(
     title = "Kd490",
     axis = "Diffuse attenuation coefficient (m-1)"
   ),
-  "Lunar cycles" = list(
+  "Lunar Cycles" = list(
     dataset_id = "R:Suncalc",
     var = "moon_illum",
     title = "Lunar Phase",
@@ -788,6 +789,7 @@ plot_occurrence <- function(location, base_path,
   }
   return(p)
 }
+
 
 
 
