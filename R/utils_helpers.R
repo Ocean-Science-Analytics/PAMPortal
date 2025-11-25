@@ -361,7 +361,7 @@ get_data <- function(location, base_path,
   
   if (!("All" %in% months_of_interest)) {
     species_df <- species_df %>%
-      filter(month(UTC) %in% months_of_interest)
+      filter(month(UTC, label = TRUE, abbr = FALSE) %in% months_of_interest)
   }
   
   if (!("All") %in% species_of_interest) {
@@ -425,11 +425,12 @@ get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
   
   if(!("All" %in% months_of_interest)) {
     sound_map <- sound_map %>%
-      filter(month(local_time) %in% months_of_interest)
+      filter(month(local_time, label = TRUE, abbr = FALSE) %in% months_of_interest)
   }
   
   return(sound_map)
 }
+
 
 
 #' Get environmental data
@@ -446,7 +447,7 @@ get_environmental <- function(location, base_path, months_of_interest = c("All")
   
   if(!("All" %in% months_of_interest)) {
     environmental <- environmental %>%
-      filter(month(day) %in% months_of_interest)
+      filter(month(day, label = TRUE, abbr = FALSE) %in% months_of_interest)
   }
   
   environmental$moon_illum <- 
@@ -769,14 +770,9 @@ plot_occurrence <- function(location, base_path,
         expand = c(0,0)
       ) +
       labs(title = title)
-    
-    
   }
-
   return(p)
-  
 }
-
 
 
 
@@ -807,7 +803,7 @@ plot_call_count <- function(location, base_path,
   start_day <- min(sound_df$day, na.rm = TRUE)
   end_day <- max(sound_df$day, na.rm = TRUE)
   
-  title = paste(str_replace(loc, "_", " "), "Daily Calls")
+  title = paste(str_replace(location, "_", " "), "Daily Calls")
   ylabel = "Number of Calls"
   
   if (log_scale) {
@@ -871,11 +867,8 @@ plot_call_count <- function(location, base_path,
                             name = enviro_data[[environmental_variable]]$axis), expand = c(0,0)
       )
   }
-  
   return(p)
-  
 }
-
 
 
 #' Call density plot
@@ -902,7 +895,7 @@ plot_call_density <- function(location, base_path,
   start_day <- min(sound_df$day, na.rm = TRUE)
   end_day <- max(sound_df$day, na.rm = TRUE)
   
-  title = paste(str_replace(loc, "_", " "), "Relative Call Density")
+  title = paste(str_replace(location, "_", " "), "Relative Call Density")
   color_map = set_colors(location, base_path)
   
   p <- ggplot(df, aes(x = day, color = species, fill = species)) + 
@@ -949,11 +942,9 @@ plot_call_density <- function(location, base_path,
                             name = enviro_data[[enviro_var]]$axis),
         expand = c(0,0))
   }
-  
-  
   return(p)
-  
 }
+
 
 
 #' Hourly presence
@@ -1008,7 +999,7 @@ plot_hourly_presence<- function(location, base_path,
     n_species >= 5         ~ 12
   )
   breaks <- sprintf("%02d:00", seq(0, 24, by = nbreaks))
-  title <- paste(str_replace(loc, "_", " "), "Hourly Acoustic Presence")
+  title <- paste(str_replace(location, "_", " "), "Hourly Acoustic Presence")
   
   p <- ggplot(merged, aes(x = day, y = time_hour, fill = metric)) +
     geom_tile(data = shadow, fill='black', alpha = 0.25) +
@@ -1045,6 +1036,7 @@ plot_hourly_presence<- function(location, base_path,
   return(p)
   
 }
+
 
 
 #' Detections by minute
@@ -1155,7 +1147,7 @@ plot_detections_by_minute <- function(location, base_path,
         expand = c(0,0))
   }
   
-  title <- paste(str_replace(loc, "_", " "), "Detections by Minute")
+  title <- paste(str_replace(location, "_", " "), "Detections by Minute")
   
   p <- p + 
     labs(title = title, y = "Time of day") + 
@@ -1171,6 +1163,7 @@ plot_detections_by_minute <- function(location, base_path,
   return(p)
   
 }
+
 
 
 #' Measurements
