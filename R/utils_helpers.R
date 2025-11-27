@@ -682,9 +682,14 @@ plot_occurrence <- function(location, base_path,
   species_list <- species_of_interest
   environmental_variable <- environmental_variable
 
+
   #filter for species of interest
   if (!('All' %in% species_list)) {
     df <- df %>% filter(species %in% species_list)
+  }
+  
+  if(nrow(df) == 0) {
+    stop("No data found for the species/month combination specified.")
   }
   
   #count number of occurrences in unique day/hour/min/species combinations
@@ -743,54 +748,60 @@ plot_occurrence <- function(location, base_path,
   if(!is.null(environmental_variable) &&
       !is.na(environmental_variable) &&
       environmental_variable != "None") {
+    
     environmental_df <- get_environmental(location, base_path, months_of_interest)
 
-    # var_name <- enviro_data[[environmental_variable]]$title
-    # val_name <- enviro_data[[environmental_variable]]$var
-    val_name <- environmental_variable  # this is the CSV column name
-    var_name <- names(env_var_choices)[env_var_choices == val_name]
-    title = paste0(title, "\nwith ", var_name)
-
-    # If the column doesn't exist, stop with a helpful message
-    if (!val_name %in% names(environmental_df)) {
-      stop(paste("No data found for the selected environmental variable:", val_name))
+    env_var_csv_col <- enviro_data[[environmental_variable]]$var
+    env_var_axis_label <- enviro_data[[environmental_variable]]$axis
+    env_var_title <- names(env_var_choices)[env_var_choices == env_var_csv_col]
+    
+    if (all(is.na(environmental_df[[env_var_csv_col]]))) {
+      msg = paste("No data available for", environmental_variable, "during the selected time period.")
+      stop(msg)
     }
     
+
+    title = paste0(title, "\nwith ", env_var_title)
+    # 
+    # # If the column doesn't exist, stop with a helpful message
+    if (!env_var_csv_col %in% names(environmental_df)) {
+      stop(paste("No data found for the selected environmental variable:", env_var_title))
+    }
+
     max_count <- merged %>%
       group_by(day, species) %>%
       summarise(minutes = sum(minutes, na.rm = TRUE), .groups = "drop") %>%
       summarise(max_value = max(minutes, na.rm = TRUE))
 
-    environmental_df$scaled <- environmental_df[[val_name]] - 
-      min(environmental_df[[val_name]], na.rm = TRUE)
-    
+    environmental_df$scaled <- environmental_df[[env_var_csv_col]] -
+      min(environmental_df[[env_var_csv_col]], na.rm = TRUE)
+
     scalar = max_count$max_value / max(environmental_df$scaled, na.rm = TRUE)
-    
+
     environmental_df$scaled <- environmental_df$scaled * scalar
-    
+
     environmental_df <- environmental_df %>%
         drop_na(scaled) %>%
       mutate(day = as.Date(day))
-    
+
+
     p <- p +
-      geom_line(data = environmental_df, 
+      geom_line(data = environmental_df,
                 aes(x = day, y = scaled),
                 na.rm = TRUE,
                 color = alpha(text),
                 linewidth = 0.5,
                 inherit.aes = FALSE) +
       scale_y_continuous(
-        sec.axis = sec_axis(~ . / scalar + 
-                              min(environmental_df[[val_name]], na.rm = TRUE), 
-                            name = enviro_data[[environmental_variable]]$axis),
+        sec.axis = sec_axis(~ . / scalar +
+                              min(environmental_df[[env_var_csv_col]], na.rm = TRUE),
+                            name = env_var_axis_label),
         expand = c(0,0)
       ) +
       labs(title = title)
   }
   return(p)
 }
-
-
 
 
 #' Call count plot
@@ -812,6 +823,10 @@ plot_call_count <- function(location, base_path,
     group_by(callType, day, species) %>%
     summarise(callCount = n(), .groups = 'drop') %>%
     mutate(callType = str_to_title(callType))
+  
+  if(nrow(df) == 0) {
+    stop("No data found for the species/month combination specified.")
+  }
   
   #get start/end effort from soundmap
   sound_df <- get_soundmap(location, base_path, months_of_interest) %>%
@@ -905,6 +920,10 @@ plot_call_density <- function(location, base_path,
   data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz)
   
+  if(nrow(df) == 0) {
+    stop("No data found for the species/month combination specified.")
+  }
+  
   #get all dates for effort
   sound_df <- get_soundmap(location, base_path, months_of_interest) %>%
     mutate(day = as.Date(local_time, tz = local_tz))
@@ -982,6 +1001,10 @@ plot_hourly_presence<- function(location, base_path,
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest, minutes = FALSE)
   full_grid <- get_daylight(grid, local_tz, location, base_path)
+  
+  if(nrow(df) == 0) {
+    stop("No data found for the species/month combination specified.")
+  }
   
   
   #group by either count or duration
