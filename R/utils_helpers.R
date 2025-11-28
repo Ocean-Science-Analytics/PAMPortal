@@ -71,9 +71,20 @@ palette_main <- function(){
 }
 
 #' secondary color palettes used for data viz elements.
-palette_secondary <- c("#67A9C4", "#15686A", "#CC8266", "#F4C542", 
-                       "#8ECFB7", "#A88AC4", "#E69F00", "#9ED6E8",
-                       "#D85F54", "#C18C57", "#2E6F9E", "#D7A592")
+palette_secondary <- c(
+  "#248B8E",
+  "#D7A592", 
+  "#76508A",
+  "#85C1B2",
+  "#4B7B8E",
+  "#457a3c",
+  "#E2B556",
+  "#b37157",
+  "#C9E1EB", 
+  "#DCC8A9",
+  "#B6A7D3",
+  "#1C3D57"
+)
 
 palette_constant <- c("#4A90A4", "#DB9A8E", "#1C3D57","#D6C4A2", "#7F8B89")
 
@@ -126,31 +137,26 @@ enviro_data <- list(
   "Sea Surface Height"= list(
     dataset_id = "noaacwBLENDEDsshDaily",
     var = 'sla',
-    title = "Sea Surface Height",
     axis = "Sea level anomaly (m)"
   ),
   "Sea Surface Temperature" = list(
     dataset_id = "noaacrwsstDaily",
     var = 'analysed_sst',
-    title = "Sea Surface Temperature",
     axis = "Analyzed SST (°C)"
   ),
   "Chlorophyll A" = list(
     dataset_id = "noaacwNPPVIIRSSQchlaDaily",
     var = 'chlor_a',
-    title = "Chlorophyll Concentration",
     axis = "Chlorophyll (mg m-3)"
   ),
   "KD490" = list(
     dataset_id = "noaacwNPPVIIRSSQkd490Daily",
     var = 'kd_490',
-    title = "Kd490",
     axis = "Diffuse attenuation coefficient (m-1)"
   ),
   "Lunar Cycles" = list(
     dataset_id = "R:Suncalc",
     var = "moon_illum",
-    title = "Lunar Phase",
     axis = "Moon illumination percentage"
   )
 )
@@ -804,6 +810,7 @@ plot_occurrence <- function(location, base_path,
 }
 
 
+
 #' Call count plot
 #' 
 #' @description Plot the number of calls recorded per day (on a regular or logarithmic scale) along with call type.
@@ -865,17 +872,17 @@ plot_call_count <- function(location, base_path,
   if (!(is.na(environmental_variable))) {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
     
-    var_name <- enviro_data[[environmental_variable]]$title
-    val_name <- enviro_data[[environmental_variable]]$var
-    title = paste0(title, "\nwith ", var_name)
+    env_var_csv_col <- enviro_data[[environmental_variable]]$var
+    env_var_axis_label <- enviro_data[[environmental_variable]]$axis
+    title = paste0(title, "\nwith ", environmental_variable)
     
     max_count <- df %>%
       group_by(day, species) %>%
       summarise(totalCalls = sum(callCount, na.rm = TRUE), .groups = "drop") %>%
       summarise(max_value = max(totalCalls, na.rm = TRUE))
     
-    environmental_df$scaled <- environmental_df[[val_name]] - 
-      min(environmental_df[[val_name]], na.rm = TRUE)
+    environmental_df$scaled <- environmental_df[[env_var_csv_col]] - 
+      min(environmental_df[[env_var_csv_col]], na.rm = TRUE)
     
     scalar = max_count$max_value / max(environmental_df$scaled, na.rm = TRUE)
     
@@ -895,12 +902,13 @@ plot_call_count <- function(location, base_path,
                 inherit.aes = FALSE) +   # secondary axis on the right
       scale_y_continuous(
         name = ylabel,
-        sec.axis = sec_axis(~ . / scalar + min(environmental_df[[val_name]], na.rm = TRUE), 
-                            name = enviro_data[[environmental_variable]]$axis), expand = c(0,0)
+        sec.axis = sec_axis(~ . / scalar + min(environmental_df[[env_var_csv_col]], na.rm = TRUE), 
+                            name = env_var_axis_label), expand = c(0,0)
       )
   }
   return(p)
 }
+
 
 
 #' Call density plot
@@ -949,14 +957,15 @@ plot_call_density <- function(location, base_path,
   if (!(is.na(environmental_variable))) {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
     
-    var_name <- enviro_data[[environmental_variable]]$title
-    val_name <- enviro_data[[environmental_variable]]$var
-    title = paste0(title, "\nwith ", var_name)
+    env_var_csv_col <- enviro_data[[environmental_variable]]$var
+    env_var_axis_label <- enviro_data[[environmental_variable]]$axis
+    title = paste0(title, "\nwith ", environmental_variable)
+    
     
     pd <- ggplot_build(p)
     
-    environmental_df$scaled <- environmental_df[[val_name]] - 
-      min(environmental_df[[val_name]], na.rm = TRUE)
+    environmental_df$scaled <- environmental_df[[env_var_csv_col]] - 
+      min(environmental_df[[env_var_csv_col]], na.rm = TRUE)
     
     scalar = max(pd$data[[1]]$y) / max(environmental_df$scaled, na.rm = TRUE)
     
@@ -974,12 +983,13 @@ plot_call_density <- function(location, base_path,
       labs(title = title) +  
       scale_y_continuous(
         sec.axis = sec_axis(~ . / scalar + 
-                              min(environmental_df[[val_name]], na.rm = TRUE), 
-                            name = enviro_data[[enviro_var]]$axis),
+                              min(environmental_df[[env_var_csv_col]], na.rm = TRUE), 
+                            name = env_var_axis_label),
         expand = c(0,0))
   }
   return(p)
 }
+
 
 
 
@@ -1233,7 +1243,7 @@ format_species_title <- function(species_vec) {
 #' Measurements
 #' 
 #' @description Compare whistle/click characteristics between multiple events.  Options for detector type are "Whistle & Moan" or "Click".
-#' User can choose any of the variables 
+#' User can choose any of the variables available for their chosen 
 #'
 #' @examples
 #' plot_measurements(location_list = c("H11S1_2024", "H11S1_2025"), base_path = "C://PAMPortal_CTBTO",
