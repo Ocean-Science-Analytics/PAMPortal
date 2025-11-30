@@ -75,14 +75,14 @@ palette_secondary <- c(
   "#248B8E",
   "#D7A592", 
   "#76508A",
-  "#85C1B2",
-  "#4B7B8E",
-  "#457a3c",
   "#E2B556",
+  "#85C1B2",
   "#b37157",
-  "#C9E1EB", 
-  "#DCC8A9",
+  "#4B7B8E",
   "#B6A7D3",
+  "#457a3c",
+  "#C9E1EB",
+  "#DCC8A9",
   "#1C3D57"
 )
 
@@ -128,8 +128,10 @@ theme_set(
       legend.title = element_text(color = text, 
                                   size = font_sizes['legend title']),
       plot.title = element_text(color = text, size = font_sizes['title'], 
-                                hjust = 0.5, margin = margin(b=10))
-    ))
+                                hjust = 0.5, margin = margin(b=10)),
+      plot.caption = element_text(size = font_sizes['legend title'],
+                                  color = text, face = "italic"))
+    )
 
 
 #list of reference data for environmental variables
@@ -785,14 +787,16 @@ plot_occurrence <- function(location, base_path,
     environmental_df <- get_environmental(location, base_path, months_of_interest)
     
     env_name <- names(env_var_choices)[env_var_choices == environmental_variable]
-    
     environmental_variable <- env_name
 
     env_var_csv_col <- enviro_data[[environmental_variable]]$var
-    #env_var_csv_col <- environmental_variable
     env_var_axis_label <- enviro_data[[environmental_variable]]$axis
+    env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     env_var_title <- names(env_var_choices)[env_var_choices == env_var_csv_col]
     browser()
+
+    
+    
     if (all(is.na(environmental_df[[env_var_csv_col]]))) {
       msg = paste("No data available for", environmental_variable, "during the selected time period.")
       stop(msg)
@@ -836,7 +840,8 @@ plot_occurrence <- function(location, base_path,
                             name = env_var_axis_label),
         expand = c(0,0)
       ) +
-      labs(title = title)
+      labs(title = title,
+           caption = paste0("Environmental data retrieved from ", env_var_source, "."))
   }
   return(p)
 }
@@ -938,6 +943,7 @@ plot_call_count <- function(location, base_path,
     env_var_csv_col <- enviro_data[[environmental_variable]]$var
     env_var_axis_label <- enviro_data[[environmental_variable]]$axis
     title = paste0(title, "\nwith ", environmental_variable)
+    env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     
     max_count <- df %>%
       group_by(day, species) %>%
@@ -955,7 +961,8 @@ plot_call_count <- function(location, base_path,
       mutate(day = as.Date(day))
     
     p <- p +
-      labs(title = title) + 
+      labs(title = title,
+           caption = paste0("Environmental data retrieved from ", env_var_source, ".")) + 
       geom_line(data = environmental_df, 
                 aes(x = day, y = scaled),
                 na.rm = TRUE,
@@ -970,7 +977,6 @@ plot_call_count <- function(location, base_path,
   }
   return(p)
 }
-
 
 
 #' Call density plot
@@ -1021,6 +1027,7 @@ plot_call_density <- function(location, base_path,
     
     env_var_csv_col <- enviro_data[[environmental_variable]]$var
     env_var_axis_label <- enviro_data[[environmental_variable]]$axis
+    env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     title = paste0(title, "\nwith ", environmental_variable)
     
     
@@ -1042,7 +1049,8 @@ plot_call_density <- function(location, base_path,
                 aes(x = day, y = scaled), 
                 color = alpha(text, .75), linewidth = 0.5,
                 inherit.aes = FALSE) +
-      labs(title = title) +  
+      labs(title = title, 
+           caption = paste0("Environmental data retrieved from ", env_var_source, ".")) +  
       scale_y_continuous(
         sec.axis = sec_axis(~ . / scalar + 
                               min(environmental_df[[env_var_csv_col]], na.rm = TRUE), 
