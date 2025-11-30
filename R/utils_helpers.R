@@ -134,7 +134,7 @@ theme_set(
 
 #list of reference data for environmental variables
 enviro_data <- list(
-  "Sea Surface Height"= list(
+  "Sea Level Anomaly"= list(
     dataset_id = "noaacwBLENDEDsshDaily",
     var = 'sla',
     axis = "Sea level anomaly (m)"
@@ -641,6 +641,31 @@ get_daylight <- function(df, local_tz,
 }
 
 
+#' Species Title
+#' 
+#' @description This formats the selected species names into a title structure
+#' 
+format_species_title <- function(species_vec) {
+  n <- length(species_vec)
+  
+  if (n == 1) {
+    return(species_vec)
+  } 
+  if (n == 2) {
+    return(paste(species_vec, collapse = " & "))
+  }
+  
+  # For 3 or more: a, b, & c
+  return(
+    paste(
+      paste(species_vec[-n], collapse = ", "),
+      species_vec[n],
+      sep = ", & "
+    )
+  )
+}
+
+
 #' Occurrence plot
 #' 
 #' @description Plot of number of minutes an animal was detected with option to show total number of 
@@ -656,12 +681,14 @@ plot_occurrence <- function(location, base_path,
   
   env_var_choices <- c(
     "None" = "None",
-    "Sea Surface Height"  = "sla",
+    "Sea Level Anomaly"  = "sla",
     "Sea Surface Temperature" = "analysed_sst",
     "Chlorophyll A"  = "chlor_a",
     "KD490"  = "kd_490",
     "Lunar Cycles" = "moon_illum"
   )
+  
+  enviro_data <- enviro_data
   
   months_of_interest <- months_of_interest
   
@@ -756,11 +783,16 @@ plot_occurrence <- function(location, base_path,
       environmental_variable != "None") {
     
     environmental_df <- get_environmental(location, base_path, months_of_interest)
+    
+    env_name <- names(env_var_choices)[env_var_choices == environmental_variable]
+    
+    environmental_variable <- env_name
 
     env_var_csv_col <- enviro_data[[environmental_variable]]$var
+    #env_var_csv_col <- environmental_variable
     env_var_axis_label <- enviro_data[[environmental_variable]]$axis
     env_var_title <- names(env_var_choices)[env_var_choices == env_var_csv_col]
-    
+    browser()
     if (all(is.na(environmental_df[[env_var_csv_col]]))) {
       msg = paste("No data available for", environmental_variable, "during the selected time period.")
       stop(msg)
@@ -822,6 +854,32 @@ plot_occurrence <- function(location, base_path,
 plot_call_count <- function(location, base_path, 
                             months_of_interest = c("All"), species_of_interest = c("All"), 
                             environmental_variable = NA, log_scale = FALSE) {
+  
+  env_var_choices <- c(
+    "None" = "None",
+    "Sea Level Anomaly"  = "sla",
+    "Sea Surface Temperature" = "analysed_sst",
+    "Chlorophyll A"  = "chlor_a",
+    "KD490"  = "kd_490",
+    "Lunar Cycles" = "moon_illum"
+  )
+  
+  enviro_data <- enviro_data
+
+  months_of_interest <- months_of_interest
+  
+  # --- Check if months_of_interest are sequential ---
+  if (!("All" %in% months_of_interest)) {
+    
+    # Convert month names to numbers
+    month_nums <- match(months_of_interest, month.name)
+    
+    # Check if they are in strictly increasing order
+    if (!all(diff(month_nums) == 1)) {
+      stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
+    }
+  }
+  
   #prep data
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
   local_tz <- get_timezone(location, base_path)
@@ -830,6 +888,8 @@ plot_call_count <- function(location, base_path,
     group_by(callType, day, species) %>%
     summarise(callCount = n(), .groups = 'drop') %>%
     mutate(callType = str_to_title(callType))
+  species_list <- species_of_interest
+  environmental_variable <- environmental_variable
   
   if(nrow(df) == 0) {
     stop("No data found for the species/month combination specified.")
@@ -872,6 +932,9 @@ plot_call_count <- function(location, base_path,
   if (!(is.na(environmental_variable))) {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
     
+    env_name <- names(env_var_choices)[env_var_choices == environmental_variable]
+    environmental_variable <- env_name
+    
     env_var_csv_col <- enviro_data[[environmental_variable]]$var
     env_var_axis_label <- enviro_data[[environmental_variable]]$axis
     title = paste0(title, "\nwith ", environmental_variable)
@@ -880,7 +943,6 @@ plot_call_count <- function(location, base_path,
       group_by(day, species) %>%
       summarise(totalCalls = sum(callCount, na.rm = TRUE), .groups = "drop") %>%
       summarise(max_value = max(totalCalls, na.rm = TRUE))
-    
     environmental_df$scaled <- environmental_df[[env_var_csv_col]] - 
       min(environmental_df[[env_var_csv_col]], na.rm = TRUE)
     
@@ -1215,31 +1277,6 @@ plot_detections_by_minute <- function(location, base_path,
 }
 
 
-#' Species Title
-#' 
-#' @description This formats the selected species names into a title structure
-#' 
-format_species_title <- function(species_vec) {
-  n <- length(species_vec)
-  
-  if (n == 1) {
-    return(species_vec)
-  } 
-  if (n == 2) {
-    return(paste(species_vec, collapse = " & "))
-  }
-  
-  # For 3 or more: a, b, & c
-  return(
-    paste(
-      paste(species_vec[-n], collapse = ", "),
-      species_vec[n],
-      sep = ", & "
-    )
-  )
-}
-
-
 #' Measurements
 #' 
 #' @description Compare whistle/click characteristics between multiple events.  Options for detector type are "Whistle & Moan" or "Click".
@@ -1273,7 +1310,7 @@ plot_measurements <- function(location_list, base_path,
   
   sp_title <- species %>% str_to_title()
   sp_title <- format_species_title(sp_title) 
-  browser()
+
   if (detector_type == "Whistle & Moan") {
     dfs <- list()
     

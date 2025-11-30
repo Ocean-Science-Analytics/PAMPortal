@@ -15,7 +15,7 @@ plot_measurements(
 }
 \description{
 Compare whistle/click characteristics between multiple events.  Options for detector type are "Whistle & Moan" or "Click".
-User can choose any of the variables
+User can choose any of the variables available for their chosen
 }
 \examples{
 plot_measurements(location_list = c("H11S1_2024", "H11S1_2025"), base_path = "C://PAMPortal_CTBTO",
