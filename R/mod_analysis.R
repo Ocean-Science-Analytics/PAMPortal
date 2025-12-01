@@ -633,7 +633,7 @@ mod_analysis_server <- function(id, data){
 
     # still provide the duty text UI
     output$duty_text <- renderUI({
-      req(input$see_duty, input$location_detection)
+      req(input$see_duty_detection, input$location_detection)
       dc_file <- file.path(base_path(), "Duty_Cycles.csv")
       if (!file.exists(dc_file)) return(NULL)
       duty_cycles_df <- read.csv(dc_file, stringsAsFactors = FALSE)

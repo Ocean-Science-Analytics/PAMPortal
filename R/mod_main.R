@@ -272,6 +272,12 @@ mod_main_server <- function(id){
           locs$Depth_m <- NA
         }
         
+        # --- Center map on data ---
+        first_lon <- locs$Longitude[1]
+        first_lat <- locs$Latitude[1]
+        base_map <- base_map %>% setView(lng = first_lon, lat = first_lat, zoom = 2)
+        
+        # --- Add markers ---
         base_map <- base_map %>%
           addMarkers(
             data = locs,
@@ -280,12 +286,15 @@ mod_main_server <- function(id){
             popup = lapply(seq_len(nrow(locs)), function(i) {
               row <- locs[i, , drop = FALSE]
               paste0(
-                "<b>", names(row), ":</b> ", 
-                unlist(lapply(row, as.character)), 
+                "<b>", names(row), ":</b> ",
+                unlist(lapply(row, as.character)),
                 collapse = "<br>"
               )
             })
           )
+      } else {
+        # No data → fallback USA-centered view
+        base_map <- base_map %>% setView(lng = -98.5795, lat = 39.8283, zoom = 2)
       }
       
       base_map
@@ -328,6 +337,10 @@ mod_main_server <- function(id){
           locs$Depth_m <- NA
         }
         
+        first_lon <- locs$Longitude[1]
+        first_lat <- locs$Latitude[1]
+        base_map <- base_map %>% setView(lng = first_lon, lat = first_lat, zoom = 2)
+        
         base_map <- base_map %>%
           addMarkers(
             data = locs,
@@ -336,12 +349,15 @@ mod_main_server <- function(id){
             popup = lapply(seq_len(nrow(locs)), function(i) {
               row <- locs[i, , drop = FALSE]
               paste0(
-                "<b>", names(row), ":</b> ", 
-                unlist(lapply(row, as.character)), 
+                "<b>", names(row), ":</b> ",
+                unlist(lapply(row, as.character)),
                 collapse = "<br>"
               )
             })
           )
+      } else {
+        # No data → fallback USA-centered view
+        base_map <- base_map %>% setView(lng = -98.5795, lat = 39.8283, zoom = 2)
       }
       
       base_map
