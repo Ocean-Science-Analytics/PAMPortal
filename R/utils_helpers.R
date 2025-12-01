@@ -763,7 +763,10 @@ plot_occurrence <- function(location, base_path,
                   scale_fill_manual(values = c("Undetected" = alpha(palette_constant[4], 0.25),
                                                "Detected" = palette_constant[1])) +
                   labs(y = "Monitored minutes", fill = "") +
-      theme(legend.position = "bottom")
+      theme(plot.background = element_rect(fill = "white", color = NA),
+            panel.background = element_rect(fill = "white", color = NA),
+            legend.background = element_rect(fill = "white", color = NA),
+            legend.position = "bottom")
   } else {
     merged <- merged %>% filter(segment=='detected')
     p <- ggplot(merged, aes(x = day, y = minutes)) +
@@ -930,7 +933,10 @@ plot_call_count <- function(location, base_path,
             plot.margin = margin(t = 10, r = 10, b = 20, l = 10)) 
   } else {
     p <- p +
-      theme(legend.position = "none")
+      theme(plot.background = element_rect(fill = "white", color = NA),
+            panel.background = element_rect(fill = "white", color = NA),
+            legend.background = element_rect(fill = "white", color = NA),
+            legend.position = "none")
   }
   
   
@@ -990,11 +996,38 @@ plot_call_density <- function(location, base_path,
                               months_of_interest = c("All"), species_of_interest = c("All"), 
                               environmental_variable = NA) {
   
+  env_var_choices <- c(
+    "None" = "None",
+    "Sea Level Anomaly"  = "sla",
+    "Sea Surface Temperature" = "analysed_sst",
+    "Chlorophyll A"  = "chlor_a",
+    "KD490"  = "kd_490",
+    "Lunar Cycles" = "moon_illum"
+  )
+  
+  enviro_data <- enviro_data
+  
+  months_of_interest <- months_of_interest
+  
+  # --- Check if months_of_interest are sequential ---
+  if (!("All" %in% months_of_interest)) {
+    
+    # Convert month names to numbers
+    month_nums <- match(months_of_interest, month.name)
+    
+    # Check if they are in strictly increasing order
+    if (!all(diff(month_nums) == 1)) {
+      stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
+    }
+  }
+  
   #retrieve and convert all data
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz)
+  species_list <- species_of_interest
+  environmental_variable <- environmental_variable
   
   if(nrow(df) == 0) {
     stop("No data found for the species/month combination specified.")
@@ -1020,10 +1053,16 @@ plot_call_density <- function(location, base_path,
     scale_x_date(labels = label_date_short(),
                  expand = c(0,0),
                  limits = c(start_day, end_day)) +
-    theme(legend.position = "bottom")
+    theme(plot.background = element_rect(fill = "white", color = NA),
+          panel.background = element_rect(fill = "white", color = NA),
+          legend.background = element_rect(fill = "white", color = NA),
+          legend.position = "bottom")
   
   if (!(is.na(environmental_variable))) {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
+    
+    env_name <- names(env_var_choices)[env_var_choices == environmental_variable]
+    environmental_variable <- env_name
     
     env_var_csv_col <- enviro_data[[environmental_variable]]$var
     env_var_axis_label <- enviro_data[[environmental_variable]]$axis
@@ -1073,6 +1112,21 @@ plot_call_density <- function(location, base_path,
 plot_hourly_presence<- function(location, base_path, 
                                 months_of_interest = c("All"), species_of_interest = c("All"),
                                 metric = "Count", log_scale = FALSE) {
+  
+  months_of_interest <- months_of_interest
+  
+  # --- Check if months_of_interest are sequential ---
+  if (!("All" %in% months_of_interest)) {
+    
+    # Convert month names to numbers
+    month_nums <- match(months_of_interest, month.name)
+    
+    # Check if they are in strictly increasing order
+    if (!all(diff(month_nums) == 1)) {
+      stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
+    }
+  }
+  
   #get data and compile grid
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
   local_tz <- get_timezone(location, base_path)
@@ -1081,6 +1135,7 @@ plot_hourly_presence<- function(location, base_path,
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest, minutes = FALSE)
   full_grid <- get_daylight(grid, local_tz, location, base_path)
+  species_list <- species_of_interest
   
   if(nrow(df) == 0) {
     stop("No data found for the species/month combination specified.")
@@ -1137,7 +1192,10 @@ plot_hourly_presence<- function(location, base_path,
     scale_y_discrete(breaks=breaks, 
                      expand=c(0,1)) +
     labs(title = title, x = "", y = "Time of Day") +
-    theme(legend.title = element_text(angle = 270))
+    theme(plot.background = element_rect(fill = "white", color = NA),
+          panel.background = element_rect(fill = "white", color = NA),
+          legend.background = element_rect(fill = "white", color = NA),
+          legend.title = element_text(angle = 270))
   
   if (metric == "Duration" && log_scale == TRUE) {
     p <- p +
@@ -1170,6 +1228,20 @@ plot_detections_by_minute <- function(location, base_path,
                                       months_of_interest = c("All"), species_of_interest = c("All"),
                                       see_duty_cycle = FALSE) {
   
+  months_of_interest <- months_of_interest
+  
+  # --- Check if months_of_interest are sequential ---
+  if (!("All" %in% months_of_interest)) {
+    
+    # Convert month names to numbers
+    month_nums <- match(months_of_interest, month.name)
+    
+    # Check if they are in strictly increasing order
+    if (!all(diff(month_nums) == 1)) {
+      stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
+    }
+  }
+  
   #get required metadata
   lat = get_metadata(location, base_path, "Latitude")
   lon = get_metadata(location, base_path, "Longitude")
@@ -1190,6 +1262,7 @@ plot_detections_by_minute <- function(location, base_path,
                    species_of_interest = unique(df$species)[1], minutes = TRUE)
   full_grid <- get_daylight(grid, local_tz, location, base_path) %>%
     select(-species)
+  species_list <- species_of_interest
   
   #calculate effort data
   starts <- seq(0, by = 60 / dc_per_hour, length.out = dc_per_hour)
@@ -1273,11 +1346,14 @@ plot_detections_by_minute <- function(location, base_path,
     labs(title = title, y = "Time of day") + 
     scale_fill_manual(values = color_map) +
     scale_x_date(labels = label_date_short(),
-                 expand = c(0,0),
+                 expand = c(0,10),
                  breaks = scales::breaks_pretty(n = 10)) +
     labs(title = title, x = "", fill = "") + 
     theme(legend.position = "bottom",
           legend.justification = "center",
+          plot.background = element_rect(fill = "white", color = NA),
+          panel.background = element_rect(fill = "white", color = NA),
+          legend.background = element_rect(fill = "white", color = NA),
           panel.grid = element_blank())
     
   return(p)
@@ -1395,6 +1471,9 @@ plot_measurements <- function(location_list, base_path,
     scale_fill_manual(values = palette_constant) +
     labs(x = "", y = "", title = title) +
     theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1),
+          plot.background = element_rect(fill = "white", color = NA),
+          panel.background = element_rect(fill = "white", color = NA),
+          legend.background = element_rect(fill = "white", color = NA),
           legend.position = "none") 
   
   return(p)

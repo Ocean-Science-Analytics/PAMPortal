@@ -121,13 +121,7 @@ mod_analysis_ui <- function(id) {
           actionButton(ns("occr_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
-        # withSpinner(
-        #   plotOutput(ns("occr_plot"), height = "700px"),
-        #   type = 4,        # spinner style (1–8)
-        #   color = "#001f3f" # customize color (green here)
-        # )
-        withSpinner(plotOutput(ns("occr_plot"), height = "700px"), type = 4, color = "#001f3f",caption="Loading Occurrence Plot...")
-        #plotOutput(ns("occr_plot"),height = "600px")
+        withSpinner(plotOutput(ns("occr_plot"), height = "750px"), type = 4, color = "#001f3f",caption="Loading Occurrence Plot...")
       ),
       tabPanel(
         "Call Count",
@@ -144,7 +138,6 @@ mod_analysis_ui <- function(id) {
                   multiple = FALSE,
                   selected = ""
                 )
-                #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
               ),
               column(
                 width = 3,
@@ -175,12 +168,71 @@ mod_analysis_ui <- function(id) {
                 ),
                 downloadButton(ns("download_call_count_plot"), "Download Plot", class = "btn-success custom-btn-success")
               )
-            ),
+            )
         ),
         div(
           style = "display: flex; justify-content: flex-end; width: 100%;",
           actionButton(ns("call_count_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
+        br(),
+        withSpinner(plotOutput(ns("call_count_plot"), height = "750px"), type = 4, color = "#001f3f", caption="Loading Call Count Plot...")
+      ),
+      tabPanel(
+        "Call Density",
+        br(),
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
+            fluidRow(
+              column(
+                width = 3,
+                selectInput(ns("location_call_den"), "Select Location", choices = NULL),
+                selectInput(
+                  inputId = ns("env_var_call_den"),
+                  label   = "Environmental Variable",
+                  choices = env_var_choices,
+                  multiple = FALSE,
+                  selected = ""
+                )
+                #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
+              ),
+              column(
+                width = 3,
+                selectInput(ns("species_filter_call_den"), "Select Species", choices = NULL, multiple = TRUE),
+                # div(
+                #   style = "padding-top: 28px;",
+                #   checkboxInput(
+                #     inputId = ns("log_scale"),
+                #     label = "Log Scale",
+                #     value = FALSE
+                #   )
+                # )
+              ),
+              column(
+                width = 3,
+                selectInput(ns("month_filter_call_den"), "Select Month", choices = c("All", month.name), selected = "All", multiple = TRUE)
+              ),
+              column(
+                width = 1, 
+                align = "middle",
+                div(style = "height: 100%; border-right: 2px solid black;")
+              ),
+              column(
+                width = 2,
+                tags$div(
+                  style = "margin-bottom: 10px;",
+                  actionButton(ns("render_call_den"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
+                ),
+                downloadButton(ns("download_call_den_plot"), "Download Plot", class = "btn-success custom-btn-success")
+              )
+            ),
+        ),
+        div(
+          style = "display: flex; justify-content: flex-end; width: 100%;",
+          actionButton(ns("call_den_description"), "", icon = shiny::icon("question"), class = "custom-btn")
+        ),
+        br(),
+        withSpinner(plotOutput(ns("call_den_plot"), height = "750px"), type = 4, color = "#001f3f", caption="Loading Call Density Plot...")
+        #plotOutput(ns("effort_plot"),height = "600px")
+      ),
       tabPanel(
         "Call Measurments",
         br(),
@@ -220,44 +272,98 @@ mod_analysis_ui <- function(id) {
           actionButton(ns("dstrb_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
-        withSpinner(plotOutput(ns("distribution_plot"), height = "700px"), type = 4, color = "#001f3f",caption="Loading Call Measurment Plot...")
+        withSpinner(plotOutput(ns("distribution_plot"), height = "750px"), type = 4, color = "#001f3f",caption="Loading Call Measurment Plot...")
         #plotOutput(ns("distribution_plot"), height = "600px")
       ),
-      # tabPanel(
-      #   "Effort and Detection",
-      #   br(),
-      #   div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
-      #       fluidRow(
-      #         column(
-      #           width = 3,
-      #           selectInput(ns("location"), "Select Location", choices = NULL),
-      #           checkboxInput(ns("see_duty"), "Show Full Duty Cycle", value = FALSE),
-      #           uiOutput(ns("duty_text"))
-      #           #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
-      #         ),
-      #         column(
-      #           width = 1, 
-      #           align = "middle",
-      #           div(style = "height: 100%; border-right: 2px solid black;")
-      #         ),
-      #         column(
-      #           width = 2,
-      #           tags$div(
-      #             style = "margin-bottom: 10px;",
-      #             actionButton(ns("render_plot"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
-      #           ),
-      #           downloadButton(ns("download_effort_plot"), "Download Plot", class = "btn-success custom-btn-success")
-      #         )
-      #       ),
-      #   ),
-      #   div(
-      #     style = "display: flex; justify-content: flex-end; width: 100%;",
-      #     actionButton(ns("effort_description"), "", icon = shiny::icon("question"), class = "custom-btn")
-      #   ),
-      
+      tabPanel(
+        "Presence",
         br(),
-        withSpinner(plotOutput(ns("call_count_plot"), height = "700px"), type = 4, color = "#001f3f", caption="Loading Call Count Plot...")
-        #plotOutput(ns("effort_plot"),height = "600px")
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
+            fluidRow(
+              column(
+                width = 3,
+                selectInput(ns("location_presence"), "Select Location", choices = NULL),
+                selectInput(ns("metric_presence"), "Select Metric", choices = c("Count", "Duration"), selected = "Count"),
+                #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
+              ),
+              column(
+                width = 3,
+                selectInput(ns("species_filter_presence"), "Select Species", choices = NULL, multiple = TRUE),
+                div(
+                  style = "padding-top: 28px;",
+                  checkboxInput(
+                    inputId = ns("log_scale_presence"),
+                    label = "Log Scale",
+                    value = FALSE
+                  )
+                )
+              ),
+              column(
+                width = 3,
+                selectInput(ns("month_filter_presence"), "Select Month", choices = c("All", month.name), selected = "All", multiple = TRUE)
+              ),
+              column(
+                width = 1, 
+                align = "middle",
+                div(style = "height: 100%; border-right: 2px solid black;")
+              ),
+              column(
+                width = 2,
+                tags$div(
+                  style = "margin-bottom: 10px;",
+                  actionButton(ns("render_presence"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
+                ),
+                downloadButton(ns("download_presence_plot"), "Download Plot", class = "btn-success custom-btn-success")
+              )
+            ),
+        ),
+        div(
+          style = "display: flex; justify-content: flex-end; width: 100%;",
+          actionButton(ns("presence_description"), "", icon = shiny::icon("question"), class = "custom-btn")
+        ),
+        br(),
+        withSpinner(plotOutput(ns("presence_plot"), height = "750px"), type = 4, color = "#001f3f", caption="Loading Presence Plot...")
+      ),
+      tabPanel(
+        "Detection",
+        br(),
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
+            fluidRow(
+              column(
+                width = 3,
+                selectInput(ns("location_detection"), "Select Location", choices = NULL),
+                checkboxInput(ns("see_duty_detection"), "Show Full Duty Cycle", value = FALSE),
+                uiOutput(ns("duty_text"))
+              ),
+              column(
+                width = 3,
+                selectInput(ns("species_filter_detection"), "Select Species", choices = NULL, multiple = TRUE),
+              ),
+              column(
+                width = 3,
+                selectInput(ns("month_filter_detection"), "Select Month", choices = c("All", month.name), selected = "All", multiple = TRUE)
+              ),
+              column(
+                width = 1,
+                align = "middle",
+                div(style = "height: 100%; border-right: 2px solid black;")
+              ),
+              column(
+                width = 2,
+                tags$div(
+                  style = "margin-bottom: 10px;",
+                  actionButton(ns("render_plot_detection"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
+                ),
+                downloadButton(ns("download_detection_plot"), "Download Plot", class = "btn-success custom-btn-success")
+              )
+            ),
+        ),
+        div(
+          style = "display: flex; justify-content: flex-end; width: 100%;",
+          actionButton(ns("detection_description"), "", icon = shiny::icon("question"), class = "custom-btn")
+        ),
+        br(),
+        withSpinner(plotOutput(ns("detection_plot"), height = "700px"), type = 4, color = "#001f3f", caption="Loading Detection Plot...")
       )
     )
   )
@@ -271,8 +377,11 @@ mod_analysis_server <- function(id, data){
     ns <- session$ns
     library(lubridate)
     call_count_plot_obj <- reactiveVal(NULL)
+    call_den_plot_obj <- reactiveVal(NULL)
+    presence_plot_obj <- reactiveVal(NULL)
     plot_measurements_obj <- reactiveVal(NULL)
     occurrence_plot_obj <- reactiveVal(NULL)
+    detection_plot_obj <- reactiveVal(NULL)
     
     base_path <- reactive({
       req(data$selected_dir())
@@ -282,8 +391,11 @@ mod_analysis_server <- function(id, data){
       req(data$rds_data())
       locations <- names(data$rds_data())
       updateSelectInput(session, "location_call_count", choices = locations)
+      updateSelectInput(session, "location_call_den", choices = locations)
+      updateSelectInput(session, "location_presence", choices = locations)
       updateSelectInput(session, "location_dis", choices = locations)
       updateSelectInput(session, "location_occr", choices = locations)
+      updateSelectInput(session, "location_detection", choices = locations)
     })
     
     observeEvent(input$location_dis, {
@@ -368,46 +480,38 @@ mod_analysis_server <- function(id, data){
       call_count_plot_obj()
     })
     
-    # call_count_plot_obj <- eventReactive(input$render_plot, {
-    #   req(base_path(), input$location)
-    #   showNotification("Loading Call Count Plot...", type = "message")
-    #   
-    #   dc_file <- file.path(base_path(), "Duty_Cycles.csv")
-    #   duty_lookup <- if (file.exists(dc_file)) {
-    #     dc_df <- read.csv(dc_file, stringsAsFactors = FALSE)
-    #     setNames(dc_df$dc, dc_df$location)
-    #   } else {
-    #     list()
-    #   }
-    #   
-    #   duty_min <- if (isTRUE(input$see_duty)) duty_lookup[[input$location]] else 60
-    #   
-    #   effort_plot(
-    #     location = input$location,
-    #     base_path = base_path(),
-    #     see_duty_cycle = input$see_duty
-    #     #duty_cycle_min = if (is.null(duty_min)) 60 else duty_min
-    #   )
-    # }, ignoreNULL = TRUE)
-    # 
-    # output$effort_plot <- renderPlot({
-    #   req(effort_plot_obj())
-    #   effort_plot_obj()
-    # })
-    # 
-    # # still provide the duty text UI
-    # output$duty_text <- renderUI({
-    #   req(input$see_duty, input$location)
-    #   dc_file <- file.path(base_path(), "Duty_Cycles.csv")
-    #   if (!file.exists(dc_file)) return(NULL)
-    #   duty_cycles_df <- read.csv(dc_file, stringsAsFactors = FALSE)
-    #   duty_lookup <- setNames(duty_cycles_df$dc, duty_cycles_df$location)
-    #   #print(duty_lookup)
-    #   duty_val <- duty_lookup[[input$location]]
-    #   if (is.null(duty_val)) return(NULL)
-    #   HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>Duty cycle at <b>{input$location}</b> was <b>{duty_val} minutes</b> every hour.</div>"))
-    # })
+    ###################################################################
+    # Call Density Plot
+    ###################################################################
+    observeEvent(input$location_call_den, {
+      req(input$location_call_den)
+      
+      # Load RDS data and extract unique species
+      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_call_den, ".rds")))
+      species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
+      
+      updateSelectInput(session, "species_filter_call_den",
+                        choices = c("All", species),
+                        selected = "All")
+    })
     
+    call_den_plot_obj <- eventReactive(input$render_call_den, {
+      req(base_path(), input$location_call_den)
+      showNotification("Loading Call Density Plot...", type = "message")
+      plot_call_density(
+        location = input$location_call_den,
+        base_path = base_path(),
+        species_of_interest = input$species_filter_call_den,
+        months_of_interest = input$month_filter_call_den,
+        environmental_variable = input$env_var_call_den
+        #log_scale = input$log_scale
+      )
+    }, ignoreNULL = TRUE)
+    
+    output$call_den_plot <- renderPlot({
+      req(call_den_plot_obj())
+      call_den_plot_obj()
+    })
     
     ###################################################################
     # Call Measurement Plot
@@ -451,6 +555,96 @@ mod_analysis_server <- function(id, data){
     })
     
     ###################################################################
+    # Hourly Presence Plot
+    ###################################################################
+    observeEvent(input$location_presence, {
+      req(input$location_presence)
+      
+      # Load RDS data and extract unique species
+      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_presence, ".rds")))
+      species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
+      
+      updateSelectInput(session, "species_filter_presence",
+                        choices = c("All", species),
+                        selected = "All")
+    })
+    
+    presence_plot_obj <- eventReactive(input$render_presence, {
+      req(base_path(), input$location_presence)
+      showNotification("Loading Hourly Presence Plot...", type = "message")
+      plot_hourly_presence(
+        location = input$location_presence,
+        base_path = base_path(),
+        species_of_interest = input$species_filter_presence,
+        months_of_interest = input$month_filter_presence,
+        metric = input$metric_presence,
+        log_scale = input$log_scale
+      )
+    }, ignoreNULL = TRUE)
+    
+    output$presence_plot <- renderPlot({
+      req(presence_plot_obj())
+      presence_plot_obj()
+    })
+    
+    ###################################################################
+    # Detection Plot
+    ###################################################################
+    observeEvent(input$location_detection, {
+      req(input$location_detection)
+      
+      # Load RDS data and extract unique species
+      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_detection, ".rds")))
+      species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
+      
+      updateSelectInput(session, "species_filter_detection",
+                        choices = c("All", species),
+                        selected = "All")
+    })
+    
+    detection_plot_obj <- eventReactive(input$render_plot_detection, {
+      req(base_path(), input$location_detection)
+      showNotification("Loading Detection Plot...", type = "message")
+
+      dc_file <- file.path(base_path(), "Duty_Cycles.csv")
+      duty_lookup <- if (file.exists(dc_file)) {
+        dc_df <- read.csv(dc_file, stringsAsFactors = FALSE)
+        setNames(dc_df$dc, dc_df$location)
+      } else {
+        list()
+      }
+
+      duty_min <- if (isTRUE(input$see_duty_detection)) duty_lookup[[input$location_detection]] else 60
+
+      plot_detections_by_minute(
+        location = input$location_detection,
+        base_path = base_path(),
+        species_of_interest = input$species_filter_detection,
+        months_of_interest = input$month_filter_detection,
+        see_duty_cycle = input$see_duty_detection
+        #duty_cycle_min = if (is.null(duty_min)) 60 else duty_min
+      )
+    }, ignoreNULL = TRUE)
+
+    output$detection_plot <- renderPlot({
+      req(detection_plot_obj())
+      detection_plot_obj()
+    })
+
+    # still provide the duty text UI
+    output$duty_text <- renderUI({
+      req(input$see_duty, input$location_detection)
+      dc_file <- file.path(base_path(), "Duty_Cycles.csv")
+      if (!file.exists(dc_file)) return(NULL)
+      duty_cycles_df <- read.csv(dc_file, stringsAsFactors = FALSE)
+      duty_lookup <- setNames(duty_cycles_df$dc, duty_cycles_df$location)
+      #print(duty_lookup)
+      duty_val <- duty_lookup[[input$location_detection]]
+      if (is.null(duty_val)) return(NULL)
+      HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>Duty cycle at <b>{input$location}</b> was <b>{duty_val} minutes</b> every hour.</div>"))
+    })
+    
+    ###################################################################
     # Download Plot Logic
     ###################################################################
     output$download_call_count_plot <- downloadHandler(
@@ -460,6 +654,16 @@ mod_analysis_server <- function(id, data){
       content = function(file) {
         req(call_count_plot_obj())
         ggsave(file, plot = call_count_plot_obj(), width = 10, height = 6, dpi = 300)
+      }
+    )
+    ####
+    output$download_call_den_plot <- downloadHandler(
+      filename = function() {
+        paste0("call_den_plot_", Sys.Date(), ".png")
+      },
+      content = function(file) {
+        req(call_den_plot_obj())
+        ggsave(file, plot = call_den_plot_obj(), width = 10, height = 6, dpi = 300)
       }
     )
     ####
@@ -480,6 +684,26 @@ mod_analysis_server <- function(id, data){
       content = function(file) {
         req(occurrence_plot_obj())
         ggsave(file, plot = occurrence_plot_obj(), width = 10, height = 6, dpi = 300)
+      }
+    )
+    ####
+    output$download_presence_plot <- downloadHandler(
+      filename = function() {
+        paste0("presence_plot_", Sys.Date(), ".png")
+      },
+      content = function(file) {
+        req(presence_plot_obj())
+        ggsave(file, plot = presence_plot_obj(), width = 10, height = 6, dpi = 300)
+      }
+    )
+    ####
+    output$download_detection_plot <- downloadHandler(
+      filename = function() {
+        paste0("detection_plot_", Sys.Date(), ".png")
+      },
+      content = function(file) {
+        req(detection_plot_obj())
+        ggsave(file, plot = detection_plot_obj(), width = 10, height = 6, dpi = 300)
       }
     )
     
