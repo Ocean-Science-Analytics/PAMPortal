@@ -92,7 +92,7 @@ mod_analysis_ui <- function(id) {
                   style = "padding-top: 28px;",
                   checkboxInput(
                     inputId = ns("show_effort"),
-                    label = "Show Effort?",
+                    label = "Show Effort",
                     value = FALSE
                   )
                 )
@@ -192,7 +192,6 @@ mod_analysis_ui <- function(id) {
                   multiple = FALSE,
                   selected = ""
                 )
-                #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
               ),
               column(
                 width = 3,
@@ -606,7 +605,7 @@ mod_analysis_server <- function(id, data){
       req(base_path(), input$location_detection)
       showNotification("Loading Detection Plot...", type = "message")
 
-      dc_file <- file.path(base_path(), "Duty_Cycles.csv")
+      dc_file <- file.path(base_path(), "Metadata.csv")
       duty_lookup <- if (file.exists(dc_file)) {
         dc_df <- read.csv(dc_file, stringsAsFactors = FALSE)
         setNames(dc_df$dc, dc_df$location)
@@ -712,7 +711,7 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$occr_description, {
       showModal(modalDialog(
-        title = "Occurrence Plot Description",
+        title = "Occurrence Plot",
         size = "l",
         easyClose = TRUE,
         footer = modalButton("Close"),
@@ -730,7 +729,7 @@ mod_analysis_server <- function(id, data){
     
     observeEvent(input$call_count_description, {
       showModal(modalDialog(
-        title = "Call Count Plot Description",
+        title = "Call Count Plot",
         size = "l",
         easyClose = TRUE,
         footer = modalButton("Close"),
@@ -748,9 +747,9 @@ mod_analysis_server <- function(id, data){
       ))
     })
     
-    observeEvent(input$call_density_description, {
+    observeEvent(input$call_den_description, {
       showModal(modalDialog(
-        title = "Call Density Plot Description",
+        title = "Call Density Plot",
         size = "l",
         easyClose = TRUE,
         footer = modalButton("Close"),
@@ -772,7 +771,7 @@ mod_analysis_server <- function(id, data){
     
     observeEvent(input$call_measurment_description, {
       showModal(modalDialog(
-        title = "Call Measurement Plot Description",
+        title = "Call Measurement Plot",
         size = "l",
         easyClose = TRUE,
         footer = modalButton("Close"),
@@ -794,7 +793,7 @@ mod_analysis_server <- function(id, data){
     
     observeEvent(input$presence_description, {
       showModal(modalDialog(
-        title = "Presence Plot Description",
+        title = "Presence Plot",
         size = "l",
         easyClose = TRUE,
         footer = modalButton("Close"),
@@ -817,7 +816,7 @@ mod_analysis_server <- function(id, data){
     
     observeEvent(input$detection_description, {
       showModal(modalDialog(
-        title = "Detections Plot Description",
+        title = "Detections Plot",
         size = "l",
         easyClose = TRUE,
         footer = modalButton("Close"),

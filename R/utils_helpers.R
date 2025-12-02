@@ -393,9 +393,9 @@ get_data <- function(location, base_path,
 #' get_metadata(location, base_path, variable = "Latitude")
 #' output: entry for the site/variable combo in Metadata.csv
 get_metadata <- function(location, base_path, variable) {
-  csv_path <- paste0(base_path, '\\Metadata.csv')
-  df <- read.csv(csv_path)
-  return(df[(df$Site==location), variable])
+  csv_path <- file.path(base_path, "Metadata.csv")
+  df <- read.csv(csv_path, stringsAsFactors = FALSE)
+  return(df[df$Site == location, variable])
 }
 
 
@@ -428,11 +428,12 @@ get_timezone <- function(location, base_path) {
 #' get_soundmap(location, base_path, c(6,7))
 #' 
 get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
-
-  file_name = paste0(base_path, "\\", location, "_sound_map.csv")
-  sound_map = read.csv(file_name)
   
-  if(!("All" %in% months_of_interest)) {
+  file_name <- file.path(base_path, paste0(location, "_sound_map.csv"))
+  
+  sound_map <- read.csv(file_name, stringsAsFactors = FALSE)
+
+  if (!("All" %in% months_of_interest)) {
     sound_map <- sound_map %>%
       filter(month(local_time, label = TRUE, abbr = FALSE) %in% months_of_interest)
   }
@@ -451,7 +452,7 @@ get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
 #' 
 get_environmental <- function(location, base_path, months_of_interest = c("All")) {
   
-  file_name = paste0(base_path, "\\", location, "_environmental_data.csv")
+  file_name <- file.path(base_path, paste0(location, "_environmental_data.csv"))
   environmental = read.csv(file_name)
   
   if(!("All" %in% months_of_interest)) {
@@ -780,7 +781,11 @@ plot_occurrence <- function(location, base_path,
     scale_y_continuous(expand = c(0,0)) +
     scale_x_date(labels = label_date_short(), 
                  #breaks = function(x) c(pretty(x), max(x)),
-                 expand = c(0,0))
+                 expand = c(0,0)) +
+    theme(
+      axis.line = element_line(color = "grey30", size = 1),
+      panel.border = element_blank()
+    )
   
   #add environmental data to graph if specified
   if(!is.null(environmental_variable) &&
@@ -929,10 +934,17 @@ plot_call_count <- function(location, base_path,
     p <- p + 
       theme(legend.position = "bottom",
             legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-            plot.margin = margin(t = 10, r = 10, b = 20, l = 10)) 
+            axis.line = element_line(color = "grey30", size = 1),
+            panel.border = element_blank(),
+            plot.margin = margin(t = 10, r = 10, b = 20, l = 10),
+            plot.background = element_rect(fill = "white", color = NA),
+            panel.background = element_rect(fill = "white", color = NA),
+            legend.background = element_rect(fill = "white", color = NA)) 
   } else {
     p <- p +
-      theme(plot.background = element_rect(fill = "white", color = NA),
+      theme(axis.line = element_line(color = "grey30", size = 1),
+            panel.border = element_blank(),
+            plot.background = element_rect(fill = "white", color = NA),
             panel.background = element_rect(fill = "white", color = NA),
             legend.background = element_rect(fill = "white", color = NA),
             legend.position = "none")
@@ -1054,7 +1066,9 @@ plot_call_density <- function(location, base_path,
     scale_x_date(labels = label_date_short(),
                  expand = c(0,0),
                  limits = c(start_day, end_day)) +
-    theme(plot.background = element_rect(fill = "white", color = NA),
+    theme(axis.line = element_line(color = "grey30", size = 1),
+          panel.border = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
           panel.background = element_rect(fill = "white", color = NA),
           legend.background = element_rect(fill = "white", color = NA),
           legend.position = "bottom")
@@ -1195,7 +1209,9 @@ plot_hourly_presence<- function(location, base_path,
     scale_y_discrete(breaks=breaks, 
                      expand=c(0,1)) +
     labs(title = title, x = "", y = "Time of Day") +
-    theme(plot.background = element_rect(fill = "white", color = NA),
+    theme(axis.line = element_line(color = "grey30", size = 1),
+          panel.border = element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
           panel.background = element_rect(fill = "white", color = NA),
           legend.background = element_rect(fill = "white", color = NA),
           legend.title = element_text(angle = 270))
@@ -1349,11 +1365,13 @@ plot_detections_by_minute <- function(location, base_path,
     labs(title = title, y = "Time of day") + 
     scale_fill_manual(values = color_map) +
     scale_x_date(labels = label_date_short(),
-                 expand = c(0,10),
+                 expand = c(0,1),
                  breaks = scales::breaks_pretty(n = 10)) +
     labs(title = title, x = "", fill = "") + 
     theme(legend.position = "bottom",
           legend.justification = "center",
+          axis.line = element_line(color = "grey30", size = 1),
+          panel.border = element_blank(),
           plot.background = element_rect(fill = "white", color = NA),
           panel.background = element_rect(fill = "white", color = NA),
           legend.background = element_rect(fill = "white", color = NA),
