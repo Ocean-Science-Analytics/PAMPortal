@@ -225,10 +225,10 @@ mod_main_server <- function(id){
       root_path <- selected_dir()
       shiny::req(root_path)
       
-      spatial_file <- file.path(root_path, "Spatial_Data.csv")
+      spatial_file <- file.path(root_path, "Metadata.csv")
       
       if (!file.exists(spatial_file)) {
-        showNotification("Spatial_Data.csv not found in the selected folder.", type = "warning")
+        showNotification("Metadata.csv not found in the selected folder.", type = "warning")
         return(NULL)
       }
       
@@ -284,10 +284,16 @@ mod_main_server <- function(id){
             lng = ~Longitude,
             lat = ~Latitude,
             popup = lapply(seq_len(nrow(locs)), function(i) {
-              row <- locs[i, , drop = FALSE]
-              paste0(
-                "<b>", names(row), ":</b> ",
-                unlist(lapply(row, as.character)),
+              row <- locs[i, ]
+              # Columns to include in the popup
+              popup_cols <- c("Site", "Latitude", "Longitude", "Depth_m", "Notes")
+              # Keep only existing columns
+              popup_cols <- popup_cols[popup_cols %in% names(row)]
+              # Build popup HTML
+              paste(
+                sapply(popup_cols, function(col) {
+                  paste0("<b>", col, ":</b> ", row[[col]])
+                }),
                 collapse = "<br>"
               )
             })
@@ -347,10 +353,16 @@ mod_main_server <- function(id){
             lng = ~Longitude,
             lat = ~Latitude,
             popup = lapply(seq_len(nrow(locs)), function(i) {
-              row <- locs[i, , drop = FALSE]
-              paste0(
-                "<b>", names(row), ":</b> ",
-                unlist(lapply(row, as.character)),
+              row <- locs[i, ]
+              # Columns to include in the popup
+              popup_cols <- c("Site", "Latitude", "Longitude", "Depth_m", "Notes")
+              # Keep only existing columns
+              popup_cols <- popup_cols[popup_cols %in% names(row)]
+              # Build popup HTML
+              paste(
+                sapply(popup_cols, function(col) {
+                  paste0("<b>", col, ":</b> ", row[[col]])
+                }),
                 collapse = "<br>"
               )
             })

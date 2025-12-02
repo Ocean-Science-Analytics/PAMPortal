@@ -117,7 +117,7 @@ mod_analysis_ui <- function(id) {
             ),
         ),
         div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
+          style = "display: flex; justify-content: flex-end; width: 100%; padding-right: 20px;",
           actionButton(ns("occr_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
@@ -171,7 +171,7 @@ mod_analysis_ui <- function(id) {
             )
         ),
         div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
+          style = "display: flex; justify-content: flex-end; width: 100%; padding-right: 20px;",
           actionButton(ns("call_count_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
@@ -226,7 +226,7 @@ mod_analysis_ui <- function(id) {
             ),
         ),
         div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
+          style = "display: flex; justify-content: flex-end; width: 100%; padding-right: 20px;",
           actionButton(ns("call_den_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
@@ -268,8 +268,8 @@ mod_analysis_ui <- function(id) {
             ),
         ),
         div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
-          actionButton(ns("dstrb_description"), "", icon = shiny::icon("question"), class = "custom-btn")
+          style = "display: flex; justify-content: flex-end; width: 100%; padding-right: 20px;",
+          actionButton(ns("call_measurment_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
         withSpinner(plotOutput(ns("distribution_plot"), height = "750px"), type = 4, color = "#001f3f",caption="Loading Call Measurment Plot...")
@@ -318,7 +318,7 @@ mod_analysis_ui <- function(id) {
             ),
         ),
         div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
+          style = "display: flex; justify-content: flex-end; width: 100%; padding-right: 20px;",
           actionButton(ns("presence_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
@@ -359,7 +359,7 @@ mod_analysis_ui <- function(id) {
             ),
         ),
         div(
-          style = "display: flex; justify-content: flex-end; width: 100%;",
+          style = "display: flex; justify-content: flex-end; width: 100%; padding-right: 20px;",
           actionButton(ns("detection_description"), "", icon = shiny::icon("question"), class = "custom-btn")
         ),
         br(),
@@ -578,7 +578,7 @@ mod_analysis_server <- function(id, data){
         species_of_interest = input$species_filter_presence,
         months_of_interest = input$month_filter_presence,
         metric = input$metric_presence,
-        log_scale = input$log_scale
+        log_scale = input$log_scale_presence
       )
     }, ignoreNULL = TRUE)
     
@@ -710,45 +710,6 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     # Description Pages
     ###################################################################
-    observeEvent(input$call_count_description, {
-      showModal(modalDialog(
-        title = "Call Count Plot Description",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
-        tagList(
-          p("This plot visualizes the daily acoustic effort and species detections."),
-          p("Each row represents one day, and time progresses from left to right across each row."),
-          p("Time is shown on the x-axis (hours and minutes). Colors represent different detection categories:"),
-          tags$ul(
-            tags$li(strong("Species names:"), " Indicate detections for that species during a duty cycle window."),
-            tags$li(strong("No Events:"), " The recorder was active (within duty cycle), but no species were detected."),
-            tags$li(strong("Not Sampled:"), " The recorder was off (outside the duty cycle) or no data was available.")
-          ),
-          p("If 'Show Full Duty Cycle' is checked, the actual duty cycle duration per site is applied when determining sampled periods."),
-          p("Sunrise and sunset data are used to infer day/night cycles when available.")
-        )
-      ))
-    })
-    
-    observeEvent(input$dstrb_description, {
-      showModal(modalDialog(
-        title = "Call Measurement Plot Description",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
-        tagList(
-          p("This figure displays the distribution of selected call characteristics (e.g., duration, frequency max, frequency median, etc.)."),
-          p("Each distribution corresponds to selected species and events, allowing comparison of call features across categories."),
-          tags$ul(
-            tags$li("Violin plots show the full distribution of values for the selected variables."),
-            tags$li("The user can filter by species, the detector used, and the acoustic event using the dropdowns above.")
-          ),
-          p("This tool is helpful for comparing how different species or events vary in acoustic properties.")
-        )
-      ))
-    })
-    
     observeEvent(input$occr_description, {
       showModal(modalDialog(
         title = "Occurrence Plot Description",
@@ -756,13 +717,127 @@ mod_analysis_server <- function(id, data){
         easyClose = TRUE,
         footer = modalButton("Close"),
         tagList(
-          p("This figure displays the occurrence of different species based on recorded acoustic vocalizations."),
-          p("Each point on the figure corresponds to an event in which that species was identified, and the color corresponds to the duration of time in which they were present in the recording."),
-          p("This tool is helpful for visualizing the vocal occurrence of different species both short term (time of day) and long-term (date).")
+          p("This plot shows the total number of minutes per day in which each species was acoustically detected at the selected deployment."),
+          
+          p("Each colored bar represents one day of detections. The height of the bar indicates how many minutes that species was present in the acoustic data for that day."),
+          
+          p("This visualization is useful for examining short-term and long-term occurrence patterns, identifying periods of high activity, and comparing species presence across the deployment timeline."),
+          
+          p("If an environmental variable is selected, it is displayed on a secondary axis to help identify relationships between detection patterns and environmental conditions.")
         )
       ))
     })
     
+    observeEvent(input$call_count_description, {
+      showModal(modalDialog(
+        title = "Call Count Plot Description",
+        size = "l",
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        tagList(
+          p("This plot displays the total number of acoustic calls detected per day for each species at the selected deployment."),
+          
+          p("Unlike the Occurrence Plot, which shows the number of detected minutes per day, this figure shows the actual count of individual calls identified in the dataset."),
+          
+          p("Each bar represents one day of detections. The height or position on the plot corresponds to the total number of calls recorded for that species on that date."),
+          
+          p("This visualization is useful for examining calling behavior, comparing call rates across time, identifying peaks in acoustic activity, and distinguishing changes in daily calling patterns."),
+          
+          p("If an environmental variable is selected, it is displayed on a secondary axis to help identify relationships between call rates and environmental conditions.")
+        )
+      ))
+    })
+    
+    observeEvent(input$call_density_description, {
+      showModal(modalDialog(
+        title = "Call Density Plot Description",
+        size = "l",
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        tagList(
+          p("This plot displays the normalized call density for each species across all recorded days at the selected deployment."),
+          
+          p("Call density represents the relative concentration of calls rather than the total number of detections. 
+         The density curve shows how calling activity is distributed through time, highlighting periods of increased or decreased vocal behavior."),
+          
+          p("Unlike the Occurrence Plot (detected minutes per day) or the Call Count Plot (number of calls per day), 
+         this plot emphasizes the overall shape and intensity of calling patterns, making it easy to compare calling behavior across species."),
+          
+          p("Each species is shown as a smoothed density curve, normalized so species with different call numbers can be compared on the same scale."),
+          
+          p("If an environmental variable is selected, it appears as a line overlay with a secondary axis, enabling comparisons between calling activity and environmental conditions.")
+        )
+      ))
+    })
+    
+    observeEvent(input$call_measurment_description, {
+      showModal(modalDialog(
+        title = "Call Measurement Plot Description",
+        size = "l",
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        tagList(
+          p("This plot displays the distribution of selected acoustic call measurements (e.g., duration, maximum frequency, median frequency, frequency spread, and other variables)."),
+          
+          p("Each violin represents the full distribution of values for the chosen variable(s), grouped by the selected species and event(s). 
+         This allows users to visually compare how call characteristics differ across categories."),
+          
+          tags$ul(
+            tags$li(strong("Violin plots:"), " show the shape and spread of the data, highlighting patterns such as skewness, multimodality, and overall variability."),
+            tags$li(strong("Filters:"), " Users can filter by species, detector type, acoustic event, and measurement variable using the dropdown selectors above.")
+          ),
+          
+          p("This tool is especially useful for examining how call structure varies between species or across different acoustic events.")
+        )
+      ))
+    })
+    
+    observeEvent(input$presence_description, {
+      showModal(modalDialog(
+        title = "Presence Plot Description",
+        size = "l",
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        tagList(
+          p("This plot displays species presence, showing how call counts vary over time of day and across the deployment period."),
+          
+          p("Each tile represents a specific combination of date (x-axis) and time of day (y-axis). 
+         The color intensity of the tile corresponds to the number of detected calls within that time window."),
+          
+          tags$ul(
+            tags$li(strong("X-axis:"), " Calendar date, showing how detections change over days or months."),
+            tags$li(strong("Y-axis:"), " Time of day, allowing users to identify diel calling patterns (e.g., dawn/dusk peaks)."),
+            tags$li(strong("Color scale:"), " Represents the call count—darker or more saturated colors indicate higher presence.")
+          ),
+          
+          p("This visualization is useful for identifying daily or seasonal patterns in calling behavior, detecting shifts in activity over time, and comparing presence across species or detectors.")
+        )
+      ))
+    })
+    
+    observeEvent(input$detection_description, {
+      showModal(modalDialog(
+        title = "Detections Plot Description",
+        size = "l",
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        tagList(
+          p("This plot displays each individual call detection as a point, allowing users to see the precise timing of every detected call throughout the deployment."),
+          
+          p("Every point corresponds to a single detection event, plotted by its date and exact time of day. 
+         This high-resolution view reveals fine-scale temporal patterns, clustering of detections, and potential behavioral rhythms."),
+          
+          tags$ul(
+            tags$li(strong("X-axis:"), " Calendar date, showing how detections are distributed over the deployment period."),
+            tags$li(strong("Y-axis:"), " Time of day (24-hour clock), enabling users to identify diel patterns or recurring detection windows."),
+            tags$li(strong("Points:"), " Each point represents one detected call. Dense clusters indicate periods of increased calling activity.")
+          ),
+          
+          p("This visualization is particularly useful for exploring the timing and frequency of individual detection events, 
+         identifying bursts of calling, and comparing fine-scale temporal patterns across species, deployments, or detectors.")
+        )
+      ))
+    })
   })
 }
     

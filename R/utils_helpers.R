@@ -796,7 +796,6 @@ plot_occurrence <- function(location, base_path,
     env_var_axis_label <- enviro_data[[environmental_variable]]$axis
     env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     env_var_title <- names(env_var_choices)[env_var_choices == env_var_csv_col]
-    browser()
 
     
     
@@ -940,7 +939,9 @@ plot_call_count <- function(location, base_path,
   }
   
   
-  if (!(is.na(environmental_variable))) {
+  if(!is.null(environmental_variable) &&
+     !is.na(environmental_variable) &&
+     environmental_variable != "None") {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
     
     env_name <- names(env_var_choices)[env_var_choices == environmental_variable]
@@ -974,7 +975,7 @@ plot_call_count <- function(location, base_path,
                 na.rm = TRUE,
                 color = alpha(text),
                 linewidth = 0.5,
-                inherit.aes = FALSE) +   # secondary axis on the right
+                inherit.aes = FALSE) +
       scale_y_continuous(
         name = ylabel,
         sec.axis = sec_axis(~ . / scalar + min(environmental_df[[env_var_csv_col]], na.rm = TRUE), 
@@ -1058,7 +1059,9 @@ plot_call_density <- function(location, base_path,
           legend.background = element_rect(fill = "white", color = NA),
           legend.position = "bottom")
   
-  if (!(is.na(environmental_variable))) {
+  if(!is.null(environmental_variable) &&
+     !is.na(environmental_variable) &&
+     environmental_variable != "None") {
     environmental_df <- get_environmental(location, base_path, months_of_interest)
     
     env_name <- names(env_var_choices)[env_var_choices == environmental_variable]
