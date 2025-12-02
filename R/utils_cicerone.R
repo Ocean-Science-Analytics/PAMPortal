@@ -71,11 +71,14 @@ guide <- cicerone::Cicerone$
     el = "[data-value='analysis']",
     title = "Data Visualization Page",
     description = HTML("
-    <p>The data visualization page contains three different visualization methods:</p>
+    <p>The data visualization page contains six different visualization methods:</p>
     <ul>
       <li>Occurrence</li>
-      <li>Call Measurements</li>
-      <li>Effort/Detection</li>
+      <li>Call Count</li>
+      <li>Call Density</li>
+      <li>Call Measurment</li>
+      <li>Presence</li>
+      <li>Detections</li>
     </ul>
     <p>Please see the respective help pages, identified by the '?', for more details on each method.</p>
     "),
@@ -114,5 +117,13 @@ guide <- cicerone::Cicerone$
     is_id = FALSE,
     position = "middle",
     on_highlighted = "function() { document.querySelector(\"[data-value='soundscape']\").click(); }"
+  )$
+  step(
+    el = "[data-value='click_detector']",
+    title = "Summary Page",
+    description = "The click detector page displays screenshots of analyzed detections for each event. Images are loaded by deployment and can filtered by individual species.",
+    is_id = FALSE,
+    position = "middle",
+    on_highlighted = "function() { document.querySelector(\"[data-value='click_detector']\").click(); }"
   )
   
