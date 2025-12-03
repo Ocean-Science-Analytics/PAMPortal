@@ -608,9 +608,14 @@ get_daylight <- function(df, local_tz,
     mutate(datetime = force_tz(as.POSIXct(day) + hours(hour), tzone = local_tz),
            month = lubridate::month(day))
   
+  ### IF daylight DFs not showing up as expected, make sure this DF is correct first -
+  ### should have columns for sunrise / sunset that make sense
+
   if ("minute" %in% names(merged)) {
     merged$datetime <- merged$datetime + merged$minute * 60
   }
+  
+
   
   merged <- merged %>% 
     mutate(daylight = case_when(
@@ -1152,6 +1157,8 @@ plot_hourly_presence<- function(location, base_path,
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest, minutes = FALSE)
   full_grid <- get_daylight(grid, local_tz, location, base_path)
+  ### Jared - this full_grid object should have "TRUE" in the daylight column for hours ~8-17
+  
   species_list <- species_of_interest
   
   if(nrow(df) == 0) {
@@ -1235,7 +1242,6 @@ plot_hourly_presence<- function(location, base_path,
 }
 
 
-
 #' Detections by minute
 #' 
 #' @description Presence/absence of detections by minute.
@@ -1281,6 +1287,8 @@ plot_detections_by_minute <- function(location, base_path,
                    species_of_interest = unique(df$species)[1], minutes = TRUE)
   full_grid <- get_daylight(grid, local_tz, location, base_path) %>%
     select(-species)
+  ### Jared - this full_grid object should have "TRUE" in the daylight column for hours ~8-17
+  
   species_list <- species_of_interest
   
   #calculate effort data
@@ -1381,6 +1389,8 @@ plot_detections_by_minute <- function(location, base_path,
   
 }
 
+
+plot_detections_by_minute(ctbto_location, ctbto_basepath)
 
 #' Measurements
 #' 
