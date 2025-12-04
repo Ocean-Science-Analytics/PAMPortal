@@ -579,29 +579,18 @@ get_grid <- function(df, location, base_path,
 #' @examples
 #' get_daylight(df, local_tz = "Pacific/Wake", location, basepath)
 #' 
+#' 
 get_daylight <- function(df, local_tz, 
                          location, base_path) {
-  
-  library(suncalc)
-  
-  lat = get_metadata(location, base_path, "Latitude")
-  lon = get_metadata(location, base_path, "Longitude")
-  
-  #convert dates to UTC because getSunlightTimes will only interpret input in UTC... no matter what...
-  utc_dates = as.Date(force_tz(as.POSIXct(df$day, tz = 'UTC'), tzone = local_tz))
-  
-  sun_times = getSunlightTimes(
-    date = unique(utc_dates),
-    lat = lat, lon = lon,
-    tz = local_tz, 
-    keep = c("sunrise", "sunset")
-  )
-  
-  #replace UTC dates with original ones, select relevant cols for merge
-  sun_times <- sun_times %>%
-    mutate(day = unique(df$day)) %>%
-    select(-date, -lat, -lon)
-  
+
+  lat <- get_metadata(location, base_path, "Latitude")
+
+  sun_times <- get_environmental(location, base_path, months_of_interest) %>%
+    select(day, sunrise, sunset) %>%
+    mutate(day = as.Date(day),
+           sunrise = force_tz(as.POSIXct(sunrise), tzone = local_tz),
+           sunset = force_tz(as.POSIXct(sunset), tzone = local_tz))
+
   #merge sunrise/sunset times with original df
   merged <- df %>%
     left_join(sun_times, by = "day", relationship = "many-to-many") %>%
@@ -614,8 +603,6 @@ get_daylight <- function(df, local_tz,
   if ("minute" %in% names(merged)) {
     merged$datetime <- merged$datetime + merged$minute * 60
   }
-  
-
   
   merged <- merged %>% 
     mutate(daylight = case_when(
@@ -1242,6 +1229,7 @@ plot_hourly_presence<- function(location, base_path,
 }
 
 
+
 #' Detections by minute
 #' 
 #' @description Presence/absence of detections by minute.
@@ -1281,13 +1269,12 @@ plot_detections_by_minute <- function(location, base_path,
     group_by(day, hour, minute) %>%
     summarise(species = if (n_distinct(species) > 1) 
       "Multiple species" else first(species), .groups = "drop")
-  
-  #get grid, ensure one 
+
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest = unique(df$species)[1], minutes = TRUE)
+  
   full_grid <- get_daylight(grid, local_tz, location, base_path) %>%
     select(-species)
-  ### Jared - this full_grid object should have "TRUE" in the daylight column for hours ~8-17
   
   species_list <- species_of_interest
   
@@ -1373,7 +1360,7 @@ plot_detections_by_minute <- function(location, base_path,
     labs(title = title, y = "Time of day") + 
     scale_fill_manual(values = color_map) +
     scale_x_date(labels = label_date_short(),
-                 expand = c(0,1),
+                 expand = c(0,0),
                  breaks = scales::breaks_pretty(n = 10)) +
     labs(title = title, x = "", fill = "") + 
     theme(legend.position = "bottom",
@@ -1389,8 +1376,6 @@ plot_detections_by_minute <- function(location, base_path,
   
 }
 
-
-plot_detections_by_minute(ctbto_location, ctbto_basepath)
 
 #' Measurements
 #' 
