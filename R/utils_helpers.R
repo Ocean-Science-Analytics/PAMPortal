@@ -398,7 +398,6 @@ get_metadata <- function(location, base_path, variable) {
   return(df[df$Site == location, variable])
 }
 
-
 #' Get time zone
 #' 
 #' @description Retrieves time zone for the location.
@@ -440,6 +439,7 @@ get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
   
   return(sound_map)
 }
+
 
 
 
@@ -570,6 +570,8 @@ get_grid <- function(df, location, base_path,
   
   return(grid)
 }
+
+
 
 
 #' Return daylight classification
