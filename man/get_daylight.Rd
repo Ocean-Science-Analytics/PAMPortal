@@ -4,12 +4,13 @@
 \alias{get_daylight}
 \title{Return daylight classification}
 \usage{
-get_daylight(df, local_tz, location, base_path)
+get_daylight(df, local_tz, location, base_path, months_of_interest = c("All"))
 }
 \description{
 Takes an input dataframe (full grid, converted TZ; must have "day" col) and returns daylight T/F for each row.
 }
 \examples{
 get_daylight(df, local_tz = "Pacific/Wake", location, basepath)
+
 
 }

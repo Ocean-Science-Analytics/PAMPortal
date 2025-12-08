@@ -514,17 +514,18 @@ set_colors <- function(location, base_path) {
 #' 
 convert_timezone <- function(df, data_tz, local_tz) {
   converted <- df
-  
+  data_tz <- data_tz
+  browser()
   if (data_tz == 'utc') {
     converted$UTC <- with_tz(converted$UTC, tzone = local_tz)
   }
-  
+  browser()
   converted <- converted %>%
     mutate(day = as.Date(UTC, tz = local_tz),
            hour = hour(UTC),
            minute = minute(UTC)) %>%
     rename(local_time = UTC)
-  
+  browser()
   return(converted)
 }
 
@@ -580,9 +581,10 @@ get_grid <- function(df, location, base_path,
 #' get_daylight(df, local_tz = "Pacific/Wake", location, basepath)
 #' 
 #' 
-get_daylight <- function(df, local_tz, 
-                         location, base_path) {
+get_daylight <- function(df, local_tz,
+                         location, base_path, months_of_interest = c("All")) {
 
+  
   lat <- get_metadata(location, base_path, "Latitude")
 
   sun_times <- get_environmental(location, base_path, months_of_interest) %>%
@@ -591,12 +593,13 @@ get_daylight <- function(df, local_tz,
            sunrise = force_tz(as.POSIXct(sunrise), tzone = local_tz),
            sunset = force_tz(as.POSIXct(sunset), tzone = local_tz))
 
+  
   #merge sunrise/sunset times with original df
   merged <- df %>%
     left_join(sun_times, by = "day", relationship = "many-to-many") %>%
     mutate(datetime = force_tz(as.POSIXct(day) + hours(hour), tzone = local_tz),
            month = lubridate::month(day))
-  
+  browser()
   ### IF daylight DFs not showing up as expected, make sure this DF is correct first -
   ### should have columns for sunrise / sunset that make sense
 
@@ -1143,7 +1146,7 @@ plot_hourly_presence<- function(location, base_path,
   df <- convert_timezone(df, data_tz, local_tz)
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest, minutes = FALSE)
-  full_grid <- get_daylight(grid, local_tz, location, base_path)
+  full_grid <- get_daylight(grid, local_tz, location, base_path, months_of_interest)
   ### Jared - this full_grid object should have "TRUE" in the daylight column for hours ~8-17
   
   species_list <- species_of_interest
@@ -1265,15 +1268,16 @@ plot_detections_by_minute <- function(location, base_path,
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
+  browser()
   df <- convert_timezone(df, data_tz, local_tz) %>%
     group_by(day, hour, minute) %>%
     summarise(species = if (n_distinct(species) > 1) 
       "Multiple species" else first(species), .groups = "drop")
 
+  months_of_interest = months_of_interest
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest = unique(df$species)[1], minutes = TRUE)
-  
-  full_grid <- get_daylight(grid, local_tz, location, base_path) %>%
+  full_grid <- get_daylight(grid, local_tz, location, base_path, months_of_interest) %>%
     select(-species)
   
   species_list <- species_of_interest
