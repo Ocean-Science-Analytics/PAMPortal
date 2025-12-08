@@ -29,6 +29,30 @@ var_names <- c(
   "Frequency Beginning:End Ratio (Hz)" = "freqBegEndRatio",
   "Step Duration (s)" = "stepDur"
 )
+var_names2 <- c(
+  "Noise Level (dB)" = "noiseLevel",
+  "Duration (s)" = "duration",
+  "Peak Time (s)" = "peakTime",
+  "Peak Amplitude (dB)" = "peak",
+  "Second Peak Amplitude (dB)" = "peak2",
+  "Third Peak Amplitude (dB)" = "peak3",
+  "Trough Amplitude (dB)" = "trough",
+  "Second Trough Amplitude (dB)" = "trough2",
+  "Peak-to-Peak Amplitude (1–2) (dB)" = "peakToPeak2",
+  "Peak-to-Peak Amplitude (1–3) (dB)" = "peakToPeak3",
+  "Peak Amplitude Ratio (Peak2:Peak3)" = "peak2ToPeak3",
+  "Peak-to-Peak Level (dB)" = "dBPP",
+  "Q10 (Quality Factor at -10 dB)" = "Q_10dB",
+  "Minimum Frequency (-10 dB) (Hz)" = "fmin_10dB",
+  "Maximum Frequency (-10 dB) (Hz)" = "fmax_10dB",
+  "Bandwidth (-10 dB) (Hz)" = "BW_10dB",
+  "Center Frequency (-10 dB) (kHz)" = "centerkHz_10dB",
+  "Q3 (Quality Factor at -3 dB)" = "Q_3dB",
+  "Minimum Frequency (-3 dB) (Hz)" = "fmin_3dB",
+  "Maximum Frequency (-3 dB) (Hz)" = "fmax_3dB",
+  "Bandwidth (-3 dB) (Hz)" = "BW_3dB",
+  "Center Frequency (-3 dB) (kHz)" = "centerkHz_3dB"
+)
 
 env_var_choices <- c(
   "None" = "None",
@@ -397,6 +421,22 @@ mod_analysis_server <- function(id, data){
       updateSelectInput(session, "location_detection", choices = locations)
     })
     
+    observeEvent(input$detector_filter, {
+      req(input$detector_filter)
+      
+      # Choose variable set based on detector
+      if (input$detector_filter %in% c("Whistle & Moan")) {
+        choices <- var_names
+      } else if (input$detector_filter == "Click") {
+        choices <- var_names2
+      } else {
+        choices <- character(0)  # fallback if needed
+      }
+      
+      # Update the selectInput
+      updateSelectInput(session, "distribution_variable", choices = choices, selected = choices[1])
+    })
+    
     observeEvent(input$location_dis, {
       req(data$rds_data(), input$location_dis)
       
@@ -606,9 +646,10 @@ mod_analysis_server <- function(id, data){
       showNotification("Loading Detection Plot...", type = "message")
 
       dc_file <- file.path(base_path(), "Metadata.csv")
+      
       duty_lookup <- if (file.exists(dc_file)) {
         dc_df <- read.csv(dc_file, stringsAsFactors = FALSE)
-        setNames(dc_df$dc, dc_df$location)
+        setNames(dc_df$dc, dc_df$Site)
       } else {
         list()
       }
@@ -633,14 +674,21 @@ mod_analysis_server <- function(id, data){
     # still provide the duty text UI
     output$duty_text <- renderUI({
       req(input$see_duty_detection, input$location_detection)
-      dc_file <- file.path(base_path(), "Duty_Cycles.csv")
+      dc_file <- file.path(base_path(), "Metadata.csv")
       if (!file.exists(dc_file)) return(NULL)
       duty_cycles_df <- read.csv(dc_file, stringsAsFactors = FALSE)
-      duty_lookup <- setNames(duty_cycles_df$dc, duty_cycles_df$location)
+      duty_print <- setNames(duty_cycles_df$dc, duty_cycles_df$Site)
       #print(duty_lookup)
-      duty_val <- duty_lookup[[input$location_detection]]
+      duty_val <- duty_print[[input$location_detection]]
       if (is.null(duty_val)) return(NULL)
-      HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>Duty cycle at <b>{input$location}</b> was <b>{duty_val} minutes</b> every hour.</div>"))
+      duty_message <- if (duty_val == 60) {
+        glue::glue("Duty cycle at <b>{input$location_detection}</b> was a full 60 minutes every hour.")
+      } else {
+        glue::glue("Duty cycle at <b>{input$location_detection}</b> was <b>{duty_val} minutes</b> every hour.")
+      }
+      
+      HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>{duty_message}</div>"))
+      #HTML(glue::glue("<div style='margin-top: 5px; color: #444;'>Duty cycle at <b>{input$location_detection}</b> was <b>{duty_val} minutes</b> every hour.</div>"))
     })
     
     ###################################################################
@@ -652,7 +700,7 @@ mod_analysis_server <- function(id, data){
       },
       content = function(file) {
         req(call_count_plot_obj())
-        ggsave(file, plot = call_count_plot_obj(), width = 10, height = 6, dpi = 300)
+        ggsave(file, plot = call_count_plot_obj(), bg = "white", width = 10, height = 6, dpi = 300)
       }
     )
     ####
@@ -662,17 +710,17 @@ mod_analysis_server <- function(id, data){
       },
       content = function(file) {
         req(call_den_plot_obj())
-        ggsave(file, plot = call_den_plot_obj(), width = 10, height = 6, dpi = 300)
+        ggsave(file, plot = call_den_plot_obj(), bg = "white", width = 10, height = 6, dpi = 300)
       }
     )
     ####
     output$download_distribution_plot <- downloadHandler(
       filename = function() {
-        paste0("distribution_plot_", Sys.Date(), ".png")
+        paste0("call_measurement_plot_", Sys.Date(), ".png")
       },
       content = function(file) {
-        req(distribution_plot_obj())
-        ggsave(file, plot = distribution_plot_obj(), width = 10, height = 6, dpi = 300)
+        req(plot_measurements_obj())
+        ggsave(file, plot = plot_measurements_obj(), bg = "white", width = 10, height = 6, dpi = 300)
       }
     )
     ####
@@ -682,7 +730,7 @@ mod_analysis_server <- function(id, data){
       },
       content = function(file) {
         req(occurrence_plot_obj())
-        ggsave(file, plot = occurrence_plot_obj(), width = 10, height = 6, dpi = 300)
+        ggsave(file, plot = occurrence_plot_obj(), bg = "white", width = 10, height = 6, dpi = 300)
       }
     )
     ####
@@ -692,7 +740,7 @@ mod_analysis_server <- function(id, data){
       },
       content = function(file) {
         req(presence_plot_obj())
-        ggsave(file, plot = presence_plot_obj(), width = 10, height = 6, dpi = 300)
+        ggsave(file, plot = presence_plot_obj(), bg = "white", width = 10, height = 6, dpi = 300)
       }
     )
     ####
@@ -702,7 +750,7 @@ mod_analysis_server <- function(id, data){
       },
       content = function(file) {
         req(detection_plot_obj())
-        ggsave(file, plot = detection_plot_obj(), width = 10, height = 6, dpi = 300)
+        ggsave(file, plot = detection_plot_obj(), bg = "white", width = 10, height = 6, dpi = 300)
       }
     )
     

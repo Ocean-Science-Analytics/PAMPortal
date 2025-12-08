@@ -26,81 +26,24 @@ mod_click_detector_ui <- function(id) {
       bslib::card(
         style = "
          margin-top: 20px;
-         background-color: #f8f9fa;
+         background-color: #ffffff;
          border-radius: 12px;
          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
        ",
-        bslib::card_header(uiOutput(ns("gallery_title"))),
+        bslib::card_header(
+          style = "
+            padding: 16px 20px;
+            border-bottom: 1px solid #e6e6e6;
+            background-color: #fafafa;
+            font-weight: 600;
+            font-size: 18px;
+            color: #333;
+          ",
+          uiOutput(ns("gallery_title"))
+        ),
         bslib::card_body(pixture::pixgalleryOutput(ns("gallery")))
       )
     )
-    
-    ### THIS IS THE ORIGINAL UI LAYOUT THAT DOESN'T USE A SIDEBAR ###
-    # Top control card
-    # bslib::card(
-    #   style = "
-    #     min-height: 180px;
-    #     padding: 18px;
-    #     background-color: #f8f9fa;
-    #     border-radius: 12px;
-    #     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-    #   ",
-    #   
-    #   bslib::card_header(
-    #     div(
-    #       style = "font-size: 20px; font-weight: 600;",
-    #       "Click Detector Controls"
-    #     ),
-    #     div(
-    #       style = "font-size: 13px; color: #6c757d; margin-top: -4px;",
-    #       "Choose deployment and (optionally) filter by species"
-    #     )
-    #   ),
-    #   
-    #   bslib::card_body(
-    #     div(
-    #       style = "display: flex; align-items: center; justify-content: space-between; gap: 20px;",
-    #       
-    #       # Left inputs
-    #       div(
-    #         style = "display: flex; align-items: center; gap: 18px;",
-    #         
-    #         selectInput(ns("deployment"), "Deployment", choices = NULL, width = "200px"),
-    #         
-    #         conditionalPanel(
-    #           condition = sprintf("input['%s'] == true", ns("filter_species")),
-    #           selectInput(ns("species"), "Species", choices = NULL, width = "200px")
-    #         )
-    #       ),
-    #       
-    #       # Soft divider
-    #       div(style = "border-left: 1px solid #d0d0d0; height: 45px;"),
-    #       
-    #       # Filter checkbox
-    #       div(
-    #         checkboxInput(ns("filter_species"), "Filter by Species", value = FALSE)
-    #       )
-    #     )
-    #   )
-    # ),
-    # 
-    # # Output
-    # bslib::card(
-    #   style = "
-    #     margin-top: 20px;
-    #     background-color: #f8f9fa;
-    #     border-radius: 12px;
-    #     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    #   ",
-    # 
-    #   bslib::card_header(
-    #     uiOutput(ns("gallery_title"))
-    #   ),
-    # 
-    #   bslib::card_body(
-    #     pixture::pixgalleryOutput(ns("gallery"))
-    #   )
-    # )
   )
 }
     

@@ -61,6 +61,16 @@ app_ui <- function(request) {
         .pam-title {
           text-shadow: 2px 2px 4px rgba(0,0,0,0.35);
         }
+        .bslib-sidebar {
+        border-right: 1px solid rgba(0,0,0,1) !important;
+        border-radius: 0 10px 10px 0;
+        }
+  
+        /* Border + shadow around the top title bar */
+        .app-header {
+          border-bottom: 1px solid rgba(0,0,0,0.15);
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
       "))
     ),
     
@@ -73,6 +83,7 @@ app_ui <- function(request) {
       
       # Title with image
       div(
+        class = "app-header",
         style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
         img(src = "www/white_square_OSA_med.jpg",height = 45,class = "header-logo",style = "margin: 0 10px 0 25px;"),
         h2("PAMPortal", class = "pam-title", style = "margin: 0; color: white; flex-grow: 1;"),

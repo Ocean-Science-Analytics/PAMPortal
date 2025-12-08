@@ -159,7 +159,7 @@ enviro_data <- list(
   "Lunar Cycles" = list(
     dataset_id = "R:Suncalc",
     var = "moon_illum",
-    axis = "Moon illumination percentage"
+    axis = "Moon illumination percentage (%)"
   )
 )
 
@@ -515,17 +515,17 @@ set_colors <- function(location, base_path) {
 convert_timezone <- function(df, data_tz, local_tz) {
   converted <- df
   data_tz <- data_tz
-  browser()
+  
   if (data_tz == 'utc') {
     converted$UTC <- with_tz(converted$UTC, tzone = local_tz)
   }
-  browser()
+  
   converted <- converted %>%
     mutate(day = as.Date(UTC, tz = local_tz),
            hour = hour(UTC),
            minute = minute(UTC)) %>%
     rename(local_time = UTC)
-  browser()
+  
   return(converted)
 }
 
@@ -601,7 +601,7 @@ get_daylight <- function(df, local_tz,
     left_join(sun_times, by = "day", relationship = "many-to-many") %>%
     mutate(datetime = force_tz(as.POSIXct(day) + hours(hour), tzone = local_tz),
            month = lubridate::month(day))
-  browser()
+  
   ### IF daylight DFs not showing up as expected, make sure this DF is correct first -
   ### should have columns for sunrise / sunset that make sense
 
@@ -1270,7 +1270,7 @@ plot_detections_by_minute <- function(location, base_path,
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
-  browser()
+  
   df <- convert_timezone(df, data_tz, local_tz) %>%
     group_by(day, hour, minute) %>%
     summarise(species = if (n_distinct(species) > 1) 
@@ -1306,6 +1306,7 @@ plot_detections_by_minute <- function(location, base_path,
                        TRUE, effort)
     )
   df <- merged %>%
+    filter(!is.na(hour) & !is.na(minute)) %>%
     mutate(annotation = case_when(
       is.na(effort) & daylight ~ "No effort (day)",
       is.na(effort) & !daylight ~ "No effort (night)",
@@ -1396,6 +1397,7 @@ plot_measurements <- function(location_list, base_path,
                               detector_type, variables_of_interest,
                               species, events_of_interest = c("All")) {
   
+  # --- Whistle variables ---
   var_names <- c(
     "Beginning Frequency (Hz)" = "freqBeg",
     "Ending Frequency (Hz)" = "freqEnd",
@@ -1414,8 +1416,38 @@ plot_measurements <- function(location_list, base_path,
     "Step Duration (s)" = "stepDur"
   )
   
-  sp_title <- species %>% str_to_title()
-  sp_title <- format_species_title(sp_title) 
+  # --- Click variables ---
+  var_names2 <- c(
+    "Noise Level (dB)" = "noiseLevel",
+    "Duration (s)" = "duration",
+    "Peak Time (s)" = "peakTime",
+    "Peak Amplitude (dB)" = "peak",
+    "Second Peak Amplitude (dB)" = "peak2",
+    "Third Peak Amplitude (dB)" = "peak3",
+    "Trough Amplitude (dB)" = "trough",
+    "Second Trough Amplitude (dB)" = "trough2",
+    "Peak-to-Peak Amplitude (1–2) (dB)" = "peakToPeak2",
+    "Peak-to-Peak Amplitude (1–3) (dB)" = "peakToPeak3",
+    "Peak Amplitude Ratio (Peak2:Peak3)" = "peak2ToPeak3",
+    "Peak-to-Peak Level (dB)" = "dBPP",
+    "Q10 (Quality Factor at -10 dB)" = "Q_10dB",
+    "Minimum Frequency (-10 dB) (Hz)" = "fmin_10dB",
+    "Maximum Frequency (-10 dB) (Hz)" = "fmax_10dB",
+    "Bandwidth (-10 dB) (Hz)" = "BW_10dB",
+    "Center Frequency (-10 dB) (kHz)" = "centerkHz_10dB",
+    "Q3 (Quality Factor at -3 dB)" = "Q_3dB",
+    "Minimum Frequency (-3 dB) (Hz)" = "fmin_3dB",
+    "Maximum Frequency (-3 dB) (Hz)" = "fmax_3dB",
+    "Bandwidth (-3 dB) (Hz)" = "BW_3dB",
+    "Center Frequency (-3 dB) (kHz)" = "centerkHz_3dB"
+  )
+  
+  # --- Choose variable dictionary based on detector ---
+  variable_dict <- if (detector_type == "Whistle & Moan") var_names else var_names2
+  
+  sp_title <- species %>% str_to_title() %>% format_species_title()
+  # sp_title <- species %>% str_to_title()
+  # sp_title <- format_species_title(sp_title) 
 
   if (detector_type == "Whistle & Moan") {
     dfs <- list()
@@ -1471,9 +1503,34 @@ plot_measurements <- function(location_list, base_path,
     df <- do.call(rbind, dfs)
   }
   
+  species_choice <- species
+  
+  # --- Filter to chosen species ---
+  df_species <- df %>% filter(species %in% species_choice)
+  
+  # --- Species with no data for this detector ---
+  missing_species <- setdiff(species_choice, unique(df$species))
+  # --- Throw warnings if needed ---
+  if (length(df_species) == 0) {
+    stop(paste0(
+      "No ", detector_type, " detector data found for species: ",
+      paste(species, collapse = ", ")
+    ))
+  }
+  
+  if (length(missing_species) > 0) {
+    stop(paste0(
+      "No ", detector_type, " detector data found for: ",
+      paste(missing_species, collapse = ", ")
+    ))
+  }
+  
+  # Use only the filtered species data
+  df <- df_species
+  
+  #df <- df %>% filter(species == species_choice)
   if (!identical(events_of_interest, c("All"))) {
     df <- df %>% filter(eventName %in% events_of_interest)}
-  
   df <- df %>%
     filter(species %in% species) %>%
     select(all_of(variables_of_interest), "eventName") %>%
@@ -1481,8 +1538,9 @@ plot_measurements <- function(location_list, base_path,
     pivot_longer(cols = variables_of_interest, 
                  names_to = "measurement", 
                  values_to = "value") %>%
-    mutate(measurement = names(var_names)[match(measurement, var_names)])
-  
+    mutate(
+      measurement = names(variable_dict)[match(measurement, variable_dict)]
+    )
   p <- ggplot(df, aes(x = eventId, y = value, fill = measurement)) +
     geom_violin(width=1, alpha = 0.75,
                 linewidth = 0.4, color = text) +
