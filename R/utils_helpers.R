@@ -169,8 +169,23 @@ enviro_data <- list(
 #' 
 #' @description Processes the project zip files for the app
 process_zip <- function(zip_path) {
-  temp_dir <- tempfile()
-  dir.create(temp_dir)
+  # temp_dir <- tempfile()
+  # dir.create(temp_dir)
+  # unzip(zip_path, exdir = temp_dir)
+  # 
+  # top_level_dirs <- list.dirs(temp_dir, recursive = FALSE, full.names = TRUE)
+  # 
+  # if (length(top_level_dirs) != 1) {
+  #   stop("Multiple folders found at root of ZIP. Please ensure the ZIP contains a single project folder.")
+  # }
+  # 
+  # root_path <- top_level_dirs[[1]]
+  
+  # Create a dedicated temporary directory for this upload
+  temp_dir <- file.path(tempdir(), paste0("upload_", as.integer(Sys.time())))
+  dir.create(temp_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  # Unzip into this temp folder
   unzip(zip_path, exdir = temp_dir)
   
   top_level_dirs <- list.dirs(temp_dir, recursive = FALSE, full.names = TRUE)
@@ -700,6 +715,8 @@ plot_occurrence <- function(location, base_path,
     
     # Check if they are in strictly increasing order
     if (!all(diff(month_nums) == 1)) {
+      showNotification("Occurence Plot Stopped", type = "error", duration = 8)
+      showNotification("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).", type = "warning", duration = 8)
       stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
     }
   }
@@ -885,6 +902,8 @@ plot_call_count <- function(location, base_path,
     
     # Check if they are in strictly increasing order
     if (!all(diff(month_nums) == 1)) {
+      showNotification("Call count Plot Stopped", type = "error", duration = 8)
+      showNotification("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).", type = "warning", duration = 8)
       stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
     }
   }
@@ -1027,6 +1046,8 @@ plot_call_density <- function(location, base_path,
     
     # Check if they are in strictly increasing order
     if (!all(diff(month_nums) == 1)) {
+      showNotification("Call Density Plot Stopped", type = "error", duration = 8)
+      showNotification("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).", type = "warning", duration = 8)
       stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
     }
   }
@@ -1137,6 +1158,8 @@ plot_hourly_presence<- function(location, base_path,
     
     # Check if they are in strictly increasing order
     if (!all(diff(month_nums) == 1)) {
+      showNotification("Diel Presence Plot Stopped", type = "error", duration = 8)
+      showNotification("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).", type = "warning", duration = 8)
       stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
     }
   }
@@ -1256,6 +1279,8 @@ plot_detections_by_minute <- function(location, base_path,
     
     # Check if they are in strictly increasing order
     if (!all(diff(month_nums) == 1)) {
+      showNotification("Diel Detection Plot Stopped", type = "error", duration = 8)
+      showNotification("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).", type = "warning", duration = 8)
       stop("Selected Months must be in Consecutive Order (e.g., Jan–Feb–Mar).")
     }
   }
@@ -1582,33 +1607,11 @@ card_spectro <- function(ns, id, index) {
             selectInput(ns(paste0("folder_", index)), "3. Folder", choices = NULL),
             selectInput(ns(paste0("file_", index)), "4. WAV File", choices = NULL)
         ),
-        numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 256, step = 256),
+        numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 128, step = 128),
         actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
                      class = "custom-btn"
-                     #style = "background-color: #00688B; color: white; border: none; width: 300px;"
                      )
       ),
-      
-      # # Right panel with spectrogram plot
-      # div(
-      #   style = "flex: 2; height: 100%;",
-      #   uiOutput(ns(paste0("audio_", index)), style = "height: 10%;"),
-      #   uiOutput(ns(paste0("plot_ui_", index)), style = "height: 90%;"),
-      #   
-      #   div(
-      #     style = "height: 20%; margin-top: 5px; padding: 8px; border-top: 1px solid #ddd;
-      #     font-size: 16px; background-color: #fff; min-height: 120px;",
-      #     # strong("Event: "),
-      #     # uiOutput(ns(paste0("event_name_", index))),   # NEW line
-      #     # tags$br(),
-      #     strong("Description:"),
-      #     uiOutput(ns(paste0("description_", index))),
-      #     tags$br(),
-      #     strong("Analysis Comments:"),
-      #     uiOutput(ns(paste0("analysis_", index)))
-      #   )
-      # )
-      # Right panel with spectrogram plot
       div(
         style = "
           flex: 2; 

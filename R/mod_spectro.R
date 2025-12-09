@@ -280,6 +280,10 @@ mod_spectro_server <- function(id, data) {
             
             wave <- tuneR::readWave(wav_path_val)
             
+            if (wave@samp.rate < 8000) {
+              showNotification("Sampling rate of the recorded audio file is too low, audio will be unavailable.", type = "warning", duration = 8, session = session)
+              }
+            
             output[[plotOutput]] <- renderPlotly({
               spectrogram_plotly(wave, wl = wl_val)
             })
