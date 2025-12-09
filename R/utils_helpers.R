@@ -721,6 +721,8 @@ plot_occurrence <- function(location, base_path,
     }
   }
   
+
+  
   #pull data and prep grid
   df <- get_data(location, base_path, months_of_interest)
   local_tz <- get_timezone(location, base_path)
@@ -738,7 +740,21 @@ plot_occurrence <- function(location, base_path,
     df <- df %>% filter(species %in% species_list)
   }
   
+  if (length(months_of_interest) == 0) {
+    showNotification("Occurence Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific months to view or set months to 'All'.")
+  }
+  
+  if (length(species_of_interest) == 0) {
+    showNotification("Occurence Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific species to view or set species to 'All'.")
+  }
+  
   if(nrow(df) == 0) {
+    showNotification("Occurence Plot Stopped", type = "error", duration = 8)
+    showNotification("No data found for the species/month combination specified.", type = "warning", duration = 8)
     stop("No data found for the species/month combination specified.")
   }
   
@@ -793,8 +809,8 @@ plot_occurrence <- function(location, base_path,
     facet_wrap(~species, ncol = 1, scales = "free_y") +
     labs(title = title, x = "") + 
     scale_y_continuous(expand = c(0,0)) +
-    scale_x_date(labels = label_date_short(), 
-                 #breaks = function(x) c(pretty(x), max(x)),
+    scale_x_date(labels = label_date_short(),
+                 breaks = scales::breaks_pretty(n = 10),
                  expand = c(0,0)) +
     theme(
       axis.line = element_line(color = "grey30", size = 1),
@@ -908,6 +924,7 @@ plot_call_count <- function(location, base_path,
     }
   }
   
+  
   #prep data
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
   local_tz <- get_timezone(location, base_path)
@@ -919,9 +936,24 @@ plot_call_count <- function(location, base_path,
   species_list <- species_of_interest
   environmental_variable <- environmental_variable
   
+  if (length(months_of_interest) == 0) {
+    showNotification("Call Count Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific months to view or set months to 'All'.")
+  }
+  
+  if (length(species_of_interest) == 0) {
+    showNotification("Call Count Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific species to view or set species to 'All'.")
+  }
+  
   if(nrow(df) == 0) {
+    showNotification("Call Count Plot Stopped", type = "error", duration = 8)
+    showNotification("No data found for the species/month combination specified.", type = "warning", duration = 8)
     stop("No data found for the species/month combination specified.")
   }
+  
   
   #get start/end effort from soundmap
   sound_df <- get_soundmap(location, base_path, months_of_interest) %>%
@@ -1052,6 +1084,7 @@ plot_call_density <- function(location, base_path,
     }
   }
   
+  
   #retrieve and convert all data
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
   local_tz <- get_timezone(location, base_path)
@@ -1060,9 +1093,24 @@ plot_call_density <- function(location, base_path,
   species_list <- species_of_interest
   environmental_variable <- environmental_variable
   
+  if (length(months_of_interest) == 0) {
+    showNotification("Density Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific months to view or set months to 'All'.")
+  }
+  
+  if (length(species_of_interest) == 0) {
+    showNotification("Density Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific species to view or set species to 'All'.")
+  }
+  
   if(nrow(df) == 0) {
+    showNotification("Density Plot Stopped", type = "error", duration = 8)
+    showNotification("No data found for the species/month combination specified.", type = "warning", duration = 8)
     stop("No data found for the species/month combination specified.")
   }
+  
   
   #get all dates for effort
   sound_df <- get_soundmap(location, base_path, months_of_interest) %>%
@@ -1176,7 +1224,21 @@ plot_hourly_presence<- function(location, base_path,
   
   species_list <- species_of_interest
   
+  if (length(months_of_interest) == 0) {
+    showNotification("Presence Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific months to view or set months to 'All'.")
+  }
+  
+  if (length(species_of_interest) == 0) {
+    showNotification("Presence Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific species to view or set species to 'All'.")
+  }
+  
   if(nrow(df) == 0) {
+    showNotification("Presence Plot Stopped", type = "error", duration = 8)
+    showNotification("No data found for the species/month combination specified.", type = "warning", duration = 8)
     stop("No data found for the species/month combination specified.")
   }
   
@@ -1293,6 +1355,27 @@ plot_detections_by_minute <- function(location, base_path,
   
   #get/convert species data
   df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  
+  if (length(months_of_interest) == 0) {
+    showNotification("Detection Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific months to view or set months to 'All'.")
+  }
+  
+  if (length(species_of_interest) == 0) {
+    showNotification("Detection Plot Stopped", type = "error", duration = 8)
+    showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+    stop("Please select specific species to view or set species to 'All'.")
+  }
+  
+  if(nrow(df) == 0) {
+    showNotification("Detection Plot Stopped", type = "error", duration = 8)
+    showNotification("No data found for the species/month combination specified.", type = "warning", duration = 8)
+    stop("No data found for the species/month combination specified.")
+  }
+  
+  
+  
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
   
