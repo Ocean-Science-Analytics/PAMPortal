@@ -468,8 +468,20 @@ mod_analysis_server <- function(id, data){
     })
     
     occurrence_plot_obj <- eventReactive(input$render_occr, {
-      req(base_path(), input$location_occr, input$species_filter_occr)
+      req(base_path(), input$location_occr) #input$species_filter_occr
       showNotification("Rendering Occurrence Plot...", type = "message")
+      
+      if (length(input$month_filter_occr) == 0) {
+        showNotification("Occurence Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific months to view or set months to 'All'.")
+      }
+      
+      if (length(input$species_filter_occr) == 0) {
+        showNotification("Occurence Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific species to view or set species to 'All'.")
+      }
       
       plot_occurrence(
         location = input$location_occr,
@@ -504,6 +516,19 @@ mod_analysis_server <- function(id, data){
     call_count_plot_obj <- eventReactive(input$render_call_count, {
       req(base_path(), input$location_call_count)
       showNotification("Loading Call Count Plot...", type = "message")
+      
+      if (length(input$month_filter_call_count) == 0) {
+        showNotification("Call Count Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific months to view or set months to 'All'.")
+      }
+      
+      if (length(input$species_filter_call_count) == 0) {
+        showNotification("Call Count Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific species to view or set species to 'All'.")
+      }
+      
       plot_call_count(
         location = input$location_call_count,
         base_path = base_path(),
@@ -537,6 +562,18 @@ mod_analysis_server <- function(id, data){
     call_den_plot_obj <- eventReactive(input$render_call_den, {
       req(base_path(), input$location_call_den)
       showNotification("Loading Call Density Plot...", type = "message")
+      
+      if (length(input$species_filter_call_den) == 0) {
+        showNotification("Density Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific species to view or set species to 'All'.")
+      }
+      if (length(input$month_filter_call_den) == 0) {
+        showNotification("Density Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific months to view or set months to 'All'.")
+      }
+      
       plot_call_density(
         location = input$location_call_den,
         base_path = base_path(),
@@ -611,6 +648,19 @@ mod_analysis_server <- function(id, data){
     presence_plot_obj <- eventReactive(input$render_presence, {
       req(base_path(), input$location_presence)
       showNotification("Loading Diel Presence Plot...", type = "message")
+      
+      if (length(input$month_filter_presence) == 0) {
+        showNotification("Presence Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific months to view or set months to 'All'.")
+      }
+      
+      if (length(input$species_filter_presence) == 0) {
+        showNotification("Presence Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific species to view or set species to 'All'.")
+      }
+      
       plot_hourly_presence(
         location = input$location_presence,
         base_path = base_path(),
@@ -644,6 +694,18 @@ mod_analysis_server <- function(id, data){
     detection_plot_obj <- eventReactive(input$render_plot_detection, {
       req(base_path(), input$location_detection)
       showNotification("Loading Diel Detection Plot...", type = "message")
+      
+      if (length(input$month_filter_detection) == 0) {
+        showNotification("Detection Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific months to view or set months to 'All'.")
+      }
+      
+      if (length(input$species_filter_detection) == 0) {
+        showNotification("Detection Plot Stopped", type = "error", duration = 8)
+        showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific species to view or set species to 'All'.")
+      }
 
       dc_file <- file.path(base_path(), "Metadata.csv")
       
