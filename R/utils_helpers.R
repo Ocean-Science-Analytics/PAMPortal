@@ -159,7 +159,7 @@ enviro_data <- list(
   "Lunar Cycles" = list(
     dataset_id = "R:Suncalc",
     var = "moon_illum",
-    axis = "Moon illumination percentage (%)"
+    axis = "Moon illumination (%)"
   )
 )
 
@@ -937,7 +937,7 @@ plot_call_count <- function(location, base_path,
   end_day <- max(sound_df$day, na.rm = TRUE)
   
   title = paste(str_replace(location, "_", " "), "Daily Calls")
-  ylabel = "Number of Calls"
+  ylabel = "Number of calls"
   
   if (log_scale) {
     df$callCount <- log10(df$callCount)
