@@ -822,6 +822,7 @@ plot_occurrence <- function(location, base_path,
     
     if (all(is.na(environmental_df[[env_var_csv_col]]))) {
       msg = paste("No data available for", environmental_variable, "during the selected time period.")
+      showNotification(msg, type = "warning", duration = 8)
       stop(msg)
     }
     
@@ -986,6 +987,12 @@ plot_call_count <- function(location, base_path,
     title = paste0(title, "\nwith ", environmental_variable)
     env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     
+    if (all(is.na(environmental_df[[env_var_csv_col]]))) {
+      msg = paste("No data available for", environmental_variable, "during the selected time period.")
+      showNotification(msg, type = "warning", duration = 8)
+      stop(msg)
+    }
+    
     max_count <- df %>%
       group_by(day, species) %>%
       summarise(totalCalls = sum(callCount, na.rm = TRUE), .groups = "drop") %>%
@@ -1114,6 +1121,11 @@ plot_call_density <- function(location, base_path,
     env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     title = paste0(title, "\nwith ", environmental_variable)
     
+    if (all(is.na(environmental_df[[env_var_csv_col]]))) {
+      msg = paste("No data available for", environmental_variable, "during the selected time period.")
+      showNotification(msg, type = "warning", duration = 8)
+      stop(msg)
+    }
     
     pd <- ggplot_build(p)
     
