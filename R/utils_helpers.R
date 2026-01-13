@@ -1641,6 +1641,7 @@ card_spectro <- function(ns, id, index) {
             selectInput(ns(paste0("file_", index)), "4. WAV File", choices = NULL)
         ),
         numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 128, step = 128),
+        sliderInput(ns(paste0("dyn_range_", index)), "Amplitude dynamic range (dB)", min = 20, max = 120, value = 60, step = 5),
         actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
                      class = "custom-btn"
                      )
@@ -1690,7 +1691,8 @@ card_spectro <- function(ns, id, index) {
 #' @description Function for generating a spectrogram plot
 #'
 spectrogram_plotly <- function(wave,
-                               floor = -50,
+                               #floor = -50,
+                               dyn_range = 60,
                                background = "#001f3f",  # very dark blue
                                foreground = "white",
                                hover_bgcolor = "white",
@@ -1726,8 +1728,14 @@ spectrogram_plotly <- function(wave,
       time = as.numeric(time)
     )
   
+  zmax <- max(spect_df$amp, na.rm = TRUE)
+  zmin <- zmax - dyn_range
+  
+  # spect_df_floor <- spect_df |>
+  #   mutate(amp_floor = ifelse(amp < floor, floor, amp))
+  
   spect_df_floor <- spect_df |>
-    mutate(amp_floor = ifelse(amp < floor, floor, amp))
+    mutate(amp_floor = pmax(amp, zmin))
   
   spect_plot <- plot_ly(
     data = spect_df_floor,
@@ -1736,8 +1744,10 @@ spectrogram_plotly <- function(wave,
     z = ~amp_floor,
     type = "heatmap",
     colorscale = "Jet",  # rainbow style
-    zmin = floor,
-    zmax = max(spect_df$amp),
+    # zmin = floor,
+    # zmax = max(spect_df$amp),
+    zmin = zmin,
+    zmax = zmax,
     colorbar = list(
       title = "Amplitude (dB)",
       titleside = "right",

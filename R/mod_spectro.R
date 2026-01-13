@@ -120,9 +120,16 @@ mod_spectro_server <- function(id, data) {
         observeEvent(input[[paste0("render_", index)]], {
           req(input[[fileInput]])
           
+          # Window length
           wav_path_val <- input[[fileInput]]
           wl_val <- input[[paste0("wl_", index)]]
           if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
+          
+          # Dynamic Range
+          dyn_range_val <- input[[paste0("dyn_range_", index)]]
+          if (is.null(dyn_range_val) || is.na(dyn_range_val)) {
+            dyn_range_val <- 60
+          }
           
           # === Find event name from folder selection ===
           selected_loc <- input[[locationInput]]
@@ -285,7 +292,7 @@ mod_spectro_server <- function(id, data) {
               }
             
             output[[plotOutput]] <- renderPlotly({
-              spectrogram_plotly(wave, wl = wl_val)
+              spectrogram_plotly(wave, dyn_range = dyn_range_val, wl = wl_val)
             })
           }, delay = 0.1)
         })

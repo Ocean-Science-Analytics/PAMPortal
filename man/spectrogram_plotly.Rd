@@ -6,7 +6,7 @@
 \usage{
 spectrogram_plotly(
   wave,
-  floor = -50,
+  dyn_range = 60,
   background = "#001f3f",
   foreground = "white",
   hover_bgcolor = "white",
