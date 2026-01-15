@@ -45,17 +45,10 @@ mod_spectro_ui <- function(id) {
         }
       "))
     ),
-    # actionButton(ns("add_spectro"), "+ Add Spectrogram"),
-    # br(),
-    # uiOutput(ns("spectrograms_ui"))
     div(id = ns("spectro_card"),
       card_spectro(ns, "spectro1", 1)
     ),
     card_spectro(ns, "spectro2", 2)
-    # fluidRow(
-    #   column(6, card_spectro(ns, "spectro3", 3)),
-    #   column(6, card_spectro(ns, "spectro4", 4))
-    # )
   )
 }
     
@@ -83,6 +76,8 @@ mod_spectro_server <- function(id, data) {
     for (i in 1:2) {
       local({
         index <- i
+        
+        spectro_cache <- reactiveVal(NULL)
         
         locationInput <- paste0("location_", index)
         speciesInput <- paste0("species_", index)
@@ -279,25 +274,140 @@ mod_spectro_server <- function(id, data) {
             )
           })
           
-          # Let the UI render the spinner before doing heavy work
           later::later(function() {
-            # wav_path <- isolate(input[[fileInput]])
-            # wl_val <- isolate(input[[paste0("wl_", index)]])
-            # if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
-            
+
             wave <- tuneR::readWave(wav_path_val)
-            
+
             if (wave@samp.rate < 8000) {
-              showNotification("Sampling rate of the recorded audio file is too low, audio will be unavailable.", type = "warning", duration = 8, session = session)
-              }
-            
+              showNotification(
+                "Sampling rate of the recorded audio file is too low.",
+                type = "warning",
+                duration = 8,
+                session = session
+              )
+            }
+
+            # ---- COMPUTE SPECTROGRAM ONCE ----
+            spect <- seewave::spectro(
+              wave,
+              wl = wl_val,
+              ovlp = 80,
+              zp = 2,
+              plot = FALSE
+            )
+
+            colnames(spect$amp) <- spect$time
+            rownames(spect$amp) <- spect$freq
+
+            spect_df <- spect$amp |>
+              tibble::as_tibble(rownames = "freq") |>
+              tidyr::pivot_longer(-freq, names_to = "time", values_to = "amp") |>
+              dplyr::mutate(
+                freq = as.numeric(freq),
+                time = as.numeric(time)
+              )
+
+            # 👉 CACHE IT
+            spectro_cache(spect_df)
+
+            # ---- INITIAL PLOT ----
+            zmax <- max(spect_df$amp, na.rm = TRUE)
+            zmin <- zmax - dyn_range_val
+
             output[[plotOutput]] <- renderPlotly({
-              spectrogram_plotly(wave, dyn_range = dyn_range_val, wl = wl_val)
+              
+              plot_ly(
+                data = spect_df,
+                x = ~time,
+                y = ~freq,
+                z = ~amp,
+                type = "heatmap",
+                colorscale = "Jet",
+                zmin = zmin,
+                zmax = zmax,
+                colorbar = list(
+                  title = "Amplitude (dB)",
+                  titleside = "right",
+                  tickfont  = list(color = "white"),
+                  titlefont = list(color = "white")
+                ),
+                hovertemplate = paste(
+                  "Time: %{x:.3f} s<br>",
+                  "Freq: %{y:.1f} kHz<br>",
+                  "Amp: %{z:.1f} dB<extra></extra>"
+                ),
+                source = paste0("spectro_", index)
+              ) |>
+                layout(
+                  xaxis = list(
+                    title = "Time (s)",
+                    titlefont = list(size = 14, color = "white"),
+                    tickfont  = list(size = 12, color = "white"),
+                    tickcolor = "white",
+                    linecolor = "white",
+                    mirror    = TRUE
+                  ),
+                  yaxis = list(
+                    title = "Frequency (kHz)",
+                    titlefont = list(size = 14, color = "white"),
+                    tickfont  = list(size = 12, color = "white"),
+                    tickcolor = "white",
+                    linecolor = "white",
+                    mirror    = TRUE
+                  ),
+                  paper_bgcolor = "#001f3f",
+                  plot_bgcolor  = "#001f3f",
+                  margin = list(t = 25, r = 25, b = 55, l = 35),
+                  showlegend = FALSE
+                ) |>
+                style(
+                  hoverlabel = list(
+                    bgcolor = "white",
+                    font = list(color = "black")
+                  )
+                )
             })
+
           }, delay = 0.1)
+          
+          #Let the UI render the spinner before doing heavy work
+          # later::later(function() {
+          #   # wav_path <- isolate(input[[fileInput]])
+          #   # wl_val <- isolate(input[[paste0("wl_", index)]])
+          #   # if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
+          # 
+          #   wave <- tuneR::readWave(wav_path_val)
+          # 
+          #   if (wave@samp.rate < 8000) {
+          #     showNotification("Sampling rate of the recorded audio file is too low, audio will be unavailable.", type = "warning", duration = 8, session = session)
+          #     }
+          # 
+          #   output[[plotOutput]] <- renderPlotly({
+          #     spectrogram_plotly(wave, dyn_range = dyn_range_val, wl = wl_val)
+          #   })
+          # }, delay = 0.1)
+        })
+        
+        observeEvent(input[[paste0("dyn_range_", index)]], {
+
+          spect_df <- spectro_cache()
+          req(spect_df)
+
+          zmax <- max(spect_df$amp, na.rm = TRUE)
+          zmin <- zmax - input[[paste0("dyn_range_", index)]]
+
+          plotlyProxy(
+            outputId = plotOutput,
+            session = session
+          ) |>
+            plotlyProxyInvoke(
+              "restyle",
+              list(zmin = zmin, zmax = zmax),
+              0
+            )
         })
       })
-     }
+    }
   })
 }
     

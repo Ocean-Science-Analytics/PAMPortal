@@ -1641,7 +1641,7 @@ card_spectro <- function(ns, id, index) {
             selectInput(ns(paste0("file_", index)), "4. WAV File", choices = NULL)
         ),
         numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 128, step = 128),
-        sliderInput(ns(paste0("dyn_range_", index)), "Amplitude dynamic range (dB)", min = 20, max = 120, value = 60, step = 5),
+        sliderInput(ns(paste0("dyn_range_", index)), "Amplitude dynamic range (dB)", min = 20, max = 120, value = 40, step = 5),
         actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
                      class = "custom-btn"
                      )
@@ -1693,11 +1693,11 @@ card_spectro <- function(ns, id, index) {
 spectrogram_plotly <- function(wave,
                                #floor = -50,
                                dyn_range = 60,
-                               background = "#001f3f",  # very dark blue
+                               background = "#001f3f", 
                                foreground = "white",
                                hover_bgcolor = "white",
                                hover_fontcolor = "black",
-                               overlap = 50,
+                               overlap = 80,
                                zero_padding = 2,
                                wl = NULL) {
   
@@ -1743,7 +1743,7 @@ spectrogram_plotly <- function(wave,
     y = ~freq,
     z = ~amp_floor,
     type = "heatmap",
-    colorscale = "Jet",  # rainbow style
+    colorscale = "Jet", 
     # zmin = floor,
     # zmax = max(spect_df$amp),
     zmin = zmin,

@@ -11,7 +11,7 @@ spectrogram_plotly(
   foreground = "white",
   hover_bgcolor = "white",
   hover_fontcolor = "black",
-  overlap = 50,
+  overlap = 80,
   zero_padding = 2,
   wl = NULL
 )
