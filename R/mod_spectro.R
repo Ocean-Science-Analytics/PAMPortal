@@ -117,8 +117,15 @@ mod_spectro_server <- function(id, data) {
           
           # Window length
           wav_path_val <- input[[fileInput]]
+          
           wl_val <- input[[paste0("wl_", index)]]
           if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
+          
+          # Overlap Percentage
+          overlap_val <- input[[paste0("overlap_", index)]]
+          if (is.null(overlap_val) || is.na(overlap_val)) {
+            overlap_val <- 70
+          }
           
           # Dynamic Range
           dyn_range_val <- input[[paste0("dyn_range_", index)]]
@@ -156,10 +163,7 @@ mod_spectro_server <- function(id, data) {
             }
           }
           
-          # Render event + description + analysis to UI
-          # output[[paste0("event_name_", index)]] <- renderText({
-          #   selected_name
-          # })
+          # Render description + analysis to UI
           output[[paste0("description_", index)]] <- renderText({
             current_desc
           })
@@ -221,50 +225,6 @@ mod_spectro_server <- function(id, data) {
             })
           }, delay = 0.1)
           
-          # # Remove old if exists and copy
-          # if (file.exists(temp_audio_path)) {
-          #   file.remove(temp_audio_path)
-          # }
-          # file.copy(from = input[[fileInput]], to = temp_audio_path, overwrite = TRUE)
-          
-          # output[[paste0("audio_", index)]] <- renderUI({
-          #   tagList(
-          #     tags$audio(
-          #       id = ns(paste0("audio_element_", index)),
-          #       controls = NA,
-          #       style = "width: 50%; margin-top: 5px;",
-          #       tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
-          #       "Your browser does not support the audio element."
-          #     ),
-          #     tags$script(HTML(sprintf("
-          #     setTimeout(function() {
-          #       const audio = document.getElementById('%s');
-          #       const plotDiv = document.getElementById('%s');
-          # 
-          #       if (audio && plotDiv) {
-          #         audio.addEventListener('timeupdate', function () {
-          #           const currentTime = audio.currentTime;
-          #           Plotly.relayout(plotDiv, {
-          #             'shapes[0].x0': currentTime,
-          #             'shapes[0].x1': currentTime
-          #           });
-          #         });
-          #       }
-          #     }, 500);  // delay to ensure plot is ready
-          #   ", ns(paste0("audio_element_", index)), ns(paste0("plot_", index)))))
-          #   )
-          # })
-          
-          # Now point to the file via its web-accessible path
-          # output[[paste0("audio_", index)]] <- renderUI({
-          #   tags$audio(
-          #     id = ns(paste0("audio_element_", index)),
-          #     controls = NA,
-          #     style = "width: 50%; margin-top: 5px;",
-          #     tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
-          #     "Your browser does not support the audio element."
-          #   )
-          # })
           
           # Show the spinner immediately by rendering plot_ui_ before starting the processing
           output[[paste0("plot_ui_", index)]] <- renderUI({
@@ -291,7 +251,7 @@ mod_spectro_server <- function(id, data) {
             spect <- seewave::spectro(
               wave,
               wl = wl_val,
-              ovlp = 80,
+              ovlp = overlap_val,
               zp = 2,
               plot = FALSE
             )
@@ -307,7 +267,7 @@ mod_spectro_server <- function(id, data) {
                 time = as.numeric(time)
               )
 
-            # 👉 CACHE IT
+            # Cache Spectrogram
             spectro_cache(spect_df)
 
             # ---- INITIAL PLOT ----
@@ -369,23 +329,6 @@ mod_spectro_server <- function(id, data) {
             })
 
           }, delay = 0.1)
-          
-          #Let the UI render the spinner before doing heavy work
-          # later::later(function() {
-          #   # wav_path <- isolate(input[[fileInput]])
-          #   # wl_val <- isolate(input[[paste0("wl_", index)]])
-          #   # if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
-          # 
-          #   wave <- tuneR::readWave(wav_path_val)
-          # 
-          #   if (wave@samp.rate < 8000) {
-          #     showNotification("Sampling rate of the recorded audio file is too low, audio will be unavailable.", type = "warning", duration = 8, session = session)
-          #     }
-          # 
-          #   output[[plotOutput]] <- renderPlotly({
-          #     spectrogram_plotly(wave, dyn_range = dyn_range_val, wl = wl_val)
-          #   })
-          # }, delay = 0.1)
         })
         
         observeEvent(input[[paste0("dyn_range_", index)]], {
