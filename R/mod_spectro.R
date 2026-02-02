@@ -37,10 +37,13 @@ mod_spectro_ui <- function(id) {
           background-color: #00688B !important;
           color: white !important;
           border-color: black !important;
+          width: 100%;
+          transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
+        
         .custom-btn:hover {
           background-color: lightskyblue !important;
-          transform: scale(1.05);
+          box-shadow: 0 0 0 3px rgba(135, 206, 250, 0.6);
           cursor: pointer;
         }
       "))

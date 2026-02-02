@@ -1632,7 +1632,7 @@ card_spectro <- function(ns, id, index) {
       
       # Left panel with inputs
       div(
-        style = "flex: 1; display: flex; flex-direction: column; gap: 2px; margin-right: 4px;",
+        style = "flex: 0.8; display: flex; flex-direction: column; gap: 2px; margin-right: 4px;",
         h4(paste("Spectrogram", index)),
         div(style = "border: 2px solid black; border-radius: 6px; padding: 5px; margin-bottom: 10px;",
             selectInput(ns(paste0("location_", index)), "1. Location", choices = NULL),
@@ -1644,13 +1644,10 @@ card_spectro <- function(ns, id, index) {
             numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 128, step = 128),
             sliderInput(ns(paste0("overlap_", index)), "Overlap %", min = 50, max = 90, value = 70, step = 2),
             sliderInput(ns(paste0("dyn_range_", index)), "Amplitude dynamic range (dB)", min = 20, max = 120, value = 40, step = 5)
-        ),
-        actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
-                     class = "custom-btn"
-                     )
+        )
       ),
       div(
-        style = "flex: 2; display: flex; flex-direction: column; gap: 10px; height: 100%;",
+        style = "flex: 3.2; min-width: 0; display: flex; flex-direction: column; gap: 10px; height: 100%;",
         # Audio player
         uiOutput(ns(paste0("audio_", index))),
         
@@ -1675,6 +1672,9 @@ card_spectro <- function(ns, id, index) {
           tags$br(),
           strong("Analysis Comments:"),
           uiOutput(ns(paste0("analysis_", index)))
+        ),
+        actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
+                     class = "custom-btn"
         )
       )
     )
