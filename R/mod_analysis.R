@@ -73,15 +73,18 @@ mod_analysis_ui <- function(id) {
           background-color: #00688B !important;
           color: white !important;
           border-color: black !important;
+          width: auto;
+          display: inline-block;
+          white-space: nowrap;
         }
         .custom-btn:hover {
           background-color: #8DB6CD !important;
-          transform: scale(1.05);
+          box-shadow: 0 0 0 3px rgba(141, 182, 205, 0.6);
           cursor: pointer;
         }
         .custom-btn-success:hover {
           background-color: darkolivegreen43!important;
-          transform: scale(1.05);
+          box-shadow: 0 0 0 3px rgba(141, 182, 205, 0.6);
           cursor: pointer;
         }
         .load-container {

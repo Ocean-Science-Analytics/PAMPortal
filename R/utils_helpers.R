@@ -1628,11 +1628,11 @@ card_spectro <- function(ns, id, index) {
   tagList(
     div(
       style = "display: flex; flex-direction: row; border: 1px solid #ccc; border-radius: 8px;
-      margin-bottom: 20px; padding: 15px; height: 700px; background-color: #f9f9f9; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
+      margin-bottom: 20px; padding: 15px; height: 800px; background-color: #f9f9f9; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
       
       # Left panel with inputs
       div(
-        style = "flex: 1; display: flex; flex-direction: column; gap: 2px; margin-right: 4px;",
+        style = "flex: 0.8; display: flex; flex-direction: column; gap: 2px; margin-right: 4px;",
         h4(paste("Spectrogram", index)),
         div(style = "border: 2px solid black; border-radius: 6px; padding: 5px; margin-bottom: 10px;",
             selectInput(ns(paste0("location_", index)), "1. Location", choices = NULL),
@@ -1640,20 +1640,14 @@ card_spectro <- function(ns, id, index) {
             selectInput(ns(paste0("folder_", index)), "3. Folder", choices = NULL),
             selectInput(ns(paste0("file_", index)), "4. WAV File", choices = NULL)
         ),
-        numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 128, step = 128),
-        actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
-                     class = "custom-btn"
-                     )
+        div(style = "border: 2px solid black; border-radius: 6px; padding: 5px; margin-bottom: 10px;",
+            numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 128, step = 128),
+            sliderInput(ns(paste0("overlap_", index)), "Overlap %", min = 50, max = 90, value = 70, step = 2),
+            sliderInput(ns(paste0("dyn_range_", index)), "Amplitude dynamic range (dB)", min = 20, max = 120, value = 40, step = 5)
+        )
       ),
       div(
-        style = "
-          flex: 2; 
-          display: flex; 
-          flex-direction: column; 
-          gap: 10px; 
-          height: 100%;
-        ",
-        
+        style = "flex: 3.2; min-width: 0; display: flex; flex-direction: column; gap: 10px; height: 100%;",
         # Audio player
         uiOutput(ns(paste0("audio_", index))),
         
@@ -1678,6 +1672,9 @@ card_spectro <- function(ns, id, index) {
           tags$br(),
           strong("Analysis Comments:"),
           uiOutput(ns(paste0("analysis_", index)))
+        ),
+        actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
+                     class = "custom-btn"
         )
       )
     )
@@ -1690,12 +1687,13 @@ card_spectro <- function(ns, id, index) {
 #' @description Function for generating a spectrogram plot
 #'
 spectrogram_plotly <- function(wave,
-                               floor = -50,
-                               background = "#001f3f",  # very dark blue
+                               #floor = -50,
+                               dyn_range = 60,
+                               background = "#001f3f", 
                                foreground = "white",
                                hover_bgcolor = "white",
                                hover_fontcolor = "black",
-                               overlap = 50,
+                               overlap = 70,
                                zero_padding = 2,
                                wl = NULL) {
   
@@ -1726,8 +1724,11 @@ spectrogram_plotly <- function(wave,
       time = as.numeric(time)
     )
   
+  zmax <- max(spect_df$amp, na.rm = TRUE)
+  zmin <- zmax - dyn_range
+  
   spect_df_floor <- spect_df |>
-    mutate(amp_floor = ifelse(amp < floor, floor, amp))
+    mutate(amp_floor = pmax(amp, zmin))
   
   spect_plot <- plot_ly(
     data = spect_df_floor,
@@ -1735,9 +1736,9 @@ spectrogram_plotly <- function(wave,
     y = ~freq,
     z = ~amp_floor,
     type = "heatmap",
-    colorscale = "Jet",  # rainbow style
-    zmin = floor,
-    zmax = max(spect_df$amp),
+    colorscale = "Jet", 
+    zmin = zmin,
+    zmax = zmax,
     colorbar = list(
       title = "Amplitude (dB)",
       titleside = "right",

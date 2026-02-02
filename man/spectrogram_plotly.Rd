@@ -6,12 +6,12 @@
 \usage{
 spectrogram_plotly(
   wave,
-  floor = -50,
+  dyn_range = 60,
   background = "#001f3f",
   foreground = "white",
   hover_bgcolor = "white",
   hover_fontcolor = "black",
-  overlap = 50,
+  overlap = 70,
   zero_padding = 2,
   wl = NULL
 )

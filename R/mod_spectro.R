@@ -37,25 +37,21 @@ mod_spectro_ui <- function(id) {
           background-color: #00688B !important;
           color: white !important;
           border-color: black !important;
+          width: 100%;
+          transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
+        
         .custom-btn:hover {
           background-color: lightskyblue !important;
-          transform: scale(1.05);
+          box-shadow: 0 0 0 3px rgba(135, 206, 250, 0.6);
           cursor: pointer;
         }
       "))
     ),
-    # actionButton(ns("add_spectro"), "+ Add Spectrogram"),
-    # br(),
-    # uiOutput(ns("spectrograms_ui"))
     div(id = ns("spectro_card"),
       card_spectro(ns, "spectro1", 1)
     ),
     card_spectro(ns, "spectro2", 2)
-    # fluidRow(
-    #   column(6, card_spectro(ns, "spectro3", 3)),
-    #   column(6, card_spectro(ns, "spectro4", 4))
-    # )
   )
 }
     
@@ -83,6 +79,8 @@ mod_spectro_server <- function(id, data) {
     for (i in 1:2) {
       local({
         index <- i
+        
+        spectro_cache <- reactiveVal(NULL)
         
         locationInput <- paste0("location_", index)
         speciesInput <- paste0("species_", index)
@@ -120,9 +118,23 @@ mod_spectro_server <- function(id, data) {
         observeEvent(input[[paste0("render_", index)]], {
           req(input[[fileInput]])
           
+          # Window length
           wav_path_val <- input[[fileInput]]
+          
           wl_val <- input[[paste0("wl_", index)]]
           if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
+          
+          # Overlap Percentage
+          overlap_val <- input[[paste0("overlap_", index)]]
+          if (is.null(overlap_val) || is.na(overlap_val)) {
+            overlap_val <- 70
+          }
+          
+          # Dynamic Range
+          dyn_range_val <- input[[paste0("dyn_range_", index)]]
+          if (is.null(dyn_range_val) || is.na(dyn_range_val)) {
+            dyn_range_val <- 60
+          }
           
           # === Find event name from folder selection ===
           selected_loc <- input[[locationInput]]
@@ -154,10 +166,7 @@ mod_spectro_server <- function(id, data) {
             }
           }
           
-          # Render event + description + analysis to UI
-          # output[[paste0("event_name_", index)]] <- renderText({
-          #   selected_name
-          # })
+          # Render description + analysis to UI
           output[[paste0("description_", index)]] <- renderText({
             current_desc
           })
@@ -219,50 +228,6 @@ mod_spectro_server <- function(id, data) {
             })
           }, delay = 0.1)
           
-          # # Remove old if exists and copy
-          # if (file.exists(temp_audio_path)) {
-          #   file.remove(temp_audio_path)
-          # }
-          # file.copy(from = input[[fileInput]], to = temp_audio_path, overwrite = TRUE)
-          
-          # output[[paste0("audio_", index)]] <- renderUI({
-          #   tagList(
-          #     tags$audio(
-          #       id = ns(paste0("audio_element_", index)),
-          #       controls = NA,
-          #       style = "width: 50%; margin-top: 5px;",
-          #       tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
-          #       "Your browser does not support the audio element."
-          #     ),
-          #     tags$script(HTML(sprintf("
-          #     setTimeout(function() {
-          #       const audio = document.getElementById('%s');
-          #       const plotDiv = document.getElementById('%s');
-          # 
-          #       if (audio && plotDiv) {
-          #         audio.addEventListener('timeupdate', function () {
-          #           const currentTime = audio.currentTime;
-          #           Plotly.relayout(plotDiv, {
-          #             'shapes[0].x0': currentTime,
-          #             'shapes[0].x1': currentTime
-          #           });
-          #         });
-          #       }
-          #     }, 500);  // delay to ensure plot is ready
-          #   ", ns(paste0("audio_element_", index)), ns(paste0("plot_", index)))))
-          #   )
-          # })
-          
-          # Now point to the file via its web-accessible path
-          # output[[paste0("audio_", index)]] <- renderUI({
-          #   tags$audio(
-          #     id = ns(paste0("audio_element_", index)),
-          #     controls = NA,
-          #     style = "width: 50%; margin-top: 5px;",
-          #     tags$source(src = file.path("temp_audio", audio_name), type = "audio/wav"),
-          #     "Your browser does not support the audio element."
-          #   )
-          # })
           
           # Show the spinner immediately by rendering plot_ui_ before starting the processing
           output[[paste0("plot_ui_", index)]] <- renderUI({
@@ -272,25 +237,123 @@ mod_spectro_server <- function(id, data) {
             )
           })
           
-          # Let the UI render the spinner before doing heavy work
           later::later(function() {
-            # wav_path <- isolate(input[[fileInput]])
-            # wl_val <- isolate(input[[paste0("wl_", index)]])
-            # if (is.null(wl_val) || is.na(wl_val)) wl_val <- 1024
-            
+
             wave <- tuneR::readWave(wav_path_val)
-            
+
             if (wave@samp.rate < 8000) {
-              showNotification("Sampling rate of the recorded audio file is too low, audio will be unavailable.", type = "warning", duration = 8, session = session)
-              }
-            
+              showNotification(
+                "Sampling rate of the recorded audio file is too low.",
+                type = "warning",
+                duration = 8,
+                session = session
+              )
+            }
+
+            # ---- COMPUTE SPECTROGRAM ONCE ----
+            spect <- seewave::spectro(
+              wave,
+              wl = wl_val,
+              ovlp = overlap_val,
+              zp = 2,
+              plot = FALSE
+            )
+
+            colnames(spect$amp) <- spect$time
+            rownames(spect$amp) <- spect$freq
+
+            spect_df <- spect$amp |>
+              tibble::as_tibble(rownames = "freq") |>
+              tidyr::pivot_longer(-freq, names_to = "time", values_to = "amp") |>
+              dplyr::mutate(
+                freq = as.numeric(freq),
+                time = as.numeric(time)
+              )
+
+            # Cache Spectrogram
+            spectro_cache(spect_df)
+
+            # ---- INITIAL PLOT ----
+            zmax <- max(spect_df$amp, na.rm = TRUE)
+            zmin <- zmax - dyn_range_val
+
             output[[plotOutput]] <- renderPlotly({
-              spectrogram_plotly(wave, wl = wl_val)
+              
+              plot_ly(
+                data = spect_df,
+                x = ~time,
+                y = ~freq,
+                z = ~amp,
+                type = "heatmap",
+                colorscale = "Jet",
+                zmin = zmin,
+                zmax = zmax,
+                colorbar = list(
+                  title = "Amplitude (dB)",
+                  titleside = "right",
+                  tickfont  = list(color = "white"),
+                  titlefont = list(color = "white")
+                ),
+                hovertemplate = paste(
+                  "Time: %{x:.3f} s<br>",
+                  "Freq: %{y:.1f} kHz<br>",
+                  "Amp: %{z:.1f} dB<extra></extra>"
+                ),
+                source = paste0("spectro_", index)
+              ) |>
+                layout(
+                  xaxis = list(
+                    title = "Time (s)",
+                    titlefont = list(size = 14, color = "white"),
+                    tickfont  = list(size = 12, color = "white"),
+                    tickcolor = "white",
+                    linecolor = "white",
+                    mirror    = TRUE
+                  ),
+                  yaxis = list(
+                    title = "Frequency (kHz)",
+                    titlefont = list(size = 14, color = "white"),
+                    tickfont  = list(size = 12, color = "white"),
+                    tickcolor = "white",
+                    linecolor = "white",
+                    mirror    = TRUE
+                  ),
+                  paper_bgcolor = "#001f3f",
+                  plot_bgcolor  = "#001f3f",
+                  margin = list(t = 25, r = 25, b = 55, l = 35),
+                  showlegend = FALSE
+                ) |>
+                style(
+                  hoverlabel = list(
+                    bgcolor = "white",
+                    font = list(color = "black")
+                  )
+                )
             })
+
           }, delay = 0.1)
         })
+        
+        observeEvent(input[[paste0("dyn_range_", index)]], {
+
+          spect_df <- spectro_cache()
+          req(spect_df)
+
+          zmax <- max(spect_df$amp, na.rm = TRUE)
+          zmin <- zmax - input[[paste0("dyn_range_", index)]]
+
+          plotlyProxy(
+            outputId = plotOutput,
+            session = session
+          ) |>
+            plotlyProxyInvoke(
+              "restyle",
+              list(zmin = zmin, zmax = zmax),
+              0
+            )
+        })
       })
-     }
+    }
   })
 }
     
