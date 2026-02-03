@@ -425,7 +425,7 @@ mod_main_server <- function(id){
       showNotification("Loading Example Data Files...", type = "message", duration = 10)
       
       # Full relative path to the example ZIP file inside the app directory
-      example_zip_path <- "inst/OSA_OOI_Demo.zip"
+      example_zip_path <- "inst/data/OSA_OOI_Demo.zip"
       
       # Call your existing ZIP processing function
       result <- process_zip(example_zip_path)
