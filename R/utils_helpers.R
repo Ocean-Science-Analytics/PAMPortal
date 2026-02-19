@@ -169,18 +169,6 @@ enviro_data <- list(
 #' 
 #' @description Processes the project zip files for the app
 process_zip <- function(zip_path) {
-  # temp_dir <- tempfile()
-  # dir.create(temp_dir)
-  # unzip(zip_path, exdir = temp_dir)
-  # 
-  # top_level_dirs <- list.dirs(temp_dir, recursive = FALSE, full.names = TRUE)
-  # 
-  # if (length(top_level_dirs) != 1) {
-  #   stop("Multiple folders found at root of ZIP. Please ensure the ZIP contains a single project folder.")
-  # }
-  # 
-  # root_path <- top_level_dirs[[1]]
-  
   # Create a dedicated temporary directory for this upload
   temp_dir <- file.path(tempdir(), paste0("upload_", as.integer(Sys.time())))
   dir.create(temp_dir, recursive = TRUE, showWarnings = FALSE)
