@@ -11,8 +11,6 @@
 #' @import shinyFiles
 #' @import leaflet
 
-options(shiny.maxRequestSize = 800 * 1024^2)
-
 mod_main_ui <- function(id) {
   ns <- NS(id)
   
@@ -115,7 +113,7 @@ mod_main_ui <- function(id) {
       #br(),
       # Add note above the Load Files button
       shiny::h6(
-        "Note: Files up to 800MB are supported. Larger files may take several minutes to load.",
+        "Note: Files up to 1 GB are supported. Larger files may take several minutes to load.",
         style = "margin-top: 10px; margin-bottom: 10px; font-size: 0.82rem; color: #888; text-align: left;"
       ),
       
@@ -427,7 +425,7 @@ mod_main_server <- function(id){
       # Full relative path to the example ZIP file inside the app directory
       example_zip_path <- "inst/OSA_OOI_Demo.zip"
       
-      # Call your existing ZIP processing function
+      # Call the existing ZIP processing function
       result <- process_zip(example_zip_path)
       
       selected_dir(result$root_path)
