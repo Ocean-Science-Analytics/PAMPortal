@@ -243,7 +243,7 @@ mod_spectro_server <- function(id, data) {
 
             if (wave@samp.rate < 8000) {
               showNotification(
-                "Sampling rate of the recorded audio file is too low.",
+                "Sampling rate of the recording is too low, audio will not be available.",
                 type = "warning",
                 duration = 8,
                 session = session
