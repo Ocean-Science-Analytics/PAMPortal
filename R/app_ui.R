@@ -82,12 +82,53 @@ app_ui <- function(request) {
       ),
       
       # Title with image
+      # div(
+      #   class = "app-header",
+      #   style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
+      #   img(src = "www/white_square_OSA_med.jpg",height = 45,class = "header-logo",style = "margin: 0 10px 0 25px;"),
+      #   h2("PAMPortal", class = "pam-title", style = "margin: 0; color: white; flex-grow: 1;"),
+      #   img(src = "www/header_scene.png", height = 70, style = "margin: 0 11px 0 22px; opacity: 0.9; filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));"),
+      #   actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey", style = "margin: 0 20px 0 10px;")  # Guide button
+      # ),
+      
       div(
         class = "app-header",
-        style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
-        img(src = "www/white_square_OSA_med.jpg",height = 45,class = "header-logo",style = "margin: 0 10px 0 25px;"),
-        h2("PAMPortal", class = "pam-title", style = "margin: 0; color: white; flex-grow: 1;"),
-        actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey", style = "margin: 0 20px 0 10px;")  # Guide button
+        style = "
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 20px;
+          background-color: #7AC5CD;
+          height: 70px;
+        ",
+        
+        # LEFT
+        div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          img(src = "www/white_square_OSA_med.jpg", height = 45,class = "header-logo"),
+          h2("PAMPortal", class = "pam-title", style = "margin: 0; line-height: 1; color: white;")
+        ),
+        
+        # CENTER
+        div(
+          style = "
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          ",
+          img(
+            src = "www/header_scene.png",
+            style = "height: 65px; width: auto; opacity: 0.9; filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));"
+          )
+        ),
+        
+        # RIGHT
+        actionButton(
+          inputId = "help",
+          label = "Guide",
+          class = "btn btn-lightgrey"
+        )
       ),
       
       bslib::layout_sidebar(
