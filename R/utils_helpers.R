@@ -163,6 +163,102 @@ enviro_data <- list(
   )
 )
 
+#' Process a Regular Folder
+#' 
+#' @description Process a Regular Data Folder (in the S3 Bucket)
+process_folder <- function(root_path) {
+  
+  rds_folder <- file.path(root_path, "RDS")
+  acoustic_dir <- file.path(root_path, "Audio")
+  soundscape_dir <- file.path(root_path, "Soundscape")
+  click_detector_dir <- file.path(root_path, "Click_Detector_Screenshots")
+  
+  ## ---- RDS LOADING ---- ##
+  rds_names <- NULL
+  rds_data <- NULL
+  if (dir.exists(rds_folder)) {
+    rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
+    if (length(rds_paths) > 0) {
+      rds_names <- tools::file_path_sans_ext(basename(rds_paths))
+      rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
+    }
+  }
+  
+  ## ---- ACOUSTIC LOADING ---- ##
+  acoustic_names <- NULL
+  acoustic_tree <- NULL
+  
+  if (dir.exists(acoustic_dir)) {
+    event_paths <- list.dirs(acoustic_dir, recursive = FALSE, full.names = TRUE)
+    acoustic_names <- sub("_Clips$", "", basename(event_paths))
+    
+    build_nested_list <- function(base_dir) {
+      event_folders <- list.dirs(base_dir, recursive = FALSE, full.names = TRUE)
+      structure_list <- list()
+      
+      for (event_path in event_folders) {
+        event_name <- basename(event_path)
+        species_paths <- list.dirs(event_path, recursive = FALSE, full.names = TRUE)
+        species_list <- list()
+        
+        for (species_path in species_paths) {
+          species_name <- basename(species_path)
+          detection_paths <- list.dirs(species_path, recursive = FALSE, full.names = TRUE)
+          detection_list <- list()
+          
+          for (detection_path in detection_paths) {
+            detection_name <- basename(detection_path)
+            wavs <- list.files(detection_path, pattern = "\\.wav$", full.names = TRUE)
+            if (length(wavs) > 0) {
+              detection_list[[detection_name]] <- wavs
+            }
+          }
+          
+          if (length(detection_list) > 0) {
+            species_list[[species_name]] <- detection_list
+          }
+        }
+        
+        if (length(species_list) > 0) {
+          structure_list[[event_name]] <- species_list
+        }
+      }
+      
+      return(structure_list)
+    }
+    
+    acoustic_tree <- build_nested_list(acoustic_dir)
+  }
+  
+  ## ---- SOUNDSCAPE LOADING ---- ##
+  soundscape <- NULL
+  if (dir.exists(soundscape_dir)) {
+    site_folders <- list.dirs(soundscape_dir, recursive = FALSE, full.names = FALSE)
+    if (length(site_folders) > 0) {
+      soundscape <- site_folders
+    }
+  }
+  
+  ## ---- CLICK DETECTOR SCREENSHOTS LOADING ---- ##
+  click_detector <- NULL
+  if (dir.exists(click_detector_dir)) {
+    site_folders <- list.dirs(click_detector_dir, recursive = FALSE, full.names = TRUE)
+    if (length(site_folders) > 0) {
+      click_detector <- site_folders
+    }
+  }
+  
+  list(
+    root_path = root_path,
+    rds_names = rds_names,
+    rds_data = rds_data,
+    acoustic_names = acoustic_names,
+    acoustic_tree = acoustic_tree,
+    soundscape = soundscape,
+    click_detector = click_detector
+  )
+}
+
 
 
 #' Process Zip File

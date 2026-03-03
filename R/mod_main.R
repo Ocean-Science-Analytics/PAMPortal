@@ -117,22 +117,19 @@ mod_main_ui <- function(id) {
       
       h4(tags$span(shiny::icon("file-import"), "Import Data:"), style = "color: black;"), 
       div(style = "display: flex; width: 100%;",  
-          fileInput(ns("zip_file"), "Upload a Zip File", accept = ".zip")
+          fileInput(ns("zip_file"), "Upload a Zip File:", accept = ".zip")
       ),
       
       #shiny::verbatimTextOutput(ns("directory")),
-      
-      #br(),
-      # Add note above the Load Files button
-      shiny::h6(
-        "Note: Files up to 2 GB are supported.",
-        style = "margin-top: 0px; margin-bottom: 10px; font-size: 0.82rem; color: #888; text-align: left;"
-      ),
       
       # Submit button with loading spinner
       div(
         style = "display: flex; width: 100%;",
         actionButton(ns("submit_files"), "Load Files", icon = shiny::icon("folder-open"), class = "custom-btn", style = "flex-grow: 1;")
+      ),
+      shiny::h6(
+        "Note: Files up to 2 GB are supported.",
+        style = "margin-top: 0px; margin-bottom: 10px; font-size: 0.82rem; color: #888; text-align: left;"
       ),
       
       textOutput(ns("load_status")),
@@ -474,38 +471,15 @@ mod_main_server <- function(id){
       }
       
       DATA_ROOT <- Sys.getenv("DATA_ROOT", unset = "inst/data")
-      
       client_folder <- file.path(DATA_ROOT, client_id)
-      
+     
       if (!dir.exists(client_folder)) {
         showNotification("Client folder not found.", type = "error")
         return()
       }
       
-      zip_files <- list.files(
-        client_folder,
-        pattern = "\\.zip$",
-        full.names = TRUE
-      )
-      
-      if (length(zip_files) == 0) {
-        showNotification("No ZIP file found in client folder.", type = "error")
-        return()
-      }
-      
-      if (length(zip_files) > 1) {
-        showNotification("Multiple ZIP files found. Please contact support.", type = "error")
-        return()
-      }
-      
-      zip_path <- zip_files[1]
-      
-      if (!file.exists(zip_path)) {
-        showNotification("No data found for this Client ID.", type = "error")
-        return()
-      }
-      
-      result <- process_zip(zip_path)
+      # Directly process folder (no zip)
+      result <- process_folder(client_folder)
 
       selected_dir(result$root_path)
       rds_names(result$rds_names)
