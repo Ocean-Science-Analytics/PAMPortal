@@ -1,9 +1,9 @@
-name: Deploy Docker Image prod
+name: Deploy Docker Image Public
 
 on:
   push:
     branches:
-      - prod
+      - public
 
 jobs:
   deploy:
@@ -11,7 +11,8 @@ jobs:
     with:
       image_name: "k8s-apps/pamportal"
       dockerfile_path: "Dockerfile"
-      environment: "prod"
+      environment: "pub"
+      platforms: "linux/arm64"
     secrets:
       aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
