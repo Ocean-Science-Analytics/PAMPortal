@@ -5,7 +5,7 @@
 PAMPortal is an interactive Shiny web application developed using the [{golem}](https://thinkr-open.github.io/golem/) framework.\
 It is the final part of a full stack passive acoustic pipeline developed by Ocean Science Analytics LLC. PAMPortal provides an easy, user-friendly platform to filter and visualize processed acoustic detections and metrics.
 
-------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
 ## Installation Instructions
 

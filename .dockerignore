@@ -1,0 +1,84 @@
+# =============================================================================
+# Docker Build Context Exclusions
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.Rproj.user
+*.Rproj
+.RData
+.Rhistory
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Development files
+dev/
+.github/
+rsconnect/
+
+# Documentation (not needed at runtime)
+man/
+*.Rd
+*.md
+!inst/**/*.md
+
+# renv local library (we restore from lockfile)
+renv/library
+renv/local
+renv/staging
+renv/python
+.Rprofile
+
+# Test files
+tests/
+testthat/
+
+# Build artifacts
+*.tar.gz
+*.zip
+# But keep example data ZIP files in inst/
+!inst/**/*.zip
+
+# Logs and temp files
+*.log
+logs/
+temp/
+tmp/
+temp_audio/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (prevent recursive copy)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# CI/CD
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+azure-pipelines.yml
+Jenkinsfile
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
+
+# Secrets (never include in image)
+.env
+.env.*
+*.pem
+*.key
+secrets/
+credentials/
+
