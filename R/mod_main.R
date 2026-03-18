@@ -178,12 +178,24 @@ mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
+    load_rds <- function(name) {
+      get_rds(
+        name            = name,
+        rds_paths       = data$rds_paths(),
+        rds_cache_val   = data$rds_cache(),
+        update_cache_fn = data$rds_cache
+      )
+    }
+    
 ##############################################################
 # DIRECTORY OUTPUT LOGIC
 ##############################################################
     selected_dir <- reactiveVal(NULL)
     rds_names <- reactiveVal(NULL)
-    rds_data <- reactiveVal(NULL)
+    rds_paths    <- reactiveVal(NULL)   # named vec: name -> file path
+    rds_cache    <- reactiveVal(list()) # loads into memory only when selected
+    selected_rds <- reactiveVal(NULL)
+    #rds_data <- reactiveVal(NULL)
     acoustic_names <- reactiveVal(NULL)
     acoustic_file_tree <- reactiveVal(NULL)
     soundscape_data <- reactiveVal(NULL)
@@ -439,7 +451,10 @@ mod_main_server <- function(id){
       
       selected_dir(result$root_path)
       rds_names(result$rds_names)
-      rds_data(result$rds_data)
+      rds_paths(result$rds_paths)     
+      rds_cache(list())               
+      selected_rds(NULL)
+      #rds_data(result$rds_data)
       acoustic_names(result$acoustic_names)
       acoustic_file_tree(result$acoustic_tree)
       soundscape_data(result$soundscape)
@@ -483,14 +498,17 @@ mod_main_server <- function(id){
 
       selected_dir(result$root_path)
       rds_names(result$rds_names)
-      rds_data(result$rds_data)
+      rds_paths(result$rds_paths)
+      rds_cache(list())
+      selected_rds(NULL)
+      #rds_data(result$rds_data)
       acoustic_names(result$acoustic_names)
       acoustic_file_tree(result$acoustic_tree)
       soundscape_data(result$soundscape)
       click_detector_data(result$click_detector)
       
       output$load_status <- renderText({
-        "✔️ Client Data Loaded"
+        "✔️ Data Succesfully Loaded"
       })
     })
     
@@ -512,7 +530,10 @@ mod_main_server <- function(id){
         selected_dir(result$root_path)
         
         rds_names(result$rds_names)
-        rds_data(result$rds_data)
+        rds_paths(result$rds_paths)     
+        rds_cache(list()) 
+        selected_rds(NULL)
+        #rds_data(result$rds_data)
         acoustic_names(result$acoustic_names)
         acoustic_file_tree(result$acoustic_tree)
         soundscape_data(result$soundscape)
@@ -550,7 +571,10 @@ mod_main_server <- function(id){
     # Return both file paths and original names for use in other modules
     return(list(
       rds_names = rds_names,
-      rds_data = rds_data,   
+      rds_paths = rds_paths,
+      rds_cache = rds_cache,       
+      selected_rds = selected_rds,
+      #rds_data = rds_data,   
       acoustic_names = acoustic_names,
       acoustic_file_tree = acoustic_file_tree,
       soundscape_data = soundscape_data,

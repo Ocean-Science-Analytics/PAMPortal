@@ -413,9 +413,9 @@ mod_analysis_server <- function(id, data){
       req(data$selected_dir())
     })
 
-    observeEvent(data$rds_data(), {
-      req(data$rds_data())
-      locations <- names(data$rds_data())
+    observeEvent(data$rds_names(), {
+      req(data$rds_names())
+      locations <- names(data$rds_names())
       updateSelectInput(session, "location_call_count", choices = locations)
       updateSelectInput(session, "location_call_den", choices = locations)
       updateSelectInput(session, "location_presence", choices = locations)
@@ -441,7 +441,7 @@ mod_analysis_server <- function(id, data){
     })
     
     observeEvent(input$location_dis, {
-      req(data$rds_data(), input$location_dis)
+      req(data$rds_paths(), input$location_dis)
       
       selected_data <- data$rds_data()[input$location_dis]
       

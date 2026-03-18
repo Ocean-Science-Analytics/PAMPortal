@@ -175,14 +175,17 @@ process_folder <- function(root_path) {
   
   ## ---- RDS LOADING ---- ##
   rds_names <- NULL
-  rds_data <- NULL
+  rds_paths <- NULL
+  #rds_data <- NULL
   if (dir.exists(rds_folder)) {
     rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
     if (length(rds_paths) > 0) {
       rds_names <- tools::file_path_sans_ext(basename(rds_paths))
-      rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
+      rds_paths <- setNames(rds_paths, rds_names)
+      #rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
     }
   }
+  browser()
   
   ## ---- ACOUSTIC LOADING ---- ##
   acoustic_names <- NULL
@@ -251,7 +254,8 @@ process_folder <- function(root_path) {
   list(
     root_path = root_path,
     rds_names = rds_names,
-    rds_data = rds_data,
+    rds_paths = rds+paths,
+    #rds_data = rds_data,
     acoustic_names = acoustic_names,
     acoustic_tree = acoustic_tree,
     soundscape = soundscape,
@@ -287,12 +291,14 @@ process_zip <- function(zip_path) {
   
   ## ---- RDS LOADING ---- ##
   rds_names <- NULL
-  rds_data <- NULL
+  rds_paths <- NULL
+  #rds_data <- NULL
   if (dir.exists(rds_folder)) {
     rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
     if (length(rds_paths) > 0) {
       rds_names <- tools::file_path_sans_ext(basename(rds_paths))
-      rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
+      rds_paths <- setNames(rds_paths, rds_names)
+      #rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
     }
   }
   
@@ -363,7 +369,8 @@ process_zip <- function(zip_path) {
   list(
     root_path = root_path,
     rds_names = rds_names,
-    rds_data = rds_data,
+    rds_paths = rds_paths,
+    #rds_data = rds_data,
     acoustic_names = acoustic_names,
     acoustic_tree = acoustic_tree,
     soundscape = soundscape,
@@ -422,6 +429,44 @@ process_acoustic_data <- function(acou_data) {
     final_df <- data.frame(Event = character(0), Detector = character(0), Species = character(0), Time = character(0))
   }
   return(final_df)
+}
+
+#' Get RDS Data
+#' 
+#' @description Reads in the selected RDS file from the cache
+#'
+#' @examples
+#' acou_data <- get_rds(
+#    name           = input$rds_select,
+#    rds_paths      = data$rds_paths(),
+#    rds_cache_val  = data$rds_cache(),
+#    update_cache_fn = data$rds_cache
+#  )
+get_rds <- function(name, rds_paths, rds_cache_val, update_cache_fn) {
+  
+  # Guard against empty/null name or paths
+  if (is.null(name) || name == "" || is.null(rds_paths)) return(NULL)
+  
+  # Guard against name not existing in paths
+  if (!name %in% names(rds_paths)) {
+    warning(paste("RDS name not found in paths:", name, "\nAvailable:", paste(names(rds_paths), collapse = ", ")))
+    return(NULL)
+  }
+  
+  if (name %in% names(rds_cache_val)) {
+    return(rds_cache_val[[name]])
+  }
+  
+  path <- rds_paths[[name]]
+  if (is.null(path)) stop(paste("No path found for RDS:", name))
+  
+  showNotification(paste("Loading", name, "..."), type = "message")
+  obj <- readRDS(path)
+  
+  rds_cache_val[[name]] <- obj
+  update_cache_fn(rds_cache_val)  # pushes updated cache back into reactiveVal
+  
+  obj
 }
 
 
