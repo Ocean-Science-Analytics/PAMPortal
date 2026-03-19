@@ -185,7 +185,7 @@ process_folder <- function(root_path) {
       #rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
     }
   }
-  browser()
+  
   
   ## ---- ACOUSTIC LOADING ---- ##
   acoustic_names <- NULL
@@ -254,7 +254,7 @@ process_folder <- function(root_path) {
   list(
     root_path = root_path,
     rds_names = rds_names,
-    rds_paths = rds+paths,
+    rds_paths = rds_paths,
     #rds_data = rds_data,
     acoustic_names = acoustic_names,
     acoustic_tree = acoustic_tree,
@@ -861,7 +861,6 @@ plot_occurrence <- function(location, base_path,
   species_list <- species_of_interest
   environmental_variable <- environmental_variable
 
-
   #filter for species of interest
   if (!('All' %in% species_list)) {
     df <- df %>% filter(species %in% species_list)
@@ -947,15 +946,12 @@ plot_occurrence <- function(location, base_path,
     env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     env_var_title <- names(env_var_choices)[env_var_choices == env_var_csv_col]
 
-    
-    
     if (all(is.na(environmental_df[[env_var_csv_col]]))) {
       msg = paste("No data available for", environmental_variable, "during the selected time period.")
       showNotification(msg, type = "warning", duration = 8)
       stop(msg)
     }
     
-
     title = paste0(title, "\nwith ", env_var_title)
     # 
     # # If the column doesn't exist, stop with a helpful message
