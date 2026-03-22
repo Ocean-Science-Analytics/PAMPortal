@@ -178,6 +178,7 @@ mod_overview_ui <- function(id) {
               )
             )
             ),
+            uiOutput(ns("table_preview_msg")),
             
             # Data Table
             div(class = "data-table-container",
@@ -673,8 +674,11 @@ mod_overview_server <- function(id, data){
       else if (isTRUE(input$all_events)) {
         showNotification("Loading data for all events. This may take some time.", type = "message", duration = 6)
         all_data <- list()
+        event_count <- 0  # <-- counter
         
         for (event_name in names(acou_data@events)) {
+          if (event_count >= 5) break  # <-- stop after 5 events
+          
           event <- acou_data@events[[event_name]]
           
           if (!is.null(event@detectors)) {
@@ -686,6 +690,7 @@ mod_overview_server <- function(id, data){
                 all_data[[length(all_data) + 1]] <- detector_data
               }
             }
+            event_count <- event_count + 1  # <-- increment after processing each event
           }
         }
         
@@ -708,6 +713,30 @@ mod_overview_server <- function(id, data){
         } else {
           return(DT::datatable(data.frame(Message = "No valid data available"), options = list(dom = 't')))
         }
+      }
+    })
+    
+    ### Warning message when all events is selected
+    output$table_preview_msg <- renderUI({
+      if (isTRUE(input$all_events)) {
+        div(
+          style = "
+        background-color: #FFF3CD;
+        border: 1px solid #FFCC00;
+        border-radius: 5px;
+        padding: 8px 14px;
+        margin-bottom: 8px;
+        color: #856404;
+        font-size: 0.88rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      ",
+          shiny::icon("triangle-exclamation"),
+          "Only a portion of the total events are displayed here. Export to access the full dataset."
+        )
+      } else {
+        NULL  # hides the message when all_events is not checked
       }
     })
     
