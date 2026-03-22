@@ -178,6 +178,7 @@ mod_overview_ui <- function(id) {
               )
             )
             ),
+            uiOutput(ns("table_preview_msg")),
             
             # Data Table
             div(class = "data-table-container",
@@ -195,10 +196,25 @@ mod_overview_server <- function(id, data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
+    #########################################################################
+    # Initial Paths and Functions for this Module
+    #########################################################################
     base_path <- reactive({
       req(data$selected_dir())
     })
     
+    load_rds <- function(name) {
+      get_rds(
+        name            = name,
+        rds_paths       = data$rds_paths(),
+        rds_cache_val   = data$rds_cache(),
+        update_cache_fn = data$rds_cache
+      )
+    }
+    
+    #########################################################################
+    # Reactive Card Layout Based on User's selection
+    #########################################################################
     output$dynamic_cards_layout <- renderUI({
       if (isTRUE(input$compare)) {
         fluidRow(
@@ -279,15 +295,12 @@ mod_overview_server <- function(id, data){
     })
     ###########
     
-    observeEvent(data$rds_data(), {
-      choices <- names(data$rds_data())
-      
-      updateSelectInput(session, "rds_select", choices = choices, selected = choices[1])
-      updateSelectInput(session, "file_select", choices = choices, selected = choices[1])
-      
-      # Select the second item for rds2_select, if there is one
+    observeEvent(data$rds_names(), {
+      choices <- data$rds_names()
+      updateSelectInput(session, "rds_select",   choices = choices, selected = choices[1])
+      updateSelectInput(session, "file_select",  choices = choices, selected = choices[1])
       second_choice <- if (length(choices) >= 2) choices[2] else choices[1]
-      updateSelectInput(session, "rds2_select", choices = choices, selected = second_choice)
+      updateSelectInput(session, "rds2_select",  choices = choices, selected = second_choice)
     })
     ##########
     
@@ -304,11 +317,8 @@ mod_overview_server <- function(id, data){
     # Initially reads data files and updates acoustic events for datatable
     #########################################################################
     observeEvent(input$file_select, {
-      selected_name <- input$file_select
-      acou_data <- data$rds_data()[[selected_name]]
-      event_titles <- sapply(acou_data@events, function(event) {
-        slot(event, "id")  # Adjust slot name if necessary
-      })
+      acou_data <- load_rds(input$file_select)   
+      event_titles <- sapply(acou_data@events, function(event) slot(event, "id"))
       updateSelectInput(session, "event_select", choices = event_titles)
     }, ignoreInit = TRUE)
     
@@ -317,26 +327,16 @@ mod_overview_server <- function(id, data){
     # Reactive: process species data only when file uploaded
     #########################################################################
     species_data <- reactive({
-      req(input$rds_select)       # Require the user to have selected something
-      req(data$rds_data())        # Require that rds_data exists
-      
-      selected_name <- input$rds_select
-      acou_data <- data$rds_data()[[selected_name]]
-      
-      req(!is.null(acou_data))    # Make sure the selected data is not null
-      
+      req(input$rds_select)
+      acou_data <- load_rds(input$rds_select)
+      req(!is.null(acou_data))
       process_acoustic_data(acou_data)
     })
     
     species2_data <- reactive({
-      req(input$rds2_select)       # Require the user to have selected something
-      req(data$rds_data())        # Require that rds_data exists
-      
-      selected2_name <- input$rds2_select
-      acou2_data <- data$rds_data()[[selected2_name]]
-      
-      req(!is.null(acou2_data))    # Make sure the selected data is not null
-      
+      req(input$rds2_select)
+      acou2_data <- load_rds(input$rds2_select)
+      req(!is.null(acou2_data))
       process_acoustic_data(acou2_data)
     })
     
@@ -345,17 +345,11 @@ mod_overview_server <- function(id, data){
     # Updates detectors based on event selected
     #########################################################################
     observeEvent(input$event_select, {
-      #req(data$rds_data(), input$event_select)  # Ensure data exists
-
-      selected_name <- input$file_select
-      acou_data <- data$rds_data()[[selected_name]]
-
+      acou_data <- load_rds(input$file_select)
       selected_event <- acou_data@events[[input$event_select]]
-      shinyjs::enable("detector_select")  # Enable if not JSON
-
+      shinyjs::enable("detector_select")
       if (!is.null(selected_event@detectors)) {
-        detector_choices <- names(slot(selected_event, "detectors"))  # Extract detector names
-        updateSelectInput(session, "detector_select", choices = detector_choices)
+        updateSelectInput(session, "detector_select", choices = names(slot(selected_event, "detectors")))
       } else {
         updateSelectInput(session, "detector_select", choices = character(0))
       }
@@ -363,25 +357,18 @@ mod_overview_server <- function(id, data){
     
     # Update Species Input
     observeEvent(input$file_select, {
-      #req(data$rds_data(), input$file_select)
-      
-      selected_name <- input$file_select
-      acou_data <- data$rds_data()[[selected_name]]
-      
+      acou_data <- load_rds(input$file_select)   # <-- on-demand load
       all_species <- character(0)
-      
       for (event_name in names(acou_data@events)) {
         event <- acou_data@events[[event_name]]
-        
         if (!is.null(event@species)) {
-          species_values <- unlist(event@species, use.names = FALSE)
-          all_species <- c(all_species, species_values)
+          all_species <- c(all_species, unlist(event@species, use.names = FALSE))
         }
       }
-      unique_species <- unique(all_species)
-      unique_species <- recode(unique_species, 
-                             "Unid Odont" = "Unidentified Odont.",
-                             "Delph spp." = "Delphinid Species")
+      unique_species <- recode(unique(all_species),
+                               "Unid Odont"  = "Unidentified Odont.",
+                               "Delph spp."  = "Delphinid Species"
+      )
       updateSelectInput(session, "species_select", choices = unique_species)
     }, ignoreInit = TRUE)
     
@@ -389,7 +376,7 @@ mod_overview_server <- function(id, data){
     # Dynamic Accordion UI
     #########################################################################
     output$dynamic_accordion <- renderUI({
-      req(data$rds_data(), req(base_path))
+      req(data$rds_names(), req(base_path))
       selected_name <- input$rds_select
 
       # Species dataframe from your process_acoustic_data
@@ -551,7 +538,7 @@ mod_overview_server <- function(id, data){
     })
     
     output$card2 <- renderPlotly({
-      req(data$rds_data())
+      req(data$rds_names())
       species_df <- species_data()  # <-- reuse the reactive result
       
       if (nrow(species_df) == 0) {
@@ -642,9 +629,10 @@ mod_overview_server <- function(id, data){
     # Cool data table features - https://laustep.github.io/stlahblog/posts/DTcallbacks.html
     
     output$data_table <- DT::renderDataTable({
-      req(data$rds_data())
+      req(data$rds_paths())
       selected_name <- input$file_select
-      acou_data <- data$rds_data()[[selected_name]]
+      acou_data <- load_rds(selected_name)
+      #acou_data <- data$rds_data()[[selected_name]]
       
       # Show data for all species-matching events
       if (isTRUE(input$filter_species)) {
@@ -686,8 +674,11 @@ mod_overview_server <- function(id, data){
       else if (isTRUE(input$all_events)) {
         showNotification("Loading data for all events. This may take some time.", type = "message", duration = 6)
         all_data <- list()
+        event_count <- 0  # <-- counter
         
         for (event_name in names(acou_data@events)) {
+          if (event_count >= 5) break  # <-- stop after 5 events
+          
           event <- acou_data@events[[event_name]]
           
           if (!is.null(event@detectors)) {
@@ -699,6 +690,7 @@ mod_overview_server <- function(id, data){
                 all_data[[length(all_data) + 1]] <- detector_data
               }
             }
+            event_count <- event_count + 1  # <-- increment after processing each event
           }
         }
         
@@ -724,6 +716,30 @@ mod_overview_server <- function(id, data){
       }
     })
     
+    ### Warning message when all events is selected
+    output$table_preview_msg <- renderUI({
+      if (isTRUE(input$all_events)) {
+        div(
+          style = "
+        background-color: #FFF3CD;
+        border: 1px solid #FFCC00;
+        border-radius: 5px;
+        padding: 8px 14px;
+        margin-bottom: 8px;
+        color: #856404;
+        font-size: 0.88rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      ",
+          shiny::icon("triangle-exclamation"),
+          "Only a portion of the total events are displayed here. Export to access the full dataset."
+        )
+      } else {
+        NULL  # hides the message when all_events is not checked
+      }
+    })
+    
     
     #########################################################################
     # Read data table and export to csv 
@@ -746,9 +762,10 @@ mod_overview_server <- function(id, data){
           type = "message", duration = 8
         )
         
-        req(data$rds_data())
+        req(data$rds_paths())
         selected_name <- input$file_select
-        acou_data <- data$rds_data()[[selected_name]]
+        acou_data <- load_rds(selected_name)
+        #acou_data <- data$rds_data()[[selected_name]]
         
         final_df <- NULL
         
