@@ -10,7 +10,8 @@ plot_hourly_presence(
   months_of_interest = c("All"),
   species_of_interest = c("All"),
   metric = "Count",
-  log_scale = FALSE
+  log_scale = FALSE,
+  load_rds_fn = NULL
 )
 }
 \description{
