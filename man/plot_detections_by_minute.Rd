@@ -9,7 +9,8 @@ plot_detections_by_minute(
   base_path,
   months_of_interest = c("All"),
   species_of_interest = c("All"),
-  see_duty_cycle = FALSE
+  see_duty_cycle = FALSE,
+  load_rds_fn = NULL
 )
 }
 \description{

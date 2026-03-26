@@ -502,7 +502,8 @@ mod_analysis_server <- function(id, data){
         species_of_interest = input$species_filter_occr,
         months_of_interest = input$month_filter_occr,
         environmental_variable = input$env_var_occr,
-        show_effort = input$show_effort
+        show_effort = input$show_effort,
+        load_rds_fn = load_rds
       )
     }, ignoreNULL = TRUE)
     
@@ -544,7 +545,8 @@ mod_analysis_server <- function(id, data){
         species_of_interest = input$species_filter_call_count,
         months_of_interest = input$month_filter_call_count,
         environmental_variable = input$env_var_call_count,
-        log_scale = input$log_scale
+        log_scale = input$log_scale,
+        load_rds_fn = load_rds
       )
     }, ignoreNULL = TRUE)
     
@@ -584,7 +586,8 @@ mod_analysis_server <- function(id, data){
         base_path = base_path(),
         species_of_interest = input$species_filter_call_den,
         months_of_interest = input$month_filter_call_den,
-        environmental_variable = input$env_var_call_den
+        environmental_variable = input$env_var_call_den,
+        load_rds_fn = load_rds
         #log_scale = input$log_scale
       )
     }, ignoreNULL = TRUE)
@@ -662,12 +665,13 @@ mod_analysis_server <- function(id, data){
       }
       
       plot_hourly_presence(
-        location = input$location_presence,
-        base_path = base_path(),
+        location           = input$location_presence,
+        base_path          = base_path(),
         species_of_interest = input$species_filter_presence,
-        months_of_interest = input$month_filter_presence,
-        metric = input$metric_presence,
-        log_scale = input$log_scale_presence
+        months_of_interest  = input$month_filter_presence,
+        metric             = input$metric_presence,
+        log_scale          = input$log_scale_presence,
+        load_rds_fn        = load_rds    # <-- pass the cache function
       )
     }, ignoreNULL = TRUE)
     
@@ -719,7 +723,8 @@ mod_analysis_server <- function(id, data){
         base_path = base_path(),
         species_of_interest = input$species_filter_detection,
         months_of_interest = input$month_filter_detection,
-        see_duty_cycle = input$see_duty_detection
+        see_duty_cycle = input$see_duty_detection,
+        load_rds_fn = load_rds
         #duty_cycle_min = if (is.null(duty_min)) 60 else duty_min
       )
     }, ignoreNULL = TRUE)

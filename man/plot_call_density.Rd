@@ -9,7 +9,8 @@ plot_call_density(
   base_path,
   months_of_interest = c("All"),
   species_of_interest = c("All"),
-  environmental_variable = NA
+  environmental_variable = NA,
+  load_rds_fn = NULL
 )
 }
 \description{

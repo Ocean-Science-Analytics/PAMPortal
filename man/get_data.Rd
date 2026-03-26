@@ -8,7 +8,8 @@ get_data(
   location,
   base_path,
   months_of_interest = c("All"),
-  species_of_interest = c("All")
+  species_of_interest = c("All"),
+  load_rds_fn = NULL
 )
 }
 \description{

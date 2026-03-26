@@ -10,7 +10,8 @@ plot_occurrence(
   months_of_interest = c("All"),
   species_of_interest = c("All"),
   environmental_variable = NA,
-  show_effort = FALSE
+  show_effort = FALSE,
+  load_rds_fn = NULL
 )
 }
 \description{

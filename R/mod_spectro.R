@@ -354,9 +354,12 @@ mod_spectro_server <- function(id, data) {
           
           # Show the spinner immediately by rendering plot_ui_ before starting the processing
           output[[paste0("plot_ui_", index)]] <- renderUI({
-              shinycssloaders::withSpinner(
+            shinycssloaders::withSpinner(
               plotOutput(ns(plotOutput), height = "500px"),
-              type = 4, color = "#001f3f", size = 1
+              type    = 4,
+              color   = "#ffffff",       # <-- white spinner
+              color.background = "#001f3f",  # <-- match dark background so spinner is visible
+              size    = 1.5              # <-- slightly larger
             )
           })
           
