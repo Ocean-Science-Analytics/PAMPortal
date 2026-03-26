@@ -40,10 +40,14 @@ mod_spectro_ui <- function(id) {
           width: 100%;
           transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
-        
         .custom-btn:hover {
           background-color: lightskyblue !important;
           box-shadow: 0 0 0 3px rgba(135, 206, 250, 0.6);
+          cursor: pointer;
+        }
+        .download-audio-btn:hover {
+          background-color: #66bb6a !important;
+          box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.6);
           cursor: pointer;
         }
       "))
@@ -94,26 +98,48 @@ mod_spectro_server <- function(id, data) {
         
         observeEvent(input[[locationInput]], {
           loc <- input[[locationInput]]
-          updateSelectInput(session, speciesInput, choices = names(tree()[[loc]]))
+          req(loc)
+          species_choices <- names(tree()[[loc]])
+          updateSelectInput(session, speciesInput, choices = species_choices)
+          
+          # Also immediately update folder based on first species of new location
+          first_species <- species_choices[1]
+          if (!is.null(first_species)) {
+            folder_choices <- names(tree()[[loc]][[first_species]])
+            updateSelectInput(session, folderInput, choices = folder_choices)
+            
+            # And update files based on first folder
+            first_folder <- folder_choices[1]
+            if (!is.null(first_folder)) {
+              wavs <- tree()[[loc]][[first_species]][[first_folder]]
+              updateSelectInput(session, fileInput, choices = setNames(wavs, basename(wavs)))
+            }
+          }
         }, ignoreInit = TRUE)
         
         observeEvent(input[[speciesInput]], {
           loc <- input[[locationInput]]
-          sp <- input[[speciesInput]]
-          updateSelectInput(session, folderInput, choices = names(tree()[[loc]][[sp]]))
-        }, ignoreInit = TRUE)
+          sp  <- input[[speciesInput]]
+          req(loc, sp)
+          folder_choices <- names(tree()[[loc]][[sp]])
+          updateSelectInput(session, folderInput, choices = folder_choices)
+          
+          # Also immediately update files based on first folder
+          first_folder <- folder_choices[1]
+          if (!is.null(first_folder)) {
+            wavs <- tree()[[loc]][[sp]][[first_folder]]
+            updateSelectInput(session, fileInput, choices = setNames(wavs, basename(wavs)))
+          }
+        }, ignoreInit = TRUE, ignoreNULL = TRUE)
         
         observeEvent(input[[folderInput]], {
-          loc <- input[[locationInput]]
-          sp <- input[[speciesInput]]
+          loc  <- input[[locationInput]]
+          sp   <- input[[speciesInput]]
           fldr <- input[[folderInput]]
+          req(loc, sp, fldr)
           wavs <- tree()[[loc]][[sp]][[fldr]]
-          
-          # Display just filenames, keep full paths as values
-          named_wavs <- setNames(wavs, basename(wavs))
-          
-          updateSelectInput(session, fileInput, choices = named_wavs)
-        }, ignoreInit = TRUE)
+          updateSelectInput(session, fileInput, choices = setNames(wavs, basename(wavs)))
+        }, ignoreInit = TRUE, ignoreNULL = TRUE)
         
         observeEvent(input[[paste0("render_", index)]], {
           req(input[[fileInput]])
@@ -184,63 +210,160 @@ mod_spectro_server <- function(id, data) {
           session$sendCustomMessage("stopAudio", list(id = ns(paste0("audio_element_", index))))
           
           later::later(function() {
-            
             if (!dir.exists(audio_dir)) {
               dir.create(audio_dir, showWarnings = FALSE, recursive = TRUE)
             }
             
-            # remove old file for this index (optional) - removes any previous audio_N_*.wav for this index
             old_files <- list.files(audio_dir, pattern = paste0("^audio_", index, "_.*\\.wav$"), full.names = TRUE)
             if (length(old_files) > 0) file.remove(old_files)
             
-            # copy into unique file
             file.copy(from = wav_path_val, to = temp_audio_path, overwrite = TRUE)
             
-            # Now render the audio player and spectrogram; add a cache-busting query param
+            output[[paste0("download_audio_", index)]] <- downloadHandler(
+              filename = function() {
+                paste0(tools::file_path_sans_ext(basename(wav_path_val)), ".wav")
+              },
+              content = function(file) {
+                file.copy(temp_audio_path, file)
+              },
+              contentType = "audio/wav"
+            )
+            
+            # Read file and encode as base64
+            raw_bytes <- readBin(temp_audio_path, "raw", file.info(temp_audio_path)$size)
+            b64 <- jsonlite::base64_enc(raw_bytes)
+            data_uri <- paste0("data:audio/wav;base64,", b64)
+            
             output[[paste0("audio_", index)]] <- renderUI({
+              audio_id    <- ns(paste0("audio_element_", index))
+              plot_id     <- ns(paste0("plot_", index))
+              canvas_id   <- ns(paste0("canvas_", index))
+              duration_id <- ns(paste0("duration_", index))
+              
               tagList(
-                tags$audio(
-                  id = ns(paste0("audio_element_", index)),
-                  controls = TRUE,
-                  style = "width: 50%; margin-top: 5px;",
-                  # append timestamp query so browser always re-fetches the correct file
-                  tags$source(src = paste0(file.path("temp_audio", audio_name), "?v=", unique_tag), type = "audio/wav"),
-                  "Your browser does not support the audio element."
-                )
-              #   tags$script(HTML(sprintf("
-              #   setTimeout(function() {
-              #     const audio = document.getElementById('%s');
-              #     const plotDiv = document.getElementById('%s');
-              # 
-              #     if (audio && plotDiv) {
-              #       audio.addEventListener('timeupdate', function () {
-              #         const currentTime = audio.currentTime;
-              #         Plotly.relayout(plotDiv, {
-              #           'shapes[0].x0': currentTime,
-              #           'shapes[0].x1': currentTime
-              #         });
-              #       });
-              #     }
-              #   }, 500);
-              # ", ns(paste0("audio_element_", index)), ns(paste0("plot_", index))))
-              #   )
+                div(
+                  style = "display: flex; align-items: center; gap: 10px;",
+                  tags$audio(
+                    id       = audio_id,
+                    controls = TRUE,
+                    preload  = "auto",
+                    style    = "width: 50%; margin-top: 5px;",
+                    tags$source(src = data_uri, type = "audio/wav"),
+                    "Your browser does not support the audio element."
+                  ),
+                  downloadButton(
+                    ns(paste0("download_audio_", index)),
+                    label = "Download WAV",
+                    icon  = shiny::icon("download"),
+                    class = "download-audio-btn",
+                    style = "background-color: #2e7d32; color: white; border: none;
+                             border-radius: 5px; white-space: nowrap; height: 35px;
+                             display: flex; align-items: center; justify-content: center;
+                             padding: 0 12px; line-height: 1;"
+                  )
+                ),
+                
+                # Canvas overlaid on top of the plot
+                tags$script(HTML(sprintf("
+                  (function() {
+                    // Wait for both the audio and plot to be ready
+                    function initOverlay() {
+                      var audio    = document.getElementById('%s');
+                      var plotEl   = document.getElementById('%s');
+                      
+                      if (!audio || !plotEl) {
+                        setTimeout(initOverlay, 200);
+                        return;
+                      }
+                      
+                      // Create canvas overlay
+                      var canvas = document.createElement('canvas');
+                      canvas.id  = '%s';
+                      canvas.style.position = 'absolute';
+                      canvas.style.top      = '0';
+                      canvas.style.left     = '0';
+                      canvas.style.pointerEvents = 'none'; // clicks pass through to plot
+                      
+                      // Position canvas over the plot
+                      var wrapper = plotEl.parentElement;
+                      wrapper.style.position = 'relative';
+                      wrapper.appendChild(canvas);
+                      
+                      function resizeCanvas() {
+                        canvas.width  = plotEl.offsetWidth;
+                        canvas.height = plotEl.offsetHeight;
+                      }
+                      resizeCanvas();
+                      window.addEventListener('resize', resizeCanvas);
+                      
+                      // Plot margins as fractions of total plot size (must match par(mar=...) in R)
+                      // mar = c(4, 4.5, 2, 5) with default cex
+                      // These are approximate - adjust if line is slightly off
+                      var marginL = 0.09;   // left margin fraction
+                      var marginR = 0.10;   // right margin fraction  
+                      var marginT = 0.06;   // top margin fraction
+                      var marginB = 0.10;   // bottom margin fraction
+                      
+                      function drawLine() {
+                        var ctx      = canvas.getContext('2d');
+                        var duration = audio.duration;
+                        var current  = audio.currentTime;
+                        
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        if (!duration || duration === 0) return;
+                        
+                        // Plot area bounds in pixels
+                        var plotLeft   = canvas.width  * marginL;
+                        var plotRight  = canvas.width  * (1 - marginR);
+                        var plotTop    = canvas.height * marginT;
+                        var plotBottom = canvas.height * (1 - marginB);
+                        var plotWidth  = plotRight - plotLeft;
+                        
+                        // X position of playhead
+                        var xPos = plotLeft + (current / duration) * plotWidth;
+                        
+                        // Draw line
+                        ctx.beginPath();
+                        ctx.moveTo(xPos, plotTop);
+                        ctx.lineTo(xPos, plotBottom);
+                        ctx.strokeStyle = 'rgba(255, 0, 0, 0.9)';  // red
+                        ctx.lineWidth   = 2;
+                        ctx.setLineDash([]);
+                        ctx.stroke();
+                      }
+                      
+                      // Update line on timeupdate
+                      audio.addEventListener('timeupdate', drawLine);
+                      
+                      // Clear line when audio ends or is reset
+                      audio.addEventListener('ended', function() {
+                        var ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                      });
+                    }
+                    
+                    setTimeout(initOverlay, 300);
+                  })();
+                ", audio_id, plot_id, canvas_id)))
               )
             })
+            
           }, delay = 0.1)
           
           
           # Show the spinner immediately by rendering plot_ui_ before starting the processing
           output[[paste0("plot_ui_", index)]] <- renderUI({
               shinycssloaders::withSpinner(
-              plotlyOutput(ns(plotOutput), height = "100%"),
+              plotOutput(ns(plotOutput), height = "500px"),
               type = 4, color = "#001f3f", size = 1
             )
           })
           
           later::later(function() {
-
+            
             wave <- tuneR::readWave(wav_path_val)
-
+            
             if (wave@samp.rate < 8000) {
               showNotification(
                 "Sampling rate of the recording is too low, audio will not be available.",
@@ -249,109 +372,115 @@ mod_spectro_server <- function(id, data) {
                 session = session
               )
             }
-
-            # ---- COMPUTE SPECTROGRAM ONCE ----
+            
+            # ---- COMPUTE SPECTROGRAM ----
             spect <- seewave::spectro(
               wave,
-              wl = wl_val,
+              wl   = wl_val,
               ovlp = overlap_val,
-              zp = 2,
+              zp   = 2,
               plot = FALSE
             )
-
-            colnames(spect$amp) <- spect$time
-            rownames(spect$amp) <- spect$freq
-
-            spect_df <- spect$amp |>
-              tibble::as_tibble(rownames = "freq") |>
-              tidyr::pivot_longer(-freq, names_to = "time", values_to = "amp") |>
-              dplyr::mutate(
-                freq = as.numeric(freq),
-                time = as.numeric(time)
-              )
-
-            # Cache Spectrogram
-            spectro_cache(spect_df)
-
-            # ---- INITIAL PLOT ----
-            zmax <- max(spect_df$amp, na.rm = TRUE)
-            zmin <- zmax - dyn_range_val
-
-            output[[plotOutput]] <- renderPlotly({
+            
+            amp_matrix <- spect$amp
+            amp_matrix[!is.finite(amp_matrix)] <- -120  # guard against -Inf from silent frames
+            
+            # Cache for dynamic range slider
+            spectro_cache(list(
+              amp  = amp_matrix,
+              time = spect$time,
+              freq = spect$freq
+            ))
+            
+            # ---- RENDER WITH BASE R image() ----
+            output[[plotOutput]] <- renderPlot({
+              cache <- spectro_cache()
+              req(cache)
               
-              plot_ly(
-                data = spect_df,
-                x = ~time,
-                y = ~freq,
-                z = ~amp,
-                type = "heatmap",
-                colorscale = "Jet",
-                zmin = zmin,
-                zmax = zmax,
-                colorbar = list(
-                  title = "Amplitude (dB)",
-                  titleside = "right",
-                  tickfont  = list(color = "white"),
-                  titlefont = list(color = "white")
-                ),
-                hovertemplate = paste(
-                  "Time: %{x:.3f} s<br>",
-                  "Freq: %{y:.1f} kHz<br>",
-                  "Amp: %{z:.1f} dB<extra></extra>"
-                ),
-                source = paste0("spectro_", index)
-              ) |>
-                layout(
-                  xaxis = list(
-                    title = "Time (s)",
-                    titlefont = list(size = 14, color = "white"),
-                    tickfont  = list(size = 12, color = "white"),
-                    tickcolor = "white",
-                    linecolor = "white",
-                    mirror    = TRUE
-                  ),
-                  yaxis = list(
-                    title = "Frequency (kHz)",
-                    titlefont = list(size = 14, color = "white"),
-                    tickfont  = list(size = 12, color = "white"),
-                    tickcolor = "white",
-                    linecolor = "white",
-                    mirror    = TRUE
-                  ),
-                  paper_bgcolor = "#001f3f",
-                  plot_bgcolor  = "#001f3f",
-                  margin = list(t = 25, r = 25, b = 55, l = 35),
-                  showlegend = FALSE
-                ) |>
-                style(
-                  hoverlabel = list(
-                    bgcolor = "white",
-                    font = list(color = "black")
-                  )
-                )
-            })
-
+              dyn_range_val <- input[[paste0("dyn_range_", index)]]
+              if (is.null(dyn_range_val) || is.na(dyn_range_val)) dyn_range_val <- 60
+              
+              zmax <- max(cache$amp, na.rm = TRUE)
+              zmin <- zmax - dyn_range_val
+              
+              amp_disp <- pmax(pmin(cache$amp, zmax), zmin)
+              
+              jet_colors <- colorRampPalette(
+                c("#00007F", "#0000FF", "#007FFF", "#00FFFF",
+                  "#7FFF7F", "#FFFF00", "#FF7F00", "#FF0000", "#7F0000")
+              )(512)
+              
+              par(
+                bg       = "#001f3f",
+                col.axis = "white",
+                col.lab  = "white",
+                fg       = "white",
+                mar      = c(4, 4.5, 2, 5),
+                xaxs     = "i",    # <-- forces x axis to exact data range, no padding
+                yaxs     = "i",     # <-- forces y axis to exact data range, no padding
+                cex.lab  = 1.3
+              )
+              
+              image(
+                x         = cache$time,
+                y         = cache$freq,
+                z         = t(amp_disp),
+                col       = jet_colors,
+                zlim      = c(zmin, zmax),
+                xlab      = "Time (s)",
+                ylab      = "Frequency (kHz)",
+                axes      = FALSE,
+                useRaster = TRUE
+              )
+              
+              # Generate ticks that stay within the actual data range
+              x_ticks <- pretty(range(cache$time), n = 8)
+              x_ticks <- x_ticks[x_ticks >= min(cache$time) & x_ticks <= max(cache$time)]
+              
+              y_ticks <- pretty(range(cache$freq), n = 8)
+              y_ticks <- y_ticks[y_ticks >= min(cache$freq) & y_ticks <= max(cache$freq)]
+              
+              axis(1, at = x_ticks, col = "white", col.ticks = "white",
+                   col.axis = "white", cex.axis = 1.1)   # <-- increased text size
+              axis(2, at = y_ticks, col = "white", col.ticks = "white",
+                   col.axis = "white", cex.axis = 1.1,   # <-- increased text size
+                   las = 1)
+              
+              # Larger axis labels
+              # title(xlab = "Time (s)",        col.lab = "white", cex.lab = 1.3)
+              # title(ylab = "Frequency (kHz)", col.lab = "white", cex.lab = 1.3)
+              
+              box(col = adjustcolor("white", alpha.f = 0.3))
+              
+              # Colorbar
+              usr <- par("usr")
+              cx1 <- usr[2] + diff(usr[1:2]) * 0.015
+              cx2 <- usr[2] + diff(usr[1:2]) * 0.045
+              n   <- length(jet_colors)
+              ys  <- seq(usr[3], usr[4], length.out = n + 1)
+              for (k in seq_len(n))
+                rect(cx1, ys[k], cx2, ys[k+1],
+                     col = jet_colors[k], border = NA, xpd = TRUE)
+              rect(cx1, usr[3], cx2, usr[4],
+                   col = NA, border = adjustcolor("white", 0.4), xpd = TRUE)
+              tks <- pretty(c(zmin, zmax), n = 5)
+              tks <- tks[tks >= zmin & tks <= zmax]
+              for (tk in tks) {
+                yp <- usr[3] + (tk - zmin) / (zmax - zmin) * diff(usr[3:4])
+                text(cx2 + diff(usr[1:2]) * 0.012, yp,
+                     paste0(tk, " dB"), col = "white", cex = 1.1,  # <-- increased colorbar text
+                     adj = c(0, 0.5), xpd = TRUE)
+              }
+              
+            }, bg = "#001f3f")
+            
           }, delay = 0.1)
         })
         
         observeEvent(input[[paste0("dyn_range_", index)]], {
-
-          spect_df <- spectro_cache()
-          req(spect_df)
-
-          zmax <- max(spect_df$amp, na.rm = TRUE)
-          zmin <- zmax - input[[paste0("dyn_range_", index)]]
-
-          plotlyProxy(
-            outputId = plotOutput,
-            session = session
-          ) |>
-            plotlyProxyInvoke(
-              "restyle",
-              list(zmin = zmin, zmax = zmax),
-              0
-            )
-        })
+          req(spectro_cache())
+          # renderPlot above already reads dyn_range input reactively — no proxy needed
+        }, ignoreInit = TRUE)
       })
     }
   })
