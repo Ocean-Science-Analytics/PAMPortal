@@ -401,6 +401,10 @@ mod_analysis_ui <- function(id) {
 mod_analysis_server <- function(id, data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
+    
+    #########################################################################
+    # Initial Paths and Functions for this Module
+    #########################################################################
     library(lubridate)
     call_count_plot_obj <- reactiveVal(NULL)
     call_den_plot_obj <- reactiveVal(NULL)
@@ -412,10 +416,22 @@ mod_analysis_server <- function(id, data){
     base_path <- reactive({
       req(data$selected_dir())
     })
-
-    observeEvent(data$rds_data(), {
-      req(data$rds_data())
-      locations <- names(data$rds_data())
+    
+    load_rds <- function(name) {
+      get_rds(
+        name            = name,
+        rds_paths       = data$rds_paths(),
+        rds_cache_val   = data$rds_cache(),
+        update_cache_fn = data$rds_cache
+      )
+    }
+    
+    #########################################################################
+    # Update Input choices
+    #########################################################################
+    observeEvent(data$rds_names(), {
+      req(data$rds_names())
+      locations <- data$rds_names() 
       updateSelectInput(session, "location_call_count", choices = locations)
       updateSelectInput(session, "location_call_den", choices = locations)
       updateSelectInput(session, "location_presence", choices = locations)
@@ -441,16 +457,12 @@ mod_analysis_server <- function(id, data){
     })
     
     observeEvent(input$location_dis, {
-      req(data$rds_data(), input$location_dis)
-      
-      selected_data <- data$rds_data()[input$location_dis]
-      
-      # Collect all events and species from the selected locations
+      req(data$rds_paths(), input$location_dis)
+      selected_data <- lapply(setNames(input$location_dis, input$location_dis), load_rds)
       event_choices <- unique(unlist(lapply(selected_data, function(x) names(x@events))))
       species_choices <- unique(unlist(lapply(selected_data, function(x) {
         sapply(x@events, function(ev) ev@species$id)
       })))
-      
       updateSelectInput(session, "event_filter", choices = c("All", event_choices), selected = "All")
       updateSelectInput(session, "species_filter", choices = c("All", species_choices), selected = "All")
     })
@@ -462,12 +474,10 @@ mod_analysis_server <- function(id, data){
       req(input$location_occr)
       
       # Load RDS data and extract unique species
-      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_occr, ".rds")))
+      rds <- load_rds(input$location_occr)
+      req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
-      
-      updateSelectInput(session, "species_filter_occr",
-                        choices = c("All", species),
-                        selected = "All")
+      updateSelectInput(session, "species_filter_occr", choices = c("All", species), selected = "All")
     })
     
     occurrence_plot_obj <- eventReactive(input$render_occr, {
@@ -492,7 +502,8 @@ mod_analysis_server <- function(id, data){
         species_of_interest = input$species_filter_occr,
         months_of_interest = input$month_filter_occr,
         environmental_variable = input$env_var_occr,
-        show_effort = input$show_effort
+        show_effort = input$show_effort,
+        load_rds_fn = load_rds
       )
     }, ignoreNULL = TRUE)
     
@@ -506,14 +517,10 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_call_count, {
       req(input$location_call_count)
-      
-      # Load RDS data and extract unique species
-      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_call_count, ".rds")))
+      rds <- load_rds(input$location_call_count)
+      req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
-      
-      updateSelectInput(session, "species_filter_call_count",
-                        choices = c("All", species),
-                        selected = "All")
+      updateSelectInput(session, "species_filter_call_count", choices = c("All", species), selected = "All")
     })
     
     call_count_plot_obj <- eventReactive(input$render_call_count, {
@@ -538,7 +545,8 @@ mod_analysis_server <- function(id, data){
         species_of_interest = input$species_filter_call_count,
         months_of_interest = input$month_filter_call_count,
         environmental_variable = input$env_var_call_count,
-        log_scale = input$log_scale
+        log_scale = input$log_scale,
+        load_rds_fn = load_rds
       )
     }, ignoreNULL = TRUE)
     
@@ -552,14 +560,10 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_call_den, {
       req(input$location_call_den)
-      
-      # Load RDS data and extract unique species
-      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_call_den, ".rds")))
+      rds <- load_rds(input$location_call_den)
+      req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
-      
-      updateSelectInput(session, "species_filter_call_den",
-                        choices = c("All", species),
-                        selected = "All")
+      updateSelectInput(session, "species_filter_call_den", choices = c("All", species), selected = "All")
     })
     
     call_den_plot_obj <- eventReactive(input$render_call_den, {
@@ -582,7 +586,8 @@ mod_analysis_server <- function(id, data){
         base_path = base_path(),
         species_of_interest = input$species_filter_call_den,
         months_of_interest = input$month_filter_call_den,
-        environmental_variable = input$env_var_call_den
+        environmental_variable = input$env_var_call_den,
+        load_rds_fn = load_rds
         #log_scale = input$log_scale
       )
     }, ignoreNULL = TRUE)
@@ -596,9 +601,8 @@ mod_analysis_server <- function(id, data){
     # Call Measurement Plot
     ###################################################################
     observeEvent(input$species_filter, {
-      req(data$rds_data(), input$location_dis, input$species_filter)
-      
-      selected_data <- data$rds_data()[input$location_dis]
+      req(data$rds_paths(), input$location_dis, input$species_filter)
+      selected_data <- lapply(setNames(input$location_dis, input$location_dis), load_rds)
       
       # Filter events based on selected species
       filtered_events <- lapply(selected_data, function(loc_data) {
@@ -638,14 +642,10 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_presence, {
       req(input$location_presence)
-      
-      # Load RDS data and extract unique species
-      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_presence, ".rds")))
+      rds <- load_rds(input$location_presence)
+      req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
-      
-      updateSelectInput(session, "species_filter_presence",
-                        choices = c("All", species),
-                        selected = "All")
+      updateSelectInput(session, "species_filter_presence", choices = c("All", species), selected = "All")
     })
     
     presence_plot_obj <- eventReactive(input$render_presence, {
@@ -665,12 +665,13 @@ mod_analysis_server <- function(id, data){
       }
       
       plot_hourly_presence(
-        location = input$location_presence,
-        base_path = base_path(),
+        location           = input$location_presence,
+        base_path          = base_path(),
         species_of_interest = input$species_filter_presence,
-        months_of_interest = input$month_filter_presence,
-        metric = input$metric_presence,
-        log_scale = input$log_scale_presence
+        months_of_interest  = input$month_filter_presence,
+        metric             = input$metric_presence,
+        log_scale          = input$log_scale_presence,
+        load_rds_fn        = load_rds    # <-- pass the cache function
       )
     }, ignoreNULL = TRUE)
     
@@ -684,14 +685,10 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_detection, {
       req(input$location_detection)
-      
-      # Load RDS data and extract unique species
-      rds <- readRDS(file.path(base_path(), "RDS", paste0(input$location_detection, ".rds")))
+      rds <- load_rds(input$location_detection)
+      req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
-      
-      updateSelectInput(session, "species_filter_detection",
-                        choices = c("All", species),
-                        selected = "All")
+      updateSelectInput(session, "species_filter_detection", choices = c("All", species), selected = "All")
     })
     
     detection_plot_obj <- eventReactive(input$render_plot_detection, {
@@ -726,7 +723,8 @@ mod_analysis_server <- function(id, data){
         base_path = base_path(),
         species_of_interest = input$species_filter_detection,
         months_of_interest = input$month_filter_detection,
-        see_duty_cycle = input$see_duty_detection
+        see_duty_cycle = input$see_duty_detection,
+        load_rds_fn = load_rds
         #duty_cycle_min = if (is.null(duty_min)) 60 else duty_min
       )
     }, ignoreNULL = TRUE)

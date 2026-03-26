@@ -32,6 +32,14 @@ mod_main_ui <- function(id) {
           background-color: lightskyblue !important;
           transform: scale(1.05);
         }
+        .modal-confirm-btn {
+          transition: all 0.2s ease !important;
+        }
+        .modal-confirm-btn:hover {
+          background-color: lightskyblue !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        }
         .input-section {
           border: 2px solid black; 
           padding: 10px; 
@@ -110,8 +118,19 @@ mod_main_ui <- function(id) {
         placeholder = "e.g. ID_12345"
       ),
       div(
-        style = "display: flex; width: 100%;",
-        actionButton(ns("submit_id"), "Access Files", icon = shiny::icon("folder-open"), class = "custom-btn", style = "flex-grow: 1;")
+        style = "display: flex; width: 100%; align-items: center; gap: 10px;",
+        actionButton(ns("submit_id"), "Access Files", icon = shiny::icon("folder-open"), 
+                     class = "custom-btn", style = "flex-grow: 1;"),
+        # Spinner shown while loading
+        div(
+          id = ns("client_spinner"),
+          style = "display: none;",
+          tags$span(
+            class = "spinner-border spinner-border-sm text-secondary",
+            role  = "status",
+            style = "width: 1.2rem; height: 1.2rem;"
+          )
+        )
       ),
       tags$hr(style = "border-top: 2px solid black; margin-top: 15px; margin-bottom: 15px;"),
       
@@ -178,12 +197,24 @@ mod_main_server <- function(id){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
     
+    load_rds <- function(name) {
+      get_rds(
+        name            = name,
+        rds_paths       = data$rds_paths(),
+        rds_cache_val   = data$rds_cache(),
+        update_cache_fn = data$rds_cache
+      )
+    }
+    
 ##############################################################
 # DIRECTORY OUTPUT LOGIC
 ##############################################################
     selected_dir <- reactiveVal(NULL)
     rds_names <- reactiveVal(NULL)
-    rds_data <- reactiveVal(NULL)
+    rds_paths    <- reactiveVal(NULL)   # named vec: name -> file path
+    rds_cache    <- reactiveVal(list()) # loads into memory only when selected
+    selected_rds <- reactiveVal(NULL)
+    #rds_data <- reactiveVal(NULL)
     acoustic_names <- reactiveVal(NULL)
     acoustic_file_tree <- reactiveVal(NULL)
     soundscape_data <- reactiveVal(NULL)
@@ -319,12 +350,42 @@ mod_main_server <- function(id){
     observeEvent(input$expand_map, {
       showModal(
         modalDialog(
-          title = "Map View",
-          size = "xl",  # Large modal
+          title = div(
+            style = "display: flex; align-items: center; gap: 10px;",
+            shiny::icon("map-location-dot"),
+            span("Deployment Locations", style = "font-weight: bold; font-size: 1.1em;")
+          ),
+          size      = "xl",
           easyClose = TRUE,
-          footer = modalButton("Close"),
-          leaflet::leafletOutput(ns("map_large"), height = "600px")
+          footer    = tagList(
+            div(
+              style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+              # Site count on the left
+              uiOutput(ns("modal_site_count")),
+              modalButton("Close")
+            )
+          ),
+          tagList(
+            # Map fills modal
+            leaflet::leafletOutput(ns("map_large"), height = "600px"),
+            # Small legend below map
+            div(
+              style = "margin-top: 8px; font-size: 0.82rem; color: #666; text-align: right;",
+              shiny::icon("circle-info"),
+              " Click markers for site details. Use layer control to switch basemaps."
+            )
+          )
         )
+      )
+    })
+    
+    output$modal_site_count <- renderUI({
+      locs <- try(location_data(), silent = TRUE)
+      if (inherits(locs, "try-error") || is.null(locs) || nrow(locs) == 0) return(NULL)
+      div(
+        style = "font-size: 0.88rem; color: #555;",
+        shiny::icon("location-dot", style = "color: #00688B;"),
+        paste(nrow(locs), "deployment site(s) loaded")
       )
     })
     
@@ -388,41 +449,170 @@ mod_main_server <- function(id){
     ##############################################################
     observeEvent(input$load_example, {
       showModal(modalDialog(
-        title = "OOI Example Data",
-        tagList(
-          p("The National Science Foundation-funded Ocean Observatories Initiative (OOI) maintains a series of coastal and oceanic monitoring sites that consists of a multitude of physical and biological sensors."),
-          p("As part of this program, OOI collects continuous data from a cabled array along the continental shelf and slope off Newport, Oregon."),
-          p("Ocean Science Analytics is currently exploring the occurrence of vocally active marine mammal species in relation to coastal and offshore oceanographic variables following recent persistent changes (i.e. warm water “blob” anomaly) to this dynamic part of the California Current Ecosystem."),
-          p("This example dataset is a single month of data from two different OOI site locations."),
-          p("Please follow these links if you want to learn more about the ",
-            a("Ocean Observatory Initiative", href = "https://ooinet.oceanobservatories.org/", target = "_blank"), 
-            " or the ",
-            a("Coastal and Offshore Oregon Marine Mammal Ecological Study", href = "https://www.oceanscienceanalytics.com/coastal-OR-marine-mammal-study", target = "_blank"),"."
-          ),
-          p("Follow these links if you want to learn more about these specific OOI hydrophone deployments."),
-          strong("HYDBBA103"),
-          tags$ul(
-            tags$li(
-              a("Mooring Information", href = "https://oceanobservatories.org/site/rs01sbps/", target = "_blank")
-            ),
-            tags$li(
-              a("Raw Data", href = "https://rawdata.oceanobservatories.org/files/RS01SBPS/PC01A/HYDBBA103/", target = "_blank")
-            )
-          ),
-          strong("HYDBBA106"),
-          tags$ul(
-            tags$li(
-              a("Mooring Information", href = "https://oceanobservatories.org/site/ce02shbp/", target = "_blank")
-            ),
-            tags$li(
-              a("Raw Data", href = "https://rawdata.oceanobservatories.org/files/CE02SHBP/LJ01D/HYDBBA106/", target = "_blank")
-            )
-          ),
-          tags$img(src = "www/OOI.png", width = "100%", style = "margin-top: 15px; border: 1px solid #ddd;")
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("flask", style = "color: #CDAD00; font-size: 1.3em;"),
+          span("OOI Example Dataset", style = "font-weight: bold; font-size: 1.1em; color: #001f3f;")
         ),
-        footer = tagList(
-          modalButton("Cancel"),
-          actionButton(ns("confirm_example_load"), "Submit", class = "btn-primary")
+        easyClose = TRUE,
+        size = "l",
+        footer = div(
+          style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+          span(
+            style = "font-size: 0.82rem; color: #888;",
+            shiny::icon("clock", style = "margin-right: 4px;"),
+            "Loading may take a few moments."
+          ),
+          div(
+            style = "display: flex; gap: 8px;",
+            modalButton("Cancel"),
+            actionButton(ns("confirm_example_load"), "Load Example Data",
+                         icon  = shiny::icon("upload"),
+                         class = "modal-confirm-btn",   
+                         style = "background-color: #00688B; color: white; border: none;
+                      border-radius: 6px; padding: 8px 20px; font-weight: 500;"
+            )
+          )
+        ),
+        
+        tagList(
+          
+          # About OOI section
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("water", style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("About the Ocean Observatories Initiative (OOI)"),
+              tags$p(
+                style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                "The NSF-funded OOI maintains a series of coastal and oceanic monitoring sites
+             with a multitude of physical and biological sensors. This program collects
+             continuous data from a cabled array along the continental shelf and slope
+             off Newport, Oregon."
+              ),
+              tags$p(
+                style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                "Ocean Science Analytics is exploring the occurrence of vocally active marine
+             mammal species in relation to coastal and offshore oceanographic variables
+             following recent persistent changes (i.e. warm water ",
+                tags$em("\"blob\""), " anomaly) to this dynamic part of the California Current Ecosystem."
+              ),
+              div(
+                style = "margin-top: 8px; display: flex; gap: 16px; flex-wrap: wrap;",
+                a(
+                  href = "https://ooinet.oceanobservatories.org/", target = "_blank",
+                  style = "font-size: 0.85rem; color: #00688B;",
+                  shiny::icon("arrow-up-right-from-square", style = "margin-right: 4px;"),
+                  "Ocean Observatories Initiative"
+                ),
+                a(
+                  href = "https://www.oceanscienceanalytics.com/coastal-OR-marine-mammal-study",
+                  target = "_blank",
+                  style = "font-size: 0.85rem; color: #00688B;",
+                  shiny::icon("arrow-up-right-from-square", style = "margin-right: 4px;"),
+                  "Coastal OR Marine Mammal Study"
+                )
+              )
+            )
+          ),
+          
+          # Dataset info
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("database", style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("About This Example Dataset"),
+              tags$p(
+                style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                "This dataset contains a single month of passive acoustic data from
+             two OOI hydrophone deployments along the Oregon coast."
+              )
+            )
+          ),
+          
+          # Deployment cards side by side
+          div(
+            style = "display: flex; gap: 12px; margin-bottom: 16px;",
+            
+            # HYDBBA103
+            div(
+              style = "flex: 1; padding: 12px; border-radius: 8px;
+                   background-color: #f8f8f8; border: 1px solid #ddd;",
+              div(
+                style = "display: flex; align-items: center; gap: 8px; margin-bottom: 8px;",
+                shiny::icon("microphone", style = "color: #00688B;"),
+                tags$b("HYDBBA103", style = "color: #001f3f;")
+              ),
+              tags$p(
+                style = "font-size: 0.82rem; color: #888; margin-bottom: 8px;",
+                "Continental Slope — RS01SBPS"
+              ),
+              div(
+                style = "display: flex; flex-direction: column; gap: 4px;",
+                a(
+                  href = "https://oceanobservatories.org/site/rs01sbps/", target = "_blank",
+                  style = "font-size: 0.85rem; color: #00688B;",
+                  shiny::icon("anchor", style = "margin-right: 4px;"),
+                  "Mooring Information"
+                ),
+                a(
+                  href = "https://rawdata.oceanobservatories.org/files/RS01SBPS/PC01A/HYDBBA103/",
+                  target = "_blank",
+                  style = "font-size: 0.85rem; color: #00688B;",
+                  shiny::icon("file-waveform", style = "margin-right: 4px;"),
+                  "Raw Data"
+                )
+              )
+            ),
+            
+            # HYDBBA106
+            div(
+              style = "flex: 1; padding: 12px; border-radius: 8px;
+                   background-color: #f8f8f8; border: 1px solid #ddd;",
+              div(
+                style = "display: flex; align-items: center; gap: 8px; margin-bottom: 8px;",
+                shiny::icon("microphone", style = "color: #00688B;"),
+                tags$b("HYDBBA106", style = "color: #001f3f;")
+              ),
+              tags$p(
+                style = "font-size: 0.82rem; color: #888; margin-bottom: 8px;",
+                "Continental Shelf — CE02SHBP"
+              ),
+              div(
+                style = "display: flex; flex-direction: column; gap: 4px;",
+                a(
+                  href = "https://oceanobservatories.org/site/ce02shbp/", target = "_blank",
+                  style = "font-size: 0.85rem; color: #00688B;",
+                  shiny::icon("anchor", style = "margin-right: 4px;"),
+                  "Mooring Information"
+                ),
+                a(
+                  href = "https://rawdata.oceanobservatories.org/files/CE02SHBP/LJ01D/HYDBBA106/",
+                  target = "_blank",
+                  style = "font-size: 0.85rem; color: #00688B;",
+                  shiny::icon("file-waveform", style = "margin-right: 4px;"),
+                  "Raw Data"
+                )
+              )
+            )
+          ),
+          
+          # OOI image
+          div(
+            style = "border-radius: 8px; overflow: hidden; border: 1px solid #ddd;
+                 box-shadow: 0 2px 6px rgba(0,0,0,0.1);",
+            tags$img(
+              src   = "www/OOI.png",
+              width = "100%",
+              style = "display: block;"
+            )
+          )
         )
       ))
     })
@@ -439,7 +629,10 @@ mod_main_server <- function(id){
       
       selected_dir(result$root_path)
       rds_names(result$rds_names)
-      rds_data(result$rds_data)
+      rds_paths(result$rds_paths)     
+      rds_cache(list())               
+      selected_rds(NULL)
+      #rds_data(result$rds_data)
       acoustic_names(result$acoustic_names)
       acoustic_file_tree(result$acoustic_tree)
       soundscape_data(result$soundscape)
@@ -461,7 +654,6 @@ mod_main_server <- function(id){
     ##############################################################    
     observeEvent(input$submit_id, {
       req(input$client_id)
-      showNotification("Loading Data Files...", type = "message")
       
       client_id <- trimws(input$client_id)
       
@@ -469,6 +661,16 @@ mod_main_server <- function(id){
         showNotification("Please enter a Client ID.", type = "error")
         return()
       }
+      
+      shinyjs::show("client_spinner")
+      shinyjs::disable("submit_id")
+      
+      on.exit({
+        shinyjs::hide("client_spinner")
+        shinyjs::enable("submit_id")
+      })
+      
+      showNotification("Loading Data Files...", type = "message")
       
       DATA_ROOT <- Sys.getenv("DATA_ROOT", unset = "inst/data")
       client_folder <- file.path(DATA_ROOT, client_id)
@@ -483,14 +685,17 @@ mod_main_server <- function(id){
 
       selected_dir(result$root_path)
       rds_names(result$rds_names)
-      rds_data(result$rds_data)
+      rds_paths(result$rds_paths)
+      rds_cache(list())
+      selected_rds(NULL)
+      #rds_data(result$rds_data)
       acoustic_names(result$acoustic_names)
       acoustic_file_tree(result$acoustic_tree)
       soundscape_data(result$soundscape)
       click_detector_data(result$click_detector)
       
       output$load_status <- renderText({
-        "✔️ Client Data Loaded"
+        "✔️ Data Succesfully Loaded"
       })
     })
     
@@ -512,7 +717,10 @@ mod_main_server <- function(id){
         selected_dir(result$root_path)
         
         rds_names(result$rds_names)
-        rds_data(result$rds_data)
+        rds_paths(result$rds_paths)     
+        rds_cache(list()) 
+        selected_rds(NULL)
+        #rds_data(result$rds_data)
         acoustic_names(result$acoustic_names)
         acoustic_file_tree(result$acoustic_tree)
         soundscape_data(result$soundscape)
@@ -550,7 +758,10 @@ mod_main_server <- function(id){
     # Return both file paths and original names for use in other modules
     return(list(
       rds_names = rds_names,
-      rds_data = rds_data,   
+      rds_paths = rds_paths,
+      rds_cache = rds_cache,       
+      selected_rds = selected_rds,
+      #rds_data = rds_data,   
       acoustic_names = acoustic_names,
       acoustic_file_tree = acoustic_file_tree,
       soundscape_data = soundscape_data,

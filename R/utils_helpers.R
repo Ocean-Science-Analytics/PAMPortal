@@ -175,14 +175,17 @@ process_folder <- function(root_path) {
   
   ## ---- RDS LOADING ---- ##
   rds_names <- NULL
-  rds_data <- NULL
+  rds_paths <- NULL
+  #rds_data <- NULL
   if (dir.exists(rds_folder)) {
     rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
     if (length(rds_paths) > 0) {
       rds_names <- tools::file_path_sans_ext(basename(rds_paths))
-      rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
+      rds_paths <- setNames(rds_paths, rds_names)
+      #rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
     }
   }
+  
   
   ## ---- ACOUSTIC LOADING ---- ##
   acoustic_names <- NULL
@@ -251,7 +254,8 @@ process_folder <- function(root_path) {
   list(
     root_path = root_path,
     rds_names = rds_names,
-    rds_data = rds_data,
+    rds_paths = rds_paths,
+    #rds_data = rds_data,
     acoustic_names = acoustic_names,
     acoustic_tree = acoustic_tree,
     soundscape = soundscape,
@@ -287,12 +291,14 @@ process_zip <- function(zip_path) {
   
   ## ---- RDS LOADING ---- ##
   rds_names <- NULL
-  rds_data <- NULL
+  rds_paths <- NULL
+  #rds_data <- NULL
   if (dir.exists(rds_folder)) {
     rds_paths <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE, ignore.case = TRUE)
     if (length(rds_paths) > 0) {
       rds_names <- tools::file_path_sans_ext(basename(rds_paths))
-      rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
+      rds_paths <- setNames(rds_paths, rds_names)
+      #rds_data <- setNames(lapply(rds_paths, readRDS), rds_names)
     }
   }
   
@@ -363,7 +369,8 @@ process_zip <- function(zip_path) {
   list(
     root_path = root_path,
     rds_names = rds_names,
-    rds_data = rds_data,
+    rds_paths = rds_paths,
+    #rds_data = rds_data,
     acoustic_names = acoustic_names,
     acoustic_tree = acoustic_tree,
     soundscape = soundscape,
@@ -424,6 +431,44 @@ process_acoustic_data <- function(acou_data) {
   return(final_df)
 }
 
+#' Get RDS Data
+#' 
+#' @description Reads in the selected RDS file from the cache
+#'
+#' @examples
+#' acou_data <- get_rds(
+#    name           = input$rds_select,
+#    rds_paths      = data$rds_paths(),
+#    rds_cache_val  = data$rds_cache(),
+#    update_cache_fn = data$rds_cache
+#  )
+get_rds <- function(name, rds_paths, rds_cache_val, update_cache_fn) {
+  
+  # Guard against empty/null name or paths
+  if (is.null(name) || name == "" || is.null(rds_paths)) return(NULL)
+  
+  # Guard against name not existing in paths
+  if (!name %in% names(rds_paths)) {
+    warning(paste("RDS name not found in paths:", name, "\nAvailable:", paste(names(rds_paths), collapse = ", ")))
+    return(NULL)
+  }
+  
+  if (name %in% names(rds_cache_val)) {
+    return(rds_cache_val[[name]])
+  }
+  
+  path <- rds_paths[[name]]
+  if (is.null(path)) stop(paste("No path found for RDS:", name))
+  
+  showNotification(paste("Loading", name, "..."), type = "message")
+  obj <- readRDS(path)
+  
+  rds_cache_val[[name]] <- obj
+  update_cache_fn(rds_cache_val)  # pushes updated cache back into reactiveVal
+  
+  obj
+}
+
 
 #' Get data
 #' 
@@ -433,11 +478,17 @@ process_acoustic_data <- function(acou_data) {
 #' @examples
 #' get_data(location, base_path, months_of_interest = c(6,7))
 #' output: df with UTC, species, callType, and duration
-get_data <- function(location, base_path, 
-                     months_of_interest = c('All'), species_of_interest = c("All")) {
+get_data <- function(location, base_path,
+                     months_of_interest = c('All'), species_of_interest = c("All"),
+                     load_rds_fn = NULL) {
   
-  rds_path <- file.path(base_path, "RDS", paste0(location, ".rds"))
-  rds <- readRDS(rds_path)
+  # Use cache if provided, otherwise fall back to direct read
+  if (!is.null(load_rds_fn)) {
+    rds <- load_rds_fn(location)
+  } else {
+    rds_path <- file.path(base_path, "RDS", paste0(location, ".rds"))
+    rds <- readRDS(rds_path)
+  }
   
   detectors <- unique(unlist(lapply(rds@events, function(event) names(event@detectors))))
   
@@ -445,38 +496,35 @@ get_data <- function(location, base_path,
     dfs <- lapply(detectors, function(detector) {
       data <- event[[detector]]
       if (is.null(data)) return(NULL)
-      
-      utc <- as.POSIXct(data$UTC, tz = "UTC")
-      df <- tibble(
-        UTC     = data$UTC,
+      tibble(
+        UTC      = data$UTC,
         species  = event@species$id,
         callType = detector,
         duration = data$duration
       )
     })
-    
     dfs <- dfs[!sapply(dfs, is.null)]
     if (length(dfs) > 0) bind_rows(dfs) else NULL
-    
   })
   
   species_list <- species_list[!sapply(species_list, is.null)]
-  species_df <- bind_rows(species_list)
+  species_df   <- bind_rows(species_list)
   
   species_df <- species_df %>%
-    mutate(callType = sub("_.*", "", callType),
-           duration = if_else(callType == "Click", duration / 1e6, duration))
+    mutate(
+      callType = sub("_.*", "", callType),
+      duration = if_else(callType == "Click", duration / 1e6, duration)
+    )
   
   if (!("All" %in% months_of_interest)) {
     species_df <- species_df %>%
       filter(month(UTC, label = TRUE, abbr = FALSE) %in% months_of_interest)
   }
   
-  if (!("All") %in% species_of_interest) {
+  if (!("All" %in% species_of_interest)) {
     species_df <- species_df %>%
       filter(species %in% species_of_interest)
   }
-  
   
   return(species_df)
 }
@@ -530,10 +578,18 @@ get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
   file_name <- file.path(base_path, paste0(location, "_sound_map.csv"))
   
   sound_map <- read.csv(file_name, stringsAsFactors = FALSE)
-
+  
+  # Ensure local_time is parsed as datetime
+  sound_map$local_time <- as.POSIXct(sound_map$local_time, tz = "UTC")
+  
   if (!("All" %in% months_of_interest)) {
     sound_map <- sound_map %>%
-      filter(month(local_time, label = TRUE, abbr = FALSE) %in% months_of_interest)
+      filter(lubridate::month(local_time, label = TRUE, abbr = FALSE) %in% months_of_interest)
+  }
+  
+  if (nrow(sound_map) == 0) {
+    stop(paste("No soundmap data found for", location, 
+               "during the selected months:", paste(months_of_interest, collapse = ", ")))
   }
   
   return(sound_map)
@@ -559,11 +615,16 @@ get_environmental <- function(location, base_path, months_of_interest = c("All")
       filter(month(day, label = TRUE, abbr = FALSE) %in% months_of_interest)
   }
   
+  environmental$day <- lubridate::parse_date_time(
+    environmental$day,
+    orders = c("Ymd", "mdY"),
+    tz = "UTC"
+  ) %>% as.Date()
+  
   environmental$moon_illum <- 
     environmental$moon_illum * 100
   
   return(environmental)
-  
 }
 
 
@@ -645,34 +706,43 @@ get_grid <- function(df, location, base_path,
   sound_map = get_soundmap(location, base_path, months_of_interest) %>%
     mutate(day = as.Date(local_time))
   
-  all_days <- seq(min(sound_map$day), max(sound_map$day), by="day")
-  all_hours <- seq(0,23)
-  all_minutes <- seq(0,60)
+  valid_days <- sound_map$day[!is.na(sound_map$day)]
+  
+  if (length(valid_days) == 0) {
+    stop("No valid dates found in soundmap after filtering. Check that 'local_time' is formatted correctly.")
+  }
+  
+  all_days    <- seq(min(valid_days), max(valid_days), by = "day")
+  all_hours   <- seq(0, 23)
+  all_minutes <- seq(0, 60)
   
   if ('All' %in% species_of_interest) {
-    species_of_interest = unique(df$species)
+    species_of_interest <- unique(df$species)
   } else {
-    species_of_interest = intersect(species_of_interest, unique(df$species))
+    species_of_interest <- intersect(species_of_interest, unique(df$species))
+  }
+  
+  if (length(species_of_interest) == 0) {
+    stop("No matching species found in the data for the selected filters.")
   }
   
   if (minutes) {
     grid <- expand_grid(
-      day = all_days,
-      hour = all_hours, 
-      minute = all_minutes,
-      species = species_of_interest)
+      day     = all_days,
+      hour    = all_hours,
+      minute  = all_minutes,
+      species = species_of_interest
+    )
   } else {
     grid <- expand_grid(
-      day = all_days,
-      hour = all_hours,
-      species = species_of_interest)
+      day     = all_days,
+      hour    = all_hours,
+      species = species_of_interest
+    )
   }
   
   return(grid)
 }
-
-
-
 
 #' Return daylight classification
 #' 
@@ -688,11 +758,20 @@ get_daylight <- function(df, local_tz,
   
   lat <- get_metadata(location, base_path, "Latitude")
 
-  sun_times <- get_environmental(location, base_path, months_of_interest) %>%
+  sun_times <- env %>%
     select(day, sunrise, sunset) %>%
-    mutate(day = as.Date(day),
-           sunrise = force_tz(as.POSIXct(sunrise), tzone = local_tz),
-           sunset = force_tz(as.POSIXct(sunset), tzone = local_tz))
+    mutate(
+      day = lubridate::parse_date_time(day,
+                                       orders = c("Ymd", "mdY"),
+                                       tz = "UTC") %>% as.Date(),
+      sunrise = lubridate::parse_date_time(sunrise,
+                                           orders = c("Ymd HMS", "Ymd HM", "mdY HMS", "mdY HM"),
+                                           tz = local_tz),
+      sunset  = lubridate::parse_date_time(sunset,
+                                           orders = c("Ymd HMS", "Ymd HM", "mdY HMS", "mdY HM"),
+                                           tz = local_tz)
+    ) %>%
+    distinct(day, .keep_all = TRUE)
 
   
   #merge sunrise/sunset times with original df
@@ -776,7 +855,7 @@ format_species_title <- function(species_vec) {
 #' 
 plot_occurrence <- function(location, base_path,
                             months_of_interest = c("All"), species_of_interest = c("All"), 
-                            environmental_variable = NA, show_effort = FALSE) {
+                            environmental_variable = NA, show_effort = FALSE, load_rds_fn = NULL) {
   
   env_var_choices <- c(
     "None" = "None",
@@ -806,7 +885,7 @@ plot_occurrence <- function(location, base_path,
   }
   
   #pull data and prep grid
-  df <- get_data(location, base_path, months_of_interest)
+  df <- get_data(location, base_path, months_of_interest, load_rds_fn = load_rds_fn)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz)
@@ -815,7 +894,6 @@ plot_occurrence <- function(location, base_path,
     distinct(day, species)
   species_list <- species_of_interest
   environmental_variable <- environmental_variable
-
 
   #filter for species of interest
   if (!('All' %in% species_list)) {
@@ -837,7 +915,7 @@ plot_occurrence <- function(location, base_path,
   #pull sound map information to calculate daily effort
   sound_map <- get_soundmap(location, base_path, months_of_interest) %>%
     mutate(Status = str_trim(Status),
-           day = as.Date(local_time, tz = tz_func$tz)) %>%
+           day = as.Date(local_time, tz = local_tz)) %>%
     filter(Status %in% c("Start", "Continue")) %>%
     group_by(day) %>%
     summarise(monitored = n())
@@ -902,15 +980,12 @@ plot_occurrence <- function(location, base_path,
     env_var_source <- enviro_data[[environmental_variable]]$dataset_id
     env_var_title <- names(env_var_choices)[env_var_choices == env_var_csv_col]
 
-    
-    
     if (all(is.na(environmental_df[[env_var_csv_col]]))) {
       msg = paste("No data available for", environmental_variable, "during the selected time period.")
       showNotification(msg, type = "warning", duration = 8)
       stop(msg)
     }
     
-
     title = paste0(title, "\nwith ", env_var_title)
     # 
     # # If the column doesn't exist, stop with a helpful message
@@ -966,7 +1041,7 @@ plot_occurrence <- function(location, base_path,
 #' 
 plot_call_count <- function(location, base_path, 
                             months_of_interest = c("All"), species_of_interest = c("All"), 
-                            environmental_variable = NA, log_scale = FALSE) {
+                            environmental_variable = NA, log_scale = FALSE, load_rds_fn = NULL) {
   
   env_var_choices <- c(
     "None" = "None",
@@ -997,7 +1072,7 @@ plot_call_count <- function(location, base_path,
   
   
   #prep data
-  df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  df <- get_data(location, base_path, months_of_interest, species_of_interest, load_rds_fn = load_rds_fn)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz) %>%
@@ -1120,7 +1195,7 @@ plot_call_count <- function(location, base_path,
 #' 
 plot_call_density <- function(location, base_path, 
                               months_of_interest = c("All"), species_of_interest = c("All"), 
-                              environmental_variable = NA) {
+                              environmental_variable = NA, load_rds_fn = NULL) {
   
   env_var_choices <- c(
     "None" = "None",
@@ -1151,7 +1226,7 @@ plot_call_density <- function(location, base_path,
   }
   
   #retrieve and convert all data
-  df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  df <- get_data(location, base_path, months_of_interest, species_of_interest, load_rds_fn = load_rds_fn)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz)
@@ -1252,7 +1327,7 @@ plot_call_density <- function(location, base_path,
 #' 
 plot_hourly_presence<- function(location, base_path, 
                                 months_of_interest = c("All"), species_of_interest = c("All"),
-                                metric = "Count", log_scale = FALSE) {
+                                metric = "Count", log_scale = FALSE, load_rds_fn = NULL) {
   
   months_of_interest <- months_of_interest
   
@@ -1271,7 +1346,7 @@ plot_hourly_presence<- function(location, base_path,
   }
   
   #get data and compile grid
-  df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  df <- get_data(location, base_path, months_of_interest, species_of_interest, load_rds_fn = load_rds_fn)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz)
@@ -1375,7 +1450,7 @@ plot_hourly_presence<- function(location, base_path,
 #' 
 plot_detections_by_minute <- function(location, base_path, 
                                       months_of_interest = c("All"), species_of_interest = c("All"),
-                                      see_duty_cycle = FALSE) {
+                                      see_duty_cycle = FALSE, load_rds_fn = NULL) {
   
   months_of_interest <- months_of_interest
   
@@ -1400,7 +1475,7 @@ plot_detections_by_minute <- function(location, base_path,
   dc_per_hour = get_metadata(location, base_path, "dc_per_hour")
   
   #get/convert species data
-  df <- get_data(location, base_path, months_of_interest, species_of_interest)
+  df <- get_data(location, base_path, months_of_interest, species_of_interest, load_rds_fn = load_rds_fn)
   
   if(nrow(df) == 0) {
     showNotification("Detection Plot Stopped", type = "error", duration = 8)
@@ -1711,54 +1786,145 @@ plot_measurements <- function(location_list, base_path,
 card_spectro <- function(ns, id, index) {
   tagList(
     div(
-      style = "display: flex; flex-direction: row; border: 1px solid #ccc; border-radius: 8px;
-      margin-bottom: 20px; padding: 15px; height: 800px; background-color: #f9f9f9; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
+      style = "display: flex; flex-direction: row;
+               border: none; border-radius: 12px;
+               margin-bottom: 24px; padding: 0;
+               height: 820px;
+               background-color: #ffffff;
+               box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+               overflow: hidden;",
       
-      # Left panel with inputs
+      # ── Left panel ──────────────────────────────────────────────────────
       div(
-        style = "flex: 0.8; display: flex; flex-direction: column; gap: 2px; margin-right: 4px;",
-        h4(paste("Spectrogram", index)),
-        div(style = "border: 2px solid black; border-radius: 6px; padding: 5px; margin-bottom: 10px;",
-            selectInput(ns(paste0("location_", index)), "1. Location", choices = NULL),
-            selectInput(ns(paste0("species_", index)), "2. Species", choices = NULL),
-            selectInput(ns(paste0("folder_", index)), "3. Folder", choices = NULL),
-            selectInput(ns(paste0("file_", index)), "4. WAV File", choices = NULL)
+        style = "flex: 0 0 290px; display: flex; flex-direction: column;
+                 gap: 0; background-color: #f4f6f8;
+                 border-right: 1px solid #e0e0e0; padding: 16px;
+                 overflow-y: auto;",
+        
+        # Header
+        div(
+          style = "display: flex; align-items: center; gap: 8px;
+                   margin-bottom: 14px; padding-bottom: 10px;
+                   border-bottom: 2px solid #00688B;",
+          shiny::icon("wave-square", style = "color: #00688B; font-size: 1.1em;"),
+          tags$span(
+            paste("Spectrogram", index),
+            style = "font-weight: bold; font-size: 1rem; color: #001f3f;"
+          )
         ),
-        div(style = "border: 2px solid black; border-radius: 6px; padding: 5px; margin-bottom: 10px;",
-            numericInput(ns(paste0("wl_", index)), "Window Length (wl)", value = 1024, min = 128, step = 128),
-            sliderInput(ns(paste0("overlap_", index)), "Overlap %", min = 50, max = 90, value = 70, step = 2),
-            sliderInput(ns(paste0("dyn_range_", index)), "Amplitude dynamic range (dB)", min = 20, max = 120, value = 40, step = 5)
+        
+        # File selection section
+        div(
+          style = "background-color: #ffffff; border-radius: 8px;
+                   padding: 10px; margin-bottom: 10px;
+                   border: 1px solid #e0e0e0;",
+          tags$p(
+            style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                     text-transform: uppercase; letter-spacing: 0.05em;
+                     margin-bottom: 8px;",
+            shiny::icon("folder-open", style = "margin-right: 4px;"),
+            "File Selection"
+          ),
+          selectInput(ns(paste0("location_", index)), "Location",  choices = NULL, width = "100%"),
+          selectInput(ns(paste0("species_",  index)), "Species",   choices = NULL, width = "100%"),
+          selectInput(ns(paste0("folder_",   index)), "Folder",    choices = NULL, width = "100%"),
+          selectInput(ns(paste0("file_",     index)), "WAV File",  choices = NULL, width = "100%")
+        ),
+        
+        # Settings section
+        div(
+          style = "background-color: #ffffff; border-radius: 8px;
+                   padding: 10px; margin-bottom: 10px;
+                   border: 1px solid #e0e0e0;",
+          tags$p(
+            style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                     text-transform: uppercase; letter-spacing: 0.05em;
+                     margin-bottom: 8px;",
+            shiny::icon("sliders", style = "margin-right: 4px;"),
+            "Settings"
+          ),
+          numericInput(ns(paste0("wl_", index)),
+                       "Window Length",
+                       value = 1024, min = 128, step = 128, width = "100%"),
+          sliderInput(ns(paste0("overlap_", index)),
+                      "Overlap %",
+                      min = 50, max = 90, value = 70, step = 2, width = "100%"),
+          sliderInput(ns(paste0("dyn_range_", index)),
+                      "Dynamic Range (dB)",
+                      min = 20, max = 120, value = 40, step = 5, width = "100%")
+        ),
+        
+        # Render button at bottom of left panel
+        div(
+          style = "margin-top: auto;",
+          actionButton(
+            ns(paste0("render_", index)),
+            "Render Spectrogram",
+            icon  = shiny::icon("play"),
+            class = "custom-btn",
+            style = "width: 100%; padding: 10px;"
+          )
         )
       ),
+      
+      # ── Right panel ─────────────────────────────────────────────────────
       div(
-        style = "flex: 3.2; min-width: 0; display: flex; flex-direction: column; gap: 10px; height: 100%;",
-        # Audio player
-        uiOutput(ns(paste0("audio_", index))),
+        style = "flex: 1; min-width: 0; display: flex; flex-direction: column;
+                 padding: 16px; gap: 10px; height: 100%; background-color: #ffffff;",
         
-        # Spectrogram plot — flexible, fills remaining space
+        # Audio player row
         div(
-          style = "flex: 1; border: 1px solid #ccc;",
+          style = "display: flex; align-items: center; gap: 10px;
+                   padding: 8px 12px; background-color: #f4f6f8;
+                   border-radius: 8px; border: 1px solid #e0e0e0;",
+          shiny::icon("headphones", style = "color: #00688B; font-size: 1.1em; flex-shrink: 0;"),
+          div(style = "flex: 1; min-width: 0;",
+              uiOutput(ns(paste0("audio_", index)))
+          )
+        ),
+        
+        # Spectrogram plot
+        div(
+          style = "flex: 1; min-height: 0; border-radius: 8px;
+           overflow: hidden; border: 1px solid #e0e0e0;
+           background-color: #001f3f;",
           uiOutput(ns(paste0("plot_ui_", index)))
         ),
         
-        # Description / Analysis Comments
+        # Description / Analysis comments
         div(
-          style = "
-            padding: 8px; 
-            border-top: 1px solid #ddd; 
-            font-size: 16px; 
-            background-color: #fff;
-            box-shadow: 0 8px 10px rgba(0,0,0.08,0.1);
-            min-height: 120px;
-          ",
-          strong("Description:"),
-          uiOutput(ns(paste0("description_", index))),
-          tags$br(),
-          strong("Analysis Comments:"),
-          uiOutput(ns(paste0("analysis_", index)))
-        ),
-        actionButton(ns(paste0("render_", index)), "Render Spectrogram", icon = shiny::icon("file-audio"),
-                     class = "custom-btn"
+          style = "padding: 12px; border-radius: 8px;
+           background-color: #f4f6f8; border: 1px solid #e0e0e0;
+           min-height: 100px; max-height: 130px; overflow-y: auto;",
+          
+          div(
+            style = "display: flex; gap: 24px;",
+            div(
+              style = "flex: 1;",
+              tags$p(
+                style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                         text-transform: uppercase; letter-spacing: 0.05em;
+                         margin-bottom: 4px;",
+                shiny::icon("align-left", style = "margin-right: 4px;"),
+                "Description"
+              ),
+              div(style = "font-size: 0.9rem; color: #333;",
+                  uiOutput(ns(paste0("description_", index))))
+            ),
+            div(style = "width: 1px; background-color: #ddd;"),
+            div(
+              style = "flex: 1;",
+              tags$p(
+                style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                         text-transform: uppercase; letter-spacing: 0.05em;
+                         margin-bottom: 4px;",
+                shiny::icon("comment", style = "margin-right: 4px;"),
+                "Analysis Comments"
+              ),
+              div(style = "font-size: 0.9rem; color: #333;",
+                  uiOutput(ns(paste0("analysis_", index))))
+            )
+          )
         )
       )
     )
