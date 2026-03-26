@@ -112,7 +112,21 @@ mod_overview_ui <- function(id) {
                 style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
                 fluidRow(
                   column(3,
-                         selectInput(ns("rds_select"), "Select Main Data File:", choices = NULL, width = "100%")
+                         div(
+                           style = "display: flex; align-items: center; gap: 8px;",
+                           div(style = "flex-grow: 1;",
+                               selectInput(ns("rds_select"), "Select Main Data File:", choices = NULL, width = "100%")
+                           ),
+                           div(
+                             id = ns("spinner_rds1"),
+                             style = "display: none; margin-top: 26px;",
+                             tags$span(
+                               class = "spinner-border spinner-border-sm text-secondary",
+                               role  = "status",
+                               style = "width: 1.2rem; height: 1.2rem;"
+                             )
+                           )
+                         )
                   ),
                   column(1, align = "right",
                          div(style = "height: 100%; border-right: 2px solid black;")
@@ -120,14 +134,28 @@ mod_overview_ui <- function(id) {
                   column(3,
                          prettyCheckbox(
                            ns("compare"),
-                           label = "Compare Two Deployments",
-                           value = FALSE,
+                           label   = "Compare Two Deployments",
+                           value   = FALSE,
                            outline = TRUE,
-                           plain = TRUE,
-                           bigger = TRUE,
-                           icon = icon("square-check")
+                           plain   = TRUE,
+                           bigger  = TRUE,
+                           icon    = icon("square-check")
                          ),
-                         selectInput(ns("rds2_select"), "Select Comparison Data File:", choices = NULL, width = "100%")
+                         div(
+                           style = "display: flex; align-items: center; gap: 8px;",
+                           div(style = "flex-grow: 1;",
+                               selectInput(ns("rds2_select"), "Select Comparison Data File:", choices = NULL, width = "100%")
+                           ),
+                           div(
+                             id = ns("spinner_rds2"),
+                             style = "display: none; margin-top: 26px;",
+                             tags$span(
+                               class = "spinner-border spinner-border-sm text-secondary",
+                               role  = "status",
+                               style = "width: 1.2rem; height: 1.2rem;"
+                             )
+                           )
+                         )
                   )
                 )
             ),
@@ -251,7 +279,10 @@ mod_overview_server <- function(id, data){
                      as.character(shiny::icon("chart-simple")),
                      sprintf("<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Distribution (%s)</span>", input$rds_select)
                    ))),
-                   plotlyOutput(ns("card2"), height = "100%", width = "100%")
+                   div(
+                     style = "flex: 1; min-height: 0;",  # flex:1 fills remaining card space
+                     plotlyOutput(ns("card2"), height = "100%", width = "100%")
+                   )
                  )
           ),
           column(6,
@@ -262,7 +293,11 @@ mod_overview_server <- function(id, data){
                      as.character(shiny::icon("chart-simple")),
                      sprintf("<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Distribution (%s)</span>", input$rds2_select)
                    ))),
-                   plotlyOutput(ns("card2_cmp"), height = "100%", width = "100%")
+                   div(
+                     style = "flex: 1; min-height: 0;",
+                     plotlyOutput(ns("card2_cmp"), height = "100%", width = "100%")
+                   )
+                   
                  )
           )
         )
@@ -287,7 +322,10 @@ mod_overview_server <- function(id, data){
                      as.character(shiny::icon("chart-simple")), 
                      "<span style='font-weight: bold; font-size: 1.3em; margin-left: 8px;'>Species Distribution</span>"
                    ))),
-                   plotlyOutput(ns("card2"), height = "100%", width = "100%")
+                   div(
+                     style = "flex: 1; min-height: 0;",  # flex:1 fills remaining card space
+                     plotlyOutput(ns("card2"), height = "100%", width = "100%")
+                   )
                  )
           )
         )
@@ -328,13 +366,18 @@ mod_overview_server <- function(id, data){
     #########################################################################
     species_data <- reactive({
       req(input$rds_select)
+      shinyjs::show("spinner_rds1")
+      on.exit(shinyjs::hide("spinner_rds1"))
       acou_data <- load_rds(input$rds_select)
       req(!is.null(acou_data))
       process_acoustic_data(acou_data)
     })
     
     species2_data <- reactive({
+      req(isTRUE(input$compare))
       req(input$rds2_select)
+      shinyjs::show("spinner_rds2")
+      on.exit(shinyjs::hide("spinner_rds2"))
       acou2_data <- load_rds(input$rds2_select)
       req(!is.null(acou2_data))
       process_acoustic_data(acou2_data)
@@ -539,43 +582,33 @@ mod_overview_server <- function(id, data){
     
     output$card2 <- renderPlotly({
       req(data$rds_names())
-      species_df <- species_data()  # <-- reuse the reactive result
+      species_df <- species_data()
       
       if (nrow(species_df) == 0) {
-        return(
-          plot_ly() %>%
-            add_trace(type = "pie", labels = c("No Species Data Found"), values = c(1), textinfo = "label")
-        )
+        return(plot_ly() %>%
+                 add_trace(type = "pie", labels = c("No Species Data Found"), values = c(1), textinfo = "label"))
       }
       
       species_counts <- table(species_df$Species)
-      color_map <- species_colors()
+      color_map      <- species_colors()
       
-      
-      # Create a pie chart
       plot_ly(
-        labels = names(species_counts),
-        values = as.numeric(species_counts),
-        type = "pie",
-        textinfo = "label+percent",
-        textposition = "inside", 
-        hoverinfo = "label+value+percent",
-        marker = list(colors = unname(color_map[names(species_counts)])) #marker = list(colors = RColorBrewer::brewer.pal(length(species_counts), "RdYlBu"))) %>% # Also like 'Set3', 'Blues', and 'RdYlBu'. See https://r-graph-gallery.com/38-rcolorbrewers-palettes
-        ) %>% 
-        layout(title = NULL, 
-               legend = list(
-                 orientation = "h", 
-                 x = 0.1,
-                 y = -0.1,
-                 font = list(size = 12)
-               ),
-               width = 490, 
-               height = 520,
-               margin = list(l = 20, r = 20, t = 20, b = 20),
-               autosize = TRUE,
-               marker = list(
-                 size = 11  # Adjusts legend color swatch size
-               ))
+        labels        = names(species_counts),
+        values        = as.numeric(species_counts),
+        type          = "pie",
+        textinfo      = "label+percent",
+        textposition  = "inside",
+        hoverinfo     = "label+value+percent",
+        marker        = list(colors = unname(color_map[names(species_counts)]))
+      ) %>%
+        layout(
+          title      = NULL,
+          legend     = list(orientation = "h", x = 0.1, y = -0.1, font = list(size = 12)),
+          autosize   = TRUE,          # <-- let plotly resize with container
+          margin     = list(l = 20, r = 20, t = 20, b = 20)
+          # removed fixed width and height
+        ) %>%
+        config(responsive = TRUE)     # <-- makes it respond to window resize
     })
     
     output$card2_cmp <- renderPlotly({
@@ -589,25 +622,24 @@ mod_overview_server <- function(id, data){
       }
       
       species_counts <- table(species2_df$Species)
-      color_map <- species_colors()
+      color_map      <- species_colors()
       
       plot_ly(
-        labels = names(species_counts),
-        values = as.numeric(species_counts),
-        type = "pie",
-        textinfo = "label+percent",
-        textposition = "inside",
-        hoverinfo = "label+value+percent",
-        marker = list(colors = unname(color_map[names(species_counts)])) #marker = list(colors = RColorBrewer::brewer.pal(length(species_counts), "Set3"))
+        labels        = names(species_counts),
+        values        = as.numeric(species_counts),
+        type          = "pie",
+        textinfo      = "label+percent",
+        textposition  = "inside",
+        hoverinfo     = "label+value+percent",
+        marker        = list(colors = unname(color_map[names(species_counts)]))
       ) %>%
         layout(
-          title = NULL,
-          legend = list(orientation = "h", x = 0.1, y = -0.1, font = list(size = 12)),
-          width = 490,
-          height = 520,
-          margin = list(l = 20, r = 20, t = 20, b = 20),
-          autosize = TRUE
-        )
+          title      = NULL,
+          legend     = list(orientation = "h", x = 0.1, y = -0.1, font = list(size = 12)),
+          autosize   = TRUE,
+          margin     = list(l = 20, r = 20, t = 20, b = 20)
+        ) %>%
+        config(responsive = TRUE)
     })
     
     #########################################################################
