@@ -22,6 +22,9 @@ mod_click_detector_server <- function(id, data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
+    species_cache <- reactiveVal(list())
+    images_cache  <- reactiveVal(list())
+    
     has_click_detector <- reactive({
       !is.null(data$click_detector_data()) && length(data$click_detector_data()) > 0
     })
@@ -84,6 +87,12 @@ mod_click_detector_server <- function(id, data) {
       }
     })
     
+    # Reset the species and image caches when new data is loaded
+    observeEvent(data$click_detector_data(), {
+      species_cache(list())
+      images_cache(list())
+    })
+    
     # --- Populate Deployment choices — keep as fallback for subsequent updates ---
     observeEvent(data$click_detector_data(), {
       req(has_click_detector())
@@ -110,12 +119,26 @@ mod_click_detector_server <- function(id, data) {
         deployment_index <- match(input$deployment, site_names)
         deployment_path  <- all_sites[deployment_index]
         
-        if (dir.exists(deployment_path)) {
-          species_folders <- list.dirs(deployment_path, full.names = FALSE, recursive = FALSE)
-          updateSelectInput(session, "species", choices = species_folders)
-        } else {
-          updateSelectInput(session, "species", choices = character(0))
+        # Check cache first
+        cache_key <- input$deployment
+        cache      <- species_cache()
+        
+        if (!cache_key %in% names(cache)) {
+          # Not cached — fetch from filesystem (slow on AWS, but only once)
+          if (dir.exists(deployment_path)) {
+            species_folders <- list.dirs(deployment_path, 
+                                         full.names = FALSE, 
+                                         recursive  = FALSE)
+            species_folders <- species_folders[species_folders != ""]
+          } else {
+            species_folders <- character(0)
+          }
+          cache[[cache_key]] <- species_folders
+          species_cache(cache)
         }
+        
+        updateSelectInput(session, "species", choices = cache[[cache_key]])
+        
       } else {
         updateSelectInput(session, "species", choices = character(0))
       }
@@ -125,52 +148,59 @@ mod_click_detector_server <- function(id, data) {
     images_to_display <- reactive({
       req(input$deployment, has_click_detector())
       
-      # Use click_detector_data paths directly — same as species observer
       all_sites        <- data$click_detector_data()
       site_names       <- basename(all_sites)
       deployment_index <- match(input$deployment, site_names)
       deployment_path  <- all_sites[deployment_index]
+      deployment_root  <- dirname(deployment_path)
       
-      # deployment_root is the parent of the deployment folder
-      deployment_root <- dirname(deployment_path)
+      if (!dir.exists(deployment_path)) return(character(0))
       
-      if (!dir.exists(deployment_path)) {
-        message("Deployment path not found: ", deployment_path)
-        return(character(0))
-      }
-      
-      search_path <- if (isTRUE(input$filter_species) && !is.null(input$species) && input$species != "") {
+      search_path <- if (isTRUE(input$filter_species) && 
+                         !is.null(input$species) && 
+                         input$species != "") {
         file.path(deployment_path, input$species)
       } else {
         deployment_path
       }
       
-      if (!dir.exists(search_path)) {
-        message("Search path not found: ", search_path)
-        return(character(0))
+      if (!dir.exists(search_path)) return(character(0))
+      
+      # Check image cache
+      cache_key <- paste0(input$deployment, "/", 
+                          if (isTRUE(input$filter_species)) input$species else "__all__")
+      cache <- images_cache()
+      
+      if (!cache_key %in% names(cache)) {
+        # Not cached — fetch from filesystem (slow on AWS, only once per key)
+        imgs_raw <- list.files(
+          search_path,
+          pattern     = "\\.(png|jpg|jpeg)$",
+          recursive   = TRUE,
+          full.names  = TRUE,
+          ignore.case = TRUE
+        )
+        
+        if (length(imgs_raw) == 0) {
+          cache[[cache_key]] <- character(0)
+          images_cache(cache)
+          return(character(0))
+        }
+        
+        alias <- "click_detector_gallery"
+        shiny::removeResourcePath(alias)
+        shiny::addResourcePath(alias, deployment_root)
+        
+        root_norm      <- normalizePath(deployment_root, winslash = "/", mustWork = FALSE)
+        imgs_norm      <- normalizePath(imgs_raw,        winslash = "/", mustWork = FALSE)
+        relative_paths <- sub(paste0("^", root_norm, "/?"), "", imgs_norm)
+        web_paths      <- file.path(alias, relative_paths)
+        
+        cache[[cache_key]] <- web_paths
+        images_cache(cache)
       }
       
-      imgs <- list.files(
-        search_path,
-        pattern     = "\\.(png|jpg|jpeg)$",
-        recursive   = TRUE,              # always recursive
-        full.names  = TRUE,
-        ignore.case = TRUE
-      )
-      
-      message("Images found: ", length(imgs), " in ", search_path)
-      
-      if (length(imgs) == 0) return(character(0))
-      
-      alias <- "click_detector_gallery"
-      shiny::removeResourcePath(alias)
-      shiny::addResourcePath(alias, deployment_root)
-      
-      root_norm      <- normalizePath(deployment_root, winslash = "/", mustWork = FALSE)
-      imgs_norm      <- normalizePath(imgs,            winslash = "/", mustWork = FALSE)
-      relative_paths <- sub(paste0("^", root_norm, "/?"), "", imgs_norm)
-      
-      file.path(alias, relative_paths)
+      cache[[cache_key]]
     })
     
     # --- Gallery title ---
