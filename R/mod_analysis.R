@@ -91,6 +91,11 @@ mod_analysis_ui <- function(id) {
           align-items: flex-start !important; /* move spinner to the top */
           padding-top: 20px;                  /* add some spacing from top */
         }
+        .location-spinner {
+          display: inline-block;
+          margin-left: 8px;
+          vertical-align: middle;
+        }
         "))
     ),
     
@@ -102,7 +107,21 @@ mod_analysis_ui <- function(id) {
             fluidRow(
               column(
                 width = 3,
-                selectInput(ns("location_occr"), "Select Location", choices = NULL),
+                div(
+                  style = "display: flex; align-items: center; gap: 8px;",
+                  div(style = "flex: 1; min-width: 0;",
+                      selectInput(ns("location_occr"), "Select Location", choices = NULL, width = "100%")
+                  ),
+                  div(
+                    id = ns("spinner_occr"),
+                    style = "display: none; margin-top: 18px;",
+                    tags$span(
+                      class = "spinner-border spinner-border-sm text-secondary",
+                      role  = "status",
+                      style = "width: 1.2rem; height: 1.2rem;"
+                    )
+                  )
+                ),
                 selectInput(
                   inputId = ns("env_var_occr"),
                   label   = "Environmental Variable",
@@ -157,7 +176,21 @@ mod_analysis_ui <- function(id) {
             fluidRow(
               column(
                 width = 3,
-                selectInput(ns("location_presence"), "Select Location", choices = NULL),
+                div(
+                  style = "display: flex; align-items: center; gap: 8px;",
+                  div(style = "flex: 1; min-width: 0;",
+                      selectInput(ns("location_presence"), "Select Location", choices = NULL, width = "100%")
+                  ),
+                  div(
+                    id = ns("spinner_presence"),
+                    style = "display: none; margin-top: 18px;",
+                    tags$span(
+                      class = "spinner-border spinner-border-sm text-secondary",
+                      role  = "status",
+                      style = "width: 1.2rem; height: 1.2rem;"
+                    )
+                  )
+                ),
                 selectInput(ns("metric_presence"), "Select Metric", choices = c("Count", "Duration"), selected = "Count"),
                 #numericInput(ns("duty"), "Duty Cycle (min)", value = 60, min = 1, step = 1),
               ),
@@ -206,7 +239,21 @@ mod_analysis_ui <- function(id) {
             fluidRow(
               column(
                 width = 3,
-                selectInput(ns("location_detection"), "Select Location", choices = NULL),
+                div(
+                  style = "display: flex; align-items: center; gap: 8px;",
+                  div(style = "flex: 1; min-width: 0;",
+                      selectInput(ns("location_detection"), "Select Location", choices = NULL, width = "100%")
+                  ),
+                  div(
+                    id = ns("spinner_detection"),
+                    style = "display: none; margin-top: 18px;",
+                    tags$span(
+                      class = "spinner-border spinner-border-sm text-secondary",
+                      role  = "status",
+                      style = "width: 1.2rem; height: 1.2rem;"
+                    )
+                  )
+                ),
                 checkboxInput(ns("see_duty_detection"), "Show Full Duty Cycle", value = FALSE),
                 uiOutput(ns("duty_text"))
               ),
@@ -247,7 +294,21 @@ mod_analysis_ui <- function(id) {
             fluidRow(
               column(
                 width = 3,
-                selectInput(ns("location_call_count"), "Select Location", choices = NULL),
+                div(
+                  style = "display: flex; align-items: center; gap: 8px;",
+                  div(style = "flex: 1; min-width: 0;",
+                      selectInput(ns("location_call_count"), "Select Location", choices = NULL, width = "100%")
+                  ),
+                  div(
+                    id = ns("spinner_call_count"),
+                    style = "display: none; margin-top: 18px;",
+                    tags$span(
+                      class = "spinner-border spinner-border-sm text-secondary",
+                      role  = "status",
+                      style = "width: 1.2rem; height: 1.2rem;"
+                    )
+                  )
+                ),
                 selectInput(
                   inputId = ns("env_var_call_count"),
                   label   = "Environmental Variable",
@@ -301,7 +362,21 @@ mod_analysis_ui <- function(id) {
             fluidRow(
               column(
                 width = 3,
-                selectInput(ns("location_call_den"), "Select Location", choices = NULL),
+                div(
+                  style = "display: flex; align-items: center; gap: 8px;",
+                  div(style = "flex: 1; min-width: 0;",
+                      selectInput(ns("location_call_den"), "Select Location", choices = NULL, width = "100%")
+                  ),
+                  div(
+                    id = ns("spinner_call_den"),
+                    style = "display: none; margin-top: 18px;",
+                    tags$span(
+                      class = "spinner-border spinner-border-sm text-secondary",
+                      role  = "status",
+                      style = "width: 1.2rem; height: 1.2rem;"
+                    )
+                  )
+                ),
                 selectInput(
                   inputId = ns("env_var_call_den"),
                   label   = "Environmental Variable",
@@ -356,7 +431,21 @@ mod_analysis_ui <- function(id) {
             fluidRow(
               column(
                 width = 4,
-                selectInput(ns("location_dis"), "Select Location", choices = NULL, multiple = TRUE),
+                div(
+                  style = "display: flex; align-items: center; gap: 8px;",
+                  div(style = "flex: 1; min-width: 0;",
+                      selectInput(ns("location_dis"), "Select Location", choices = NULL, width = "100%", multiple = FALSE)
+                  ),
+                  div(
+                    id = ns("spinner_dis"),
+                    style = "display: none; margin-top: 18px;",
+                    tags$span(
+                      class = "spinner-border spinner-border-sm text-secondary",
+                      role  = "status",
+                      style = "width: 1.2rem; height: 1.2rem;"
+                    )
+                  )
+                ),
                 selectInput(ns("event_filter"), "Select Events", choices = c("All"), selected = "ALL", multiple = TRUE)
               ),
               column(
@@ -401,6 +490,44 @@ mod_analysis_ui <- function(id) {
 mod_analysis_server <- function(id, data){
   moduleServer(id, function(input, output, session){
     ns <- session$ns
+    
+    #########################################################################
+    # Function and variables to disable when dataset is loading
+    #########################################################################
+    set_loading <- function(spinner_id, input_ids, loading = TRUE) {
+      if (loading) {
+        shinyjs::show(spinner_id)
+        for (id in input_ids) shinyjs::disable(id)
+      } else {
+        shinyjs::hide(spinner_id)
+        for (id in input_ids) shinyjs::enable(id)
+      }
+    }
+    
+    # Define which inputs to disable per tab
+    occr_inputs      <- c("species_filter_occr", "month_filter_occr", 
+                          "env_var_occr", "show_effort", "render_occr",
+                          "download_occr_plot", "occr_description")
+    
+    call_count_inputs <- c("species_filter_call_count", "month_filter_call_count",
+                           "env_var_call_count", "log_scale", "render_call_count",
+                           "download_call_count_plot", "call_count_description")
+    
+    call_den_inputs  <- c("species_filter_call_den", "month_filter_call_den",
+                          "env_var_call_den", "render_call_den",
+                          "download_call_den_plot", "call_den_description")
+    
+    presence_inputs  <- c("species_filter_presence", "month_filter_presence",
+                          "metric_presence", "log_scale_presence", "render_presence",
+                          "download_presence_plot", "presence_description")
+    
+    detection_inputs <- c("species_filter_detection", "month_filter_detection",
+                          "see_duty_detection", "render_plot_detection",
+                          "download_detection_plot", "detection_description")
+    
+    dis_inputs       <- c("species_filter", "event_filter", "distribution_variable",
+                          "detector_filter", "render_distribution",
+                          "download_distribution_plot", "call_measurment_description")
     
     #########################################################################
     # Initial Paths and Functions for this Module
@@ -458,12 +585,14 @@ mod_analysis_server <- function(id, data){
     
     observeEvent(input$location_dis, {
       req(data$rds_paths(), input$location_dis)
+      set_loading("spinner_dis", dis_inputs, loading = TRUE)
+      on.exit(set_loading("spinner_dis", dis_inputs, loading = FALSE))
       selected_data <- lapply(setNames(input$location_dis, input$location_dis), load_rds)
       event_choices <- unique(unlist(lapply(selected_data, function(x) names(x@events))))
       species_choices <- unique(unlist(lapply(selected_data, function(x) {
         sapply(x@events, function(ev) ev@species$id)
       })))
-      updateSelectInput(session, "event_filter", choices = c("All", event_choices), selected = "All")
+      updateSelectInput(session, "event_filter",   choices = c("All", event_choices),   selected = "All")
       updateSelectInput(session, "species_filter", choices = c("All", species_choices), selected = "All")
     })
     
@@ -472,8 +601,8 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_occr, {
       req(input$location_occr)
-      
-      # Load RDS data and extract unique species
+      set_loading("spinner_occr", occr_inputs, loading = TRUE)
+      on.exit(set_loading("spinner_occr", occr_inputs, loading = FALSE))
       rds <- load_rds(input$location_occr)
       req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
@@ -482,7 +611,16 @@ mod_analysis_server <- function(id, data){
     
     occurrence_plot_obj <- eventReactive(input$render_occr, {
       req(base_path(), input$location_occr) #input$species_filter_occr
-      showNotification("Rendering Occurrence Plot...", type = "message")
+      # Warn if All species selected
+      if ("All" %in% input$species_filter_occr) {
+        showNotification(
+          "Gathering data for all species — this may take a little longer depending on the size of the dataset.",
+          type     = "warning",
+          duration = 8
+        )
+      } else {
+        showNotification("Rendering Occurrence Plot...", type = "message")
+      }
       
       if (length(input$month_filter_occr) == 0) {
         showNotification("Occurence Plot Stopped", type = "error", duration = 8)
@@ -517,6 +655,8 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_call_count, {
       req(input$location_call_count)
+      set_loading("spinner_call_count", call_count_inputs, loading = TRUE)
+      on.exit(set_loading("spinner_call_count", call_count_inputs, loading = FALSE))
       rds <- load_rds(input$location_call_count)
       req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
@@ -560,11 +700,14 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_call_den, {
       req(input$location_call_den)
+      set_loading("spinner_call_den", call_den_inputs, loading = TRUE)
+      on.exit(set_loading("spinner_call_den", call_den_inputs, loading = FALSE))
       rds <- load_rds(input$location_call_den)
       req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
       updateSelectInput(session, "species_filter_call_den", choices = c("All", species), selected = "All")
     })
+    
     
     call_den_plot_obj <- eventReactive(input$render_call_den, {
       req(base_path(), input$location_call_den)
@@ -602,21 +745,25 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$species_filter, {
       req(data$rds_paths(), input$location_dis, input$species_filter)
-      selected_data <- lapply(setNames(input$location_dis, input$location_dis), load_rds)
       
-      # Filter events based on selected species
+      # Only load locations that are actually needed
+      selected_data <- lapply(
+        setNames(input$location_dis, input$location_dis), 
+        load_rds
+      )
+      
       filtered_events <- lapply(selected_data, function(loc_data) {
+        if (is.null(loc_data)) return(list())
         Filter(function(ev) {
-          species_id <- ev@species$id
-          "All" %in% input$species_filter || species_id %in% input$species_filter
+          "All" %in% input$species_filter || ev@species$id %in% input$species_filter
         }, loc_data@events)
       })
       
-      # Extract event names that match the species filter
       event_choices <- unique(unlist(lapply(filtered_events, names)))
-      
-      updateSelectInput(session, "event_filter", choices = c("All", event_choices), selected = "All")
-    })
+      updateSelectInput(session, "event_filter", 
+                        choices  = c("All", event_choices), 
+                        selected = "All")
+    }, ignoreNULL = TRUE)
     
     plot_measurements_obj <- eventReactive(input$render_distribution, {
       req(base_path(), input$location_dis, input$distribution_variable)
@@ -628,7 +775,8 @@ mod_analysis_server <- function(id, data){
         events_of_interest = input$event_filter,
         variables_of_interest = input$distribution_variable,
         species = input$species_filter,
-        detector_type = input$detector_filter
+        detector_type = input$detector_filter,
+        load_rds_fn = load_rds
       )
     }, ignoreNULL = TRUE)
     
@@ -642,6 +790,8 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_presence, {
       req(input$location_presence)
+      set_loading("spinner_presence", presence_inputs, loading = TRUE)
+      on.exit(set_loading("spinner_presence", presence_inputs, loading = FALSE))
       rds <- load_rds(input$location_presence)
       req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
@@ -685,6 +835,8 @@ mod_analysis_server <- function(id, data){
     ###################################################################
     observeEvent(input$location_detection, {
       req(input$location_detection)
+      set_loading("spinner_detection", detection_inputs, loading = TRUE)
+      on.exit(set_loading("spinner_detection", detection_inputs, loading = FALSE))
       rds <- load_rds(input$location_detection)
       req(!is.null(rds))
       species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))

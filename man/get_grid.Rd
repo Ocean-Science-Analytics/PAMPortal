@@ -10,7 +10,8 @@ get_grid(
   base_path,
   months_of_interest = c("All"),
   species_of_interest = c("All"),
-  minutes = FALSE
+  minutes = FALSE,
+  soundmap_data = NULL
 )
 }
 \description{
