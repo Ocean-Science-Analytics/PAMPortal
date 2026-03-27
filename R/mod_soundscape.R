@@ -52,7 +52,7 @@ mod_soundscape_server <- function(id, data){
           padding: 20px;
           border: 1px solid #ddd;
           border-radius: 8px;
-          background-color: #FFF3CD;
+          background-color: #f8f8f8;
           text-align: center;
           color: #888;
           font-size: 1.3rem;
