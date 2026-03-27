@@ -701,10 +701,14 @@ convert_timezone <- function(df, data_tz, local_tz) {
 #' 
 get_grid <- function(df, location, base_path,
                      months_of_interest = c("All"), species_of_interest = c("All"),
-                     minutes = FALSE) {
+                     minutes = FALSE, soundmap_data = NULL) {
   
-  sound_map = get_soundmap(location, base_path, months_of_interest) %>%
-    mutate(day = as.Date(local_time))
+  sound_map <- if (!is.null(soundmap_data)) {
+    soundmap_data %>% mutate(day = as.Date(local_time))
+  } else {
+    get_soundmap(location, base_path, months_of_interest) %>%
+      mutate(day = as.Date(local_time))
+  }
   
   valid_days <- sound_map$day[!is.na(sound_map$day)]
   
@@ -753,17 +757,20 @@ get_grid <- function(df, location, base_path,
 #' 
 #' 
 get_daylight <- function(df, local_tz,
-                         location, base_path, months_of_interest = c("All")) {
-
+                         location, base_path, 
+                         months_of_interest = c("All"),
+                         env_data = NULL) {   # <-- accepts pre-loaded env data
   
   lat <- get_metadata(location, base_path, "Latitude")
-
+  
+  # Use pre-loaded env data if provided, otherwise read from disk
+  env <- if (!is.null(env_data)) env_data else get_environmental(location, base_path, months_of_interest)
+  
   sun_times <- env %>%
     select(day, sunrise, sunset) %>%
     mutate(
-      day = lubridate::parse_date_time(day,
-                                       orders = c("Ymd", "mdY"),
-                                       tz = "UTC") %>% as.Date(),
+      day     = lubridate::parse_date_time(day,
+                                           orders = c("Ymd", "mdY"), tz = "UTC") %>% as.Date(),
       sunrise = lubridate::parse_date_time(sunrise,
                                            orders = c("Ymd HMS", "Ymd HM", "mdY HMS", "mdY HM"),
                                            tz = local_tz),
@@ -772,48 +779,31 @@ get_daylight <- function(df, local_tz,
                                            tz = local_tz)
     ) %>%
     distinct(day, .keep_all = TRUE)
-
   
-  #merge sunrise/sunset times with original df
   merged <- df %>%
-    left_join(sun_times, by = "day", relationship = "many-to-many") %>%
-    mutate(datetime = force_tz(as.POSIXct(day) + hours(hour), tzone = local_tz),
-           month = lubridate::month(day))
+    mutate(datetime = as.POSIXct(day, tz = local_tz) + hours(hour)) %>%
+    left_join(sun_times, by = "day") %>%
+    mutate(month = lubridate::month(day))
   
-  ### IF daylight DFs not showing up as expected, make sure this DF is correct first -
-  ### should have columns for sunrise / sunset that make sense
-
   if ("minute" %in% names(merged)) {
     merged$datetime <- merged$datetime + merged$minute * 60
   }
   
-  merged <- merged %>% 
+  merged <- merged %>%
     mutate(daylight = case_when(
-      !is.na(sunrise) & !is.na(sunset) ~ 
+      !is.na(sunrise) & !is.na(sunset) ~
         datetime >= sunrise & datetime <= sunset,
-      
-      #northern hemisphere, polar day
-      (is.na(sunrise) | is.na(sunset)) & lat > 0 & 
-        month %in% 5:8 ~ TRUE,
-      #northern hemisphere, polar night
-      (is.na(sunrise) | is.na(sunset)) & lat > 0 & 
-        month %in% c(10, 11, 12, 1, 2, 3) ~ FALSE,
-      
-      #southern hemisphere, polar day
-      (is.na(sunrise) | is.na(sunset)) & lat < 0 & 
-        month %in% c(10, 11, 12, 1, 2, 3) ~ TRUE,
-      #southern hemisphere, polar night
-      (is.na(sunrise) | is.na(sunset)) & lat < 0 & 
-        month %in% 5:8 ~ FALSE
+      (is.na(sunrise) | is.na(sunset)) & lat > 0 & month %in% 5:8        ~ TRUE,
+      (is.na(sunrise) | is.na(sunset)) & lat > 0 & month %in% c(10:12, 1:3) ~ FALSE,
+      (is.na(sunrise) | is.na(sunset)) & lat < 0 & month %in% c(10:12, 1:3) ~ TRUE,
+      (is.na(sunrise) | is.na(sunset)) & lat < 0 & month %in% 5:8        ~ FALSE
     ))
   
-  #select relevant cols to return
   if ("minute" %in% names(merged)) {
     merged <- merged %>% select(species, day, hour, minute, daylight)
   } else {
     merged <- merged %>% select(species, day, hour, daylight)
   }
-
   
   return(merged)
 }
@@ -885,13 +875,30 @@ plot_occurrence <- function(location, base_path,
   }
   
   #pull data and prep grid
-  df <- get_data(location, base_path, months_of_interest, load_rds_fn = load_rds_fn)
+  df <- get_data(location, base_path, months_of_interest, 
+                 species_of_interest = species_of_interest,
+                 load_rds_fn = load_rds_fn)
   local_tz <- get_timezone(location, base_path)
   data_tz <- get_metadata(location, base_path, "tz")
   df <- convert_timezone(df, data_tz, local_tz)
-  grid <- get_grid(df, location, base_path, months_of_interest,
-                   species_of_interest, minutes = FALSE) %>%
-    distinct(day, species)
+  sound_map_raw <- get_soundmap(location, base_path, months_of_interest)
+  # grid <- get_grid(df, location, base_path, months_of_interest,
+  #                  species_of_interest, minutes = FALSE,
+  #                  soundmap_data = sound_map_raw) %>%
+  #   distinct(day, species)
+  all_days <- sound_map_raw %>%
+    mutate(day = as.Date(local_time)) %>%
+    pull(day) %>%
+    unique() %>%
+    sort()
+  
+  all_species <- if ("All" %in% species_of_interest) {
+    unique(df$species)
+  } else {
+    intersect(species_of_interest, unique(df$species))
+  }
+  
+  grid <- expand_grid(day = all_days, species = all_species)
   species_list <- species_of_interest
   environmental_variable <- environmental_variable
 
@@ -913,7 +920,7 @@ plot_occurrence <- function(location, base_path,
     summarise(detected = n(), .groups = "drop")
   
   #pull sound map information to calculate daily effort
-  sound_map <- get_soundmap(location, base_path, months_of_interest) %>%
+  sound_map <- sound_map_raw %>%
     mutate(Status = str_trim(Status),
            day = as.Date(local_time, tz = local_tz)) %>%
     filter(Status %in% c("Start", "Continue")) %>%
@@ -1352,7 +1359,9 @@ plot_hourly_presence<- function(location, base_path,
   df <- convert_timezone(df, data_tz, local_tz)
   grid <- get_grid(df, location, base_path, months_of_interest,
                    species_of_interest, minutes = FALSE)
-  full_grid <- get_daylight(grid, local_tz, location, base_path, months_of_interest)
+  env_data  <- get_environmental(location, base_path, months_of_interest)
+  full_grid <- get_daylight(grid, local_tz, location, base_path,
+                            months_of_interest, env_data = env_data)
   ### Jared - this full_grid object should have "TRUE" in the daylight column for hours ~8-17
   
   species_list <- species_of_interest
@@ -1612,7 +1621,7 @@ plot_detections_by_minute <- function(location, base_path,
 #' 
 plot_measurements <- function(location_list, base_path,
                               detector_type, variables_of_interest,
-                              species, events_of_interest = c("All")) {
+                              species, events_of_interest = c("All"), load_rds_fn = NULL) {
   
   # --- Whistle variables ---
   var_names <- c(
@@ -1670,7 +1679,7 @@ plot_measurements <- function(location_list, base_path,
     dfs <- list()
     
     for (location in location_list) {
-      rds <- readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
+      rds <- if (!is.null(load_rds_fn)) load_rds_fn(location) else readRDS(file.path(base_path, "RDS", paste0(location, ".rds")))
       for (event in names(rds@events)) {
         data <- rds@events[[event]][["Whistle_and_Moan_Detector"]]
         if (!is.null(data) && is.data.frame(data)) {
@@ -1687,7 +1696,7 @@ plot_measurements <- function(location_list, base_path,
     }
     
     title <- paste(sp_title, "Call Measurements")
-    df <- do.call(rbind, dfs) 
+    df <- dplyr::bind_rows(dfs) 
     
   } else if (detector_type == "Click") {
     
@@ -1717,43 +1726,46 @@ plot_measurements <- function(location_list, base_path,
     }
     
     title <- paste(sp_title, "Echolocation Click Measurements")
-    df <- do.call(rbind, dfs)
+    df <- dplyr::bind_rows(dfs)
   }
   
   species_choice <- species
   
-  # --- Filter to chosen species ---
-  df_species <- df %>% filter(species %in% species_choice)
-  
-  # --- Species with no data for this detector ---
-  missing_species <- setdiff(species_choice, unique(df$species))
-  # --- Throw warnings if needed ---
-  if (length(df_species) == 0) {
-    stop(paste0(
-      "No ", detector_type, " detector data found for species: ",
-      paste(species, collapse = ", ")
-    ))
+  # --- Filter to chosen species (skip if "All") ---
+  if (!("All" %in% species_choice)) {
+    df_species <- df %>% filter(species %in% species_choice)
+    
+    # Species with no data for this detector
+    missing_species <- setdiff(species_choice, unique(df$species))
+    
+    if (nrow(df_species) == 0) {
+      stop(paste0(
+        "No ", detector_type, " detector data found for species: ",
+        paste(species, collapse = ", ")
+      ))
+    }
+    
+    if (length(missing_species) > 0) {
+      stop(paste0(
+        "No ", detector_type, " detector data found for: ",
+        paste(missing_species, collapse = ", ")
+      ))
+    }
+    
+    df <- df_species
   }
-  
-  if (length(missing_species) > 0) {
-    stop(paste0(
-      "No ", detector_type, " detector data found for: ",
-      paste(missing_species, collapse = ", ")
-    ))
-  }
-  
-  # Use only the filtered species data
-  df <- df_species
   
   #df <- df %>% filter(species == species_choice)
   if (!identical(events_of_interest, c("All"))) {
     df <- df %>% filter(eventName %in% events_of_interest)}
+  if (!("All" %in% species_choice)) {
+    df <- df %>% filter(species %in% species_choice)
+  }
   df <- df %>%
-    filter(species %in% species) %>%
     select(all_of(variables_of_interest), "eventName") %>%
     mutate(eventId = str_replace(eventName, "^[^_]+_", "")) %>%
-    pivot_longer(cols = variables_of_interest, 
-                 names_to = "measurement", 
+    pivot_longer(cols = variables_of_interest,
+                 names_to = "measurement",
                  values_to = "value") %>%
     mutate(
       measurement = names(variable_dict)[match(measurement, variable_dict)]

@@ -30,23 +30,30 @@ mod_click_detector_server <- function(id, data) {
       if (!has_click_detector()) {
         div(
           style = "
-            margin-top: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: #FFF3CD;
-            text-align: center;
-            color: #888;
-            font-size: 1.3rem;
-          ",
+        margin-top: 30px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #f8f8f8;
+        text-align: center;
+        color: #888;
+        font-size: 1.3rem;
+      ",
           shiny::icon("circle-info", style = "margin-right: 8px;"),
           "No click detector screenshots are available for this dataset."
         )
       } else {
+        
+        # Get site names here so selectInput is pre-populated on first render
+        sites      <- data$click_detector_data()
+        site_names <- basename(sites)
+        
         bslib::layout_sidebar(
           sidebar = bslib::card(
             style = "background-color: #f8f9fa; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0.08,0.2); padding: 10px;",
-            selectInput(ns("deployment"), "Deployment", choices = NULL),
+            selectInput(ns("deployment"), "Deployment", 
+                        choices  = site_names,    # <-- pre-populated directly
+                        selected = site_names[1]),
             conditionalPanel(
               condition = sprintf("input['%s']", ns("filter_species")),
               selectInput(ns("species"), "Species", choices = NULL)
@@ -55,20 +62,20 @@ mod_click_detector_server <- function(id, data) {
           ),
           bslib::card(
             style = "
-              margin-top: 20px;
-              background-color: #ffffff;
-              border-radius: 12px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            ",
+          margin-top: 20px;
+          background-color: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        ",
             bslib::card_header(
               style = "
-                padding: 16px 20px;
-                border-bottom: 1px solid #e6e6e6;
-                background-color: #fafafa;
-                font-weight: 600;
-                font-size: 18px;
-                color: #333;
-              ",
+            padding: 16px 20px;
+            border-bottom: 1px solid #e6e6e6;
+            background-color: #fafafa;
+            font-weight: 600;
+            font-size: 18px;
+            color: #333;
+          ",
               uiOutput(ns("gallery_title"))
             ),
             bslib::card_body(pixture::pixgalleryOutput(ns("gallery")))
@@ -77,12 +84,12 @@ mod_click_detector_server <- function(id, data) {
       }
     })
     
-    # --- Populate Deployment choices ---
+    # --- Populate Deployment choices — keep as fallback for subsequent updates ---
     observeEvent(data$click_detector_data(), {
       req(has_click_detector())
       sites      <- data$click_detector_data()
       site_names <- basename(sites)
-      updateSelectInput(session, "deployment", choices = site_names)
+      updateSelectInput(session, "deployment", choices = site_names, selected = site_names[1])
     })
     
     # --- Base directory ---
@@ -118,9 +125,19 @@ mod_click_detector_server <- function(id, data) {
     images_to_display <- reactive({
       req(input$deployment, has_click_detector())
       
-      deployment_root <- file.path(data$selected_dir(), "Click_Detector_Screenshots")
-      deployment_path <- file.path(deployment_root, input$deployment)
-      if (!dir.exists(deployment_path)) return(character(0))
+      # Use click_detector_data paths directly — same as species observer
+      all_sites        <- data$click_detector_data()
+      site_names       <- basename(all_sites)
+      deployment_index <- match(input$deployment, site_names)
+      deployment_path  <- all_sites[deployment_index]
+      
+      # deployment_root is the parent of the deployment folder
+      deployment_root <- dirname(deployment_path)
+      
+      if (!dir.exists(deployment_path)) {
+        message("Deployment path not found: ", deployment_path)
+        return(character(0))
+      }
       
       search_path <- if (isTRUE(input$filter_species) && !is.null(input$species) && input$species != "") {
         file.path(deployment_path, input$species)
@@ -128,24 +145,32 @@ mod_click_detector_server <- function(id, data) {
         deployment_path
       }
       
+      if (!dir.exists(search_path)) {
+        message("Search path not found: ", search_path)
+        return(character(0))
+      }
+      
       imgs <- list.files(
         search_path,
-        pattern    = "\\.(png|jpg|jpeg)$",
-        recursive  = !isTRUE(input$filter_species),
-        full.names = TRUE,
+        pattern     = "\\.(png|jpg|jpeg)$",
+        recursive   = TRUE,              # always recursive
+        full.names  = TRUE,
         ignore.case = TRUE
       )
+      
+      message("Images found: ", length(imgs), " in ", search_path)
+      
       if (length(imgs) == 0) return(character(0))
       
       alias <- "click_detector_gallery"
       shiny::removeResourcePath(alias)
       shiny::addResourcePath(alias, deployment_root)
       
-      root_norm  <- gsub("\\\\", "/", normalizePath(deployment_root))
-      imgs_norm  <- gsub("\\\\", "/", normalizePath(imgs))
-      rel_paths  <- sub(paste0("^", root_norm, "/?"), "", imgs_norm)
+      root_norm      <- normalizePath(deployment_root, winslash = "/", mustWork = FALSE)
+      imgs_norm      <- normalizePath(imgs,            winslash = "/", mustWork = FALSE)
+      relative_paths <- sub(paste0("^", root_norm, "/?"), "", imgs_norm)
       
-      file.path(alias, rel_paths)
+      file.path(alias, relative_paths)
     })
     
     # --- Gallery title ---
