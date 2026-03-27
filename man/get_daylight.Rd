@@ -4,7 +4,14 @@
 \alias{get_daylight}
 \title{Return daylight classification}
 \usage{
-get_daylight(df, local_tz, location, base_path, months_of_interest = c("All"))
+get_daylight(
+  df,
+  local_tz,
+  location,
+  base_path,
+  months_of_interest = c("All"),
+  env_data = NULL
+)
 }
 \description{
 Takes an input dataframe (full grid, converted TZ; must have "day" col) and returns daylight T/F for each row.

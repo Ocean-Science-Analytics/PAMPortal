@@ -10,7 +10,8 @@ plot_measurements(
   detector_type,
   variables_of_interest,
   species,
-  events_of_interest = c("All")
+  events_of_interest = c("All"),
+  load_rds_fn = NULL
 )
 }
 \description{
