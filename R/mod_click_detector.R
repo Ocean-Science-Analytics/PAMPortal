@@ -93,6 +93,13 @@ mod_click_detector_server <- function(id, data) {
       images_cache(list())
     })
     
+    current_page <- reactiveVal(1)
+    observeEvent(list(input$deployment, input$species, input$filter_species), {
+      current_page(1)
+    })
+    
+    PAGE_SIZE <- 30
+    
     # --- Populate Deployment choices — keep as fallback for subsequent updates ---
     observeEvent(data$click_detector_data(), {
       req(has_click_detector())
@@ -203,20 +210,93 @@ mod_click_detector_server <- function(id, data) {
       cache[[cache_key]]
     })
     
+    # Paginated subset of images
+    images_paginated <- reactive({
+      imgs  <- images_to_display()
+      if (length(imgs) == 0) return(character(0))
+      
+      total_pages <- ceiling(length(imgs) / PAGE_SIZE)
+      page        <- min(current_page(), total_pages)
+      
+      start <- (page - 1) * PAGE_SIZE + 1
+      end   <- min(page * PAGE_SIZE, length(imgs))
+      
+      imgs[start:end]
+    })
+    
+    total_pages <- reactive({
+      imgs <- images_to_display()
+      if (length(imgs) == 0) return(1)
+      ceiling(length(imgs) / PAGE_SIZE)
+    })
+    
+    # Page navigation observers
+    observeEvent(input$page_prev, {
+      current_page(max(1, current_page() - 1))
+    })
+    
+    observeEvent(input$page_next, {
+      current_page(min(total_pages(), current_page() + 1))
+    })
+    
     # --- Gallery title ---
     output$gallery_title <- renderUI({
       req(input$deployment)
+      
       title_text <- paste("Images for", input$deployment)
       if (isTRUE(input$filter_species) && !is.null(input$species) && input$species != "") {
         title_text <- paste(title_text, "-", input$species)
       }
-      h4(title_text, style = "margin-top: 20px; margin-bottom: 10px;")
+      
+      n_imgs    <- length(images_to_display())
+      n_pages   <- total_pages()
+      page      <- current_page()
+      start_img <- (page - 1) * PAGE_SIZE + 1
+      end_img   <- min(page * PAGE_SIZE, n_imgs)
+      
+      tagList(
+        div(
+          style = "display: flex; justify-content: space-between; align-items: center;",
+          
+          # Title and image count
+          div(
+            h4(title_text, style = "margin: 0;"),
+            tags$p(
+              style = "font-size: 0.82rem; color: #888; margin: 2px 0 0 0;",
+              sprintf("Showing %d–%d of %d images", start_img, end_img, n_imgs)
+            )
+          ),
+          
+          # Page controls
+          div(
+            style = "display: flex; align-items: center; gap: 10px;",
+            actionButton(
+              ns("page_prev"), "",
+              icon  = shiny::icon("chevron-left"),
+              style = "background-color: #00688B; color: white; border: none;
+                   border-radius: 6px; padding: 6px 12px;",
+              disabled = if (page <= 1) "disabled" else NULL
+            ),
+            tags$span(
+              style = "font-size: 0.9rem; color: #555;",
+              sprintf("Page %d of %d", page, n_pages)
+            ),
+            actionButton(
+              ns("page_next"), "",
+              icon  = shiny::icon("chevron-right"),
+              style = "background-color: #00688B; color: white; border: none;
+                   border-radius: 6px; padding: 6px 12px;",
+              disabled = if (page >= n_pages) "disabled" else NULL
+            )
+          )
+        )
+      )
     })
     
     # --- Render gallery ---
     output$gallery <- pixture::renderPixgallery({
       req(input$deployment, has_click_detector())
-      imgs <- images_to_display()
+      imgs <- images_paginated()
       if (length(imgs) == 0) return(tags$p("No images found for the selected deployment/species."))
       captions <- tools::file_path_sans_ext(basename(imgs))
       pixture::pixgallery(path = imgs, caption = captions, caption_valign = "below", layout = "grid")
