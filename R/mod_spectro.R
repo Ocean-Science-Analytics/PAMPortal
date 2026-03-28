@@ -76,9 +76,9 @@ mod_spectro_server <- function(id, data) {
     shiny::addResourcePath("temp_audio", audio_dir)
     
     # AUDIO FILE DELETION LOGIC
-    # session$onSessionEnded(function() {
-    #   unlink(audio_dir, recursive = TRUE, force = TRUE)
-    # })
+    session$onSessionEnded(function() {
+      unlink(audio_dir, recursive = TRUE, force = TRUE)
+    })
     
     for (i in 1:2) {
       local({
@@ -214,41 +214,42 @@ mod_spectro_server <- function(id, data) {
               dir.create(audio_dir, showWarnings = FALSE, recursive = TRUE)
             }
             
-            old_files <- list.files(audio_dir, pattern = paste0("^audio_", index, "_.*\\.wav$"), full.names = TRUE)
-            if (length(old_files) > 0) file.remove(old_files)
+            # Use fixed filename per index — overwrites previous file
+            audio_name      <- paste0("audio_", index, ".wav")   # <-- fixed name, no UUID
+            temp_audio_path <- file.path(audio_dir, audio_name)
             
+            # Remove old file and copy new one
+            if (file.exists(temp_audio_path)) file.remove(temp_audio_path)
             file.copy(from = wav_path_val, to = temp_audio_path, overwrite = TRUE)
             
+            # Download handler
             output[[paste0("download_audio_", index)]] <- downloadHandler(
-              filename = function() {
-                paste0(tools::file_path_sans_ext(basename(wav_path_val)), ".wav")
-              },
-              content = function(file) {
-                file.copy(temp_audio_path, file)
-              },
+              filename    = function() paste0(tools::file_path_sans_ext(basename(wav_path_val)), ".wav"),
+              content     = function(file) file.copy(temp_audio_path, file),
               contentType = "audio/wav"
             )
             
-            # Read file and encode as base64
-            raw_bytes <- readBin(temp_audio_path, "raw", file.info(temp_audio_path)$size)
-            b64 <- jsonlite::base64_enc(raw_bytes)
-            data_uri <- paste0("data:audio/wav;base64,", b64)
+            # Use cache-busting query param on the resource path URL instead of base64
+            cache_bust <- as.integer(Sys.time())
             
             output[[paste0("audio_", index)]] <- renderUI({
-              audio_id    <- ns(paste0("audio_element_", index))
-              plot_id     <- ns(paste0("plot_", index))
-              canvas_id   <- ns(paste0("canvas_", index))
-              duration_id <- ns(paste0("duration_", index))
+              audio_id  <- ns(paste0("audio_element_", index))
+              plot_id   <- ns(paste0("plot_", index))
+              canvas_id <- ns(paste0("canvas_", index))
               
               tagList(
                 div(
                   style = "display: flex; align-items: center; gap: 10px;",
                   tags$audio(
-                    id       = audio_id,
+                    id      = audio_id,
                     controls = TRUE,
                     preload  = "auto",
                     style    = "width: 50%; margin-top: 5px;",
-                    tags$source(src = data_uri, type = "audio/wav"),
+                    tags$source(
+                      # serve from resource path with cache-bust — no base64 in memory
+                      src  = paste0("temp_audio/", audio_name, "?v=", cache_bust),
+                      type = "audio/wav"
+                    ),
                     "Your browser does not support the audio element."
                   ),
                   downloadButton(
@@ -257,9 +258,9 @@ mod_spectro_server <- function(id, data) {
                     icon  = shiny::icon("download"),
                     class = "download-audio-btn",
                     style = "background-color: #2e7d32; color: white; border: none;
-                             border-radius: 5px; white-space: nowrap; height: 35px;
-                             display: flex; align-items: center; justify-content: center;
-                             padding: 0 12px; line-height: 1;"
+                   border-radius: 5px; white-space: nowrap; height: 35px;
+                   display: flex; align-items: center; justify-content: center;
+                   padding: 0 12px; line-height: 1;"
                   )
                 ),
                 
@@ -344,10 +345,10 @@ mod_spectro_server <- function(id, data) {
                     }
                     
                     setTimeout(initOverlay, 300);
-                  })();
-                ", audio_id, plot_id, canvas_id)))
-              )
-            })
+                  })();", 
+                  audio_id, plot_id, canvas_id)))
+                )
+              })
             
           }, delay = 0.1)
           
@@ -367,16 +368,10 @@ mod_spectro_server <- function(id, data) {
             
             wave <- tuneR::readWave(wav_path_val)
             
-            if (wave@samp.rate < 8000) {
-              showNotification(
-                "Sampling rate of the recording is too low, audio will not be available.",
-                type = "warning",
-                duration = 8,
-                session = session
-              )
-            }
+            # Explicitly clear old cache before computing new one
+            spectro_cache(NULL)          # <-- free previous matrix
+            gc()                         # <-- hint to R to collect garbage
             
-            # ---- COMPUTE SPECTROGRAM ----
             spect <- seewave::spectro(
               wave,
               wl   = wl_val,
@@ -386,9 +381,8 @@ mod_spectro_server <- function(id, data) {
             )
             
             amp_matrix <- spect$amp
-            amp_matrix[!is.finite(amp_matrix)] <- -120  # guard against -Inf from silent frames
+            amp_matrix[!is.finite(amp_matrix)] <- -120
             
-            # Cache for dynamic range slider
             spectro_cache(list(
               amp  = amp_matrix,
               time = spect$time,
