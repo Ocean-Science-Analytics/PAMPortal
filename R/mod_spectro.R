@@ -214,23 +214,22 @@ mod_spectro_server <- function(id, data) {
               dir.create(audio_dir, showWarnings = FALSE, recursive = TRUE)
             }
             
-            # Use fixed filename per index — overwrites previous file
-            audio_name      <- paste0("audio_", index, ".wav")   # <-- fixed name, no UUID
+            audio_name      <- paste0("audio_", index, ".wav")
             temp_audio_path <- file.path(audio_dir, audio_name)
             
-            # Remove old file and copy new one
             if (file.exists(temp_audio_path)) file.remove(temp_audio_path)
             file.copy(from = wav_path_val, to = temp_audio_path, overwrite = TRUE)
             
-            # Download handler
             output[[paste0("download_audio_", index)]] <- downloadHandler(
               filename    = function() paste0(tools::file_path_sans_ext(basename(wav_path_val)), ".wav"),
               content     = function(file) file.copy(temp_audio_path, file),
               contentType = "audio/wav"
             )
             
-            # Use cache-busting query param on the resource path URL instead of base64
-            cache_bust <- as.integer(Sys.time())
+            # Read and encode — then immediately free raw bytes after encoding
+            raw_bytes <- readBin(temp_audio_path, "raw", file.info(temp_audio_path)$size)
+            b64       <- jsonlite::base64_enc(raw_bytes)
+            data_uri  <- paste0("data:audio/wav;base64,", b64)
             
             output[[paste0("audio_", index)]] <- renderUI({
               audio_id  <- ns(paste0("audio_element_", index))
@@ -241,15 +240,11 @@ mod_spectro_server <- function(id, data) {
                 div(
                   style = "display: flex; align-items: center; gap: 10px;",
                   tags$audio(
-                    id      = audio_id,
+                    id       = audio_id,
                     controls = TRUE,
                     preload  = "auto",
                     style    = "width: 50%; margin-top: 5px;",
-                    tags$source(
-                      # serve from resource path with cache-bust — no base64 in memory
-                      src  = paste0("temp_audio/", audio_name, "?v=", cache_bust),
-                      type = "audio/wav"
-                    ),
+                    tags$source(src = data_uri, type = "audio/wav"),
                     "Your browser does not support the audio element."
                   ),
                   downloadButton(
@@ -258,97 +253,95 @@ mod_spectro_server <- function(id, data) {
                     icon  = shiny::icon("download"),
                     class = "download-audio-btn",
                     style = "background-color: #2e7d32; color: white; border: none;
-                   border-radius: 5px; white-space: nowrap; height: 35px;
-                   display: flex; align-items: center; justify-content: center;
-                   padding: 0 12px; line-height: 1;"
+                 border-radius: 5px; white-space: nowrap; height: 35px;
+                 display: flex; align-items: center; justify-content: center;
+                 padding: 0 12px; line-height: 1;"
                   )
                 ),
-                
-                # Canvas overlaid on top of the plot
                 tags$script(HTML(sprintf("
-                  (function() {
-                    // Wait for both the audio and plot to be ready
-                    function initOverlay() {
-                      var audio    = document.getElementById('%s');
-                      var plotEl   = document.getElementById('%s');
-                      
-                      if (!audio || !plotEl) {
-                        setTimeout(initOverlay, 200);
-                        return;
-                      }
-                      
-                      // Create canvas overlay
-                      var canvas = document.createElement('canvas');
-                      canvas.id  = '%s';
-                      canvas.style.position = 'absolute';
-                      canvas.style.top      = '0';
-                      canvas.style.left     = '0';
-                      canvas.style.pointerEvents = 'none'; // clicks pass through to plot
-                      
-                      // Position canvas over the plot
-                      var wrapper = plotEl.parentElement;
-                      wrapper.style.position = 'relative';
-                      wrapper.appendChild(canvas);
-                      
-                      function resizeCanvas() {
-                        canvas.width  = plotEl.offsetWidth;
-                        canvas.height = plotEl.offsetHeight;
-                      }
-                      resizeCanvas();
-                      window.addEventListener('resize', resizeCanvas);
-                      
-                      // Plot margins as fractions of total plot size (must match par(mar=...) in R)
-                      // mar = c(4, 4.5, 2, 5) with default cex
-                      // These are approximate - adjust if line is slightly off
-                      var marginL = 0.09;   // left margin fraction
-                      var marginR = 0.10;   // right margin fraction  
-                      var marginT = 0.06;   // top margin fraction
-                      var marginB = 0.10;   // bottom margin fraction
-                      
-                      function drawLine() {
-                        var ctx      = canvas.getContext('2d');
-                        var duration = audio.duration;
-                        var current  = audio.currentTime;
-                        
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        
-                        if (!duration || duration === 0) return;
-                        
-                        // Plot area bounds in pixels
-                        var plotLeft   = canvas.width  * marginL;
-                        var plotRight  = canvas.width  * (1 - marginR);
-                        var plotTop    = canvas.height * marginT;
-                        var plotBottom = canvas.height * (1 - marginB);
-                        var plotWidth  = plotRight - plotLeft;
-                        
-                        // X position of playhead
-                        var xPos = plotLeft + (current / duration) * plotWidth;
-                        
-                        // Draw line
-                        ctx.beginPath();
-                        ctx.moveTo(xPos, plotTop);
-                        ctx.lineTo(xPos, plotBottom);
-                        ctx.strokeStyle = 'rgba(255, 0, 0, 0.9)';  // red
-                        ctx.lineWidth   = 2;
-                        ctx.setLineDash([]);
-                        ctx.stroke();
-                      }
-                      
-                      // Update line on timeupdate
-                      audio.addEventListener('timeupdate', drawLine);
-                      
-                      // Clear line when audio ends or is reset
-                      audio.addEventListener('ended', function() {
-                        var ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                      });
+                (function() {
+                  var MAX_ATTEMPTS = 30;
+                  var attempts = 0;
+                  
+                  function initOverlay() {
+                    attempts++;
+                    var audio  = document.getElementById('%s');
+                    var plotEl = document.getElementById('%s');
+                    
+                    // Wait until both exist AND plot has non-zero dimensions
+                    if (!audio || !plotEl || plotEl.offsetWidth === 0 || plotEl.offsetHeight === 0) {
+                      if (attempts < MAX_ATTEMPTS) setTimeout(initOverlay, 300);
+                      return;
                     }
                     
-                    setTimeout(initOverlay, 300);
-                  })();", 
-                  audio_id, plot_id, canvas_id)))
-                )
-              })
+                    // Remove any existing canvas to avoid duplicates
+                    var existingCanvas = document.getElementById('%s');
+                    if (existingCanvas) existingCanvas.remove();
+                    
+                    var canvas = document.createElement('canvas');
+                    canvas.id  = '%s';
+                    canvas.style.position      = 'absolute';
+                    canvas.style.top           = '0';
+                    canvas.style.left          = '0';
+                    canvas.style.pointerEvents = 'none';
+                    
+                    var wrapper = plotEl.parentElement;
+                    wrapper.style.position = 'relative';
+                    wrapper.appendChild(canvas);
+                    
+                    function resizeCanvas() {
+                      canvas.width  = plotEl.offsetWidth;
+                      canvas.height = plotEl.offsetHeight;
+                    }
+                    resizeCanvas();
+                    window.addEventListener('resize', resizeCanvas);
+                    
+                    // Also resize when plot image loads/changes
+                    var img = plotEl.querySelector('img');
+                    if (img) img.addEventListener('load', resizeCanvas);
+                    
+                    var marginL = 0.09;
+                    var marginR = 0.10;
+                    var marginT = 0.06;
+                    var marginB = 0.10;
+                    
+                    function drawLine() {
+                      var ctx      = canvas.getContext('2d');
+                      var duration = audio.duration;
+                      var current  = audio.currentTime;
+                      
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                      if (!duration || duration === 0 || isNaN(duration)) return;
+                      
+                      var plotLeft   = canvas.width  * marginL;
+                      var plotRight  = canvas.width  * (1 - marginR);
+                      var plotTop    = canvas.height * marginT;
+                      var plotBottom = canvas.height * (1 - marginB);
+                      var plotWidth  = plotRight - plotLeft;
+                      var xPos       = plotLeft + (current / duration) * plotWidth;
+                      
+                      ctx.beginPath();
+                      ctx.moveTo(xPos, plotTop);
+                      ctx.lineTo(xPos, plotBottom);
+                      ctx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+                      ctx.lineWidth   = 2;
+                      ctx.setLineDash([]);
+                      ctx.stroke();
+                    }
+                    
+                    audio.addEventListener('timeupdate', drawLine);
+                    audio.addEventListener('seeked',     drawLine);
+                    audio.addEventListener('ended', function() {
+                      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    });
+                  }
+                  
+                  // Start trying after a delay to allow plot to render
+                  setTimeout(initOverlay, 500);
+                })();
+              ", audio_id, plot_id, canvas_id, canvas_id)))
+              )
+            })
             
           }, delay = 0.1)
           
@@ -412,9 +405,9 @@ mod_spectro_server <- function(id, data) {
                 col.axis = "white",
                 col.lab  = "white",
                 fg       = "white",
-                mar      = c(4, 4.5, 2, 5),
-                xaxs     = "i",    # <-- forces x axis to exact data range, no padding
-                yaxs     = "i",     # <-- forces y axis to exact data range, no padding
+                mar      = c(5, 4.5, 2, 7),
+                xaxs     = "i",
+                yaxs     = "i",
                 cex.lab  = 1.3
               )
               
@@ -451,8 +444,8 @@ mod_spectro_server <- function(id, data) {
               
               # Colorbar
               usr <- par("usr")
-              cx1 <- usr[2] + diff(usr[1:2]) * 0.015
-              cx2 <- usr[2] + diff(usr[1:2]) * 0.045
+              cx1 <- usr[2] + diff(usr[1:2]) * 0.02
+              cx2 <- usr[2] + diff(usr[1:2]) * 0.05
               n   <- length(jet_colors)
               ys  <- seq(usr[3], usr[4], length.out = n + 1)
               for (k in seq_len(n))
@@ -464,7 +457,7 @@ mod_spectro_server <- function(id, data) {
               tks <- tks[tks >= zmin & tks <= zmax]
               for (tk in tks) {
                 yp <- usr[3] + (tk - zmin) / (zmax - zmin) * diff(usr[3:4])
-                text(cx2 + diff(usr[1:2]) * 0.012, yp,
+                text(cx2 + diff(usr[1:2]) * 0.015, yp,
                      paste0(tk, " dB"), col = "white", cex = 1.1,  # <-- increased colorbar text
                      adj = c(0, 0.5), xpd = TRUE)
               }
