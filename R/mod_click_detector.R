@@ -11,6 +11,7 @@
 mod_click_detector_ui <- function(id) {
   ns <- NS(id)
   tagList(
+    shinyjs::useShinyjs(),
     uiOutput(ns("click_detector_content"))
   )
 }
@@ -46,42 +47,92 @@ mod_click_detector_server <- function(id, data) {
           "No click detector screenshots are available for this dataset."
         )
       } else {
-        
-        # Get site names here so selectInput is pre-populated on first render
         sites      <- data$click_detector_data()
         site_names <- basename(sites)
         
-        bslib::layout_sidebar(
-          sidebar = bslib::card(
-            style = "background-color: #f8f9fa; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0.08,0.2); padding: 10px;",
-            selectInput(ns("deployment"), "Deployment", 
-                        choices  = site_names,    # <-- pre-populated directly
-                        selected = site_names[1]),
-            conditionalPanel(
-              condition = sprintf("input['%s']", ns("filter_species")),
-              selectInput(ns("species"), "Species", choices = NULL)
-            ),
-            checkboxInput(ns("filter_species"), "Filter by Species")
-          ),
-          bslib::card(
+        div(
+          style = "display: flex; flex-direction: column; gap: 12px; padding: 4px;",
+          
+          # ── Top control bar ──────────────────────────────────────────
+          div(
             style = "
-          margin-top: 20px;
-          background-color: #ffffff;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          display: flex; align-items: flex-end; gap: 16px;
+          padding: 14px 18px;
+          background-color: #f4f6f8;
+          border-radius: 10px;
+          border: 1px solid #e0e0e0;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+          flex-wrap: wrap;
         ",
-            bslib::card_header(
+            
+            # Deployment select
+            div(
+              style = "flex: 1; min-width: 180px;",
+              tags$label(
+                style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                     text-transform: uppercase; letter-spacing: 0.05em;
+                     display: block; margin-bottom: 4px;",
+                shiny::icon("satellite-dish", style = "margin-right: 4px;"),
+                "Deployment"
+              ),
+              selectInput(ns("deployment"), NULL,
+                          choices  = site_names,
+                          selected = site_names[1],
+                          width    = "100%")
+            ),
+            
+            # Vertical divider
+            div(style = "width: 1px; background-color: #ddd; height: 40px; align-self: center;"),
+            
+            # Filter by species checkbox + species select
+            div(
+              style = "display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;",
+              div(
+                style = "padding-bottom: 8px;",
+                checkboxInput(ns("filter_species"), "Filter by Species", value = FALSE)
+              ),
+              conditionalPanel(
+                condition = sprintf("input['%s']", ns("filter_species")),
+                div(
+                  style = "min-width: 180px;",
+                  tags$label(
+                    style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                         text-transform: uppercase; letter-spacing: 0.05em;
+                         display: block; margin-bottom: 4px;",
+                    shiny::icon("filter", style = "margin-right: 4px;"),
+                    "Species"
+                  ),
+                  selectInput(ns("species"), NULL, choices = NULL, width = "100%")
+                )
+              )
+            )
+          ),
+          
+          # ── Gallery card ─────────────────────────────────────────────
+          div(
+            style = "
+          background-color: #ffffff;
+          border-radius: 10px;
+          border: 1px solid #e0e0e0;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          overflow: hidden;
+        ",
+            
+            # Card header with title + pagination
+            div(
               style = "
-            padding: 16px 20px;
+            padding: 14px 18px;
             border-bottom: 1px solid #e6e6e6;
             background-color: #fafafa;
-            font-weight: 600;
-            font-size: 18px;
-            color: #333;
           ",
               uiOutput(ns("gallery_title"))
             ),
-            bslib::card_body(pixture::pixgalleryOutput(ns("gallery")))
+            
+            # Gallery body
+            div(
+              style = "padding: 12px;",
+              pixture::pixgalleryOutput(ns("gallery"))
+            )
           )
         )
       }

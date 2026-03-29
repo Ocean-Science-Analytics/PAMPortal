@@ -12,27 +12,39 @@
 mod_soundscape_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    
     tags$head(
       tags$style(HTML(sprintf("
+        #%s {
+          background-color: #00688B;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          padding: 8px 16px;
+          transition: background-color 0.2s ease, transform 0.2s ease;
+        }
         #%s:hover {
           background-color: #8DB6CD !important;
           color: white !important;
-          border-color: black !important;
           transform: scale(1.05);
           cursor: pointer;
         }
-      ", ns("render_plot"))))
+      ", ns("render_plot"), ns("render_plot"))))
     ),
     
     tabsetPanel(
+      
+      # ── PSD Gallery Tab ───────────────────────────────────────────
       tabPanel(
-        "PSD Gallery",
-        uiOutput(ns("psd_tab_content"))   # <-- replaces site_ui + gallery
+        title = tagList(shiny::icon("images"), " PSD Gallery"),
+        br(),
+        uiOutput(ns("psd_tab_content"))
       ),
+      
+      # ── SPL Measurements Tab ──────────────────────────────────────
       tabPanel(
-        "SPL Measurements",
-        uiOutput(ns("spl_tab_content"))   # <-- replaces the full div
+        title = tagList(shiny::icon("chart-bar"), " SPL Measurements"),
+        br(),
+        uiOutput(ns("spl_tab_content"))
       )
     )
   )
@@ -73,9 +85,61 @@ mod_soundscape_server <- function(id, data){
       if (!has_soundscape()) {
         no_data_message("No PSD images are available for this current dataset.")
       } else {
-        tagList(
-          uiOutput(ns("site_ui")),
-          pixture::pixgalleryOutput(ns("gallery"))
+        div(
+          style = "display: flex; flex-direction: column; gap: 12px;",
+          
+          # Control bar
+          div(
+            style = "
+          display: flex; align-items: flex-end; gap: 16px;
+          padding: 14px 18px;
+          background-color: #f4f6f8;
+          border-radius: 10px;
+          border: 1px solid #e0e0e0;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        ",
+            div(
+              style = "min-width: 220px;",
+              tags$label(
+                style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                     text-transform: uppercase; letter-spacing: 0.05em;
+                     display: block; margin-bottom: 4px;",
+                shiny::icon("location-dot", style = "margin-right: 4px;"),
+                "Select Site"
+              ),
+              selectInput(ns("site_select"), NULL,
+                          choices = data$soundscape_data(),
+                          width   = "100%")
+            )
+          ),
+          
+          # Gallery card
+          div(
+            style = "
+          background-color: #ffffff;
+          border-radius: 10px;
+          border: 1px solid #e0e0e0;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          overflow: hidden;
+        ",
+            div(
+              style = "
+            padding: 14px 18px;
+            border-bottom: 1px solid #e6e6e6;
+            background-color: #fafafa;
+            display: flex; align-items: center; gap: 10px;
+          ",
+              shiny::icon("wave-square", style = "color: #00688B; font-size: 1.1em;"),
+              tags$span(
+                style = "font-weight: 600; font-size: 1rem; color: #001f3f;",
+                "Power Spectral Density Images"
+              )
+            ),
+            div(
+              style = "padding: 12px;",
+              pixture::pixgalleryOutput(ns("gallery"))
+            )
+          )
         )
       }
     })
@@ -112,36 +176,87 @@ mod_soundscape_server <- function(id, data){
       if (!has_soundscape()) {
         no_data_message("No soundscape measurements are available in this dataset.")
       } else {
-        tagList(
-          br(),
+        div(
+          style = "display: flex; flex-direction: column; gap: 12px;",
+          
+          # Control bar
           div(
-            style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
-            fluidRow(
-              column(
-                width = 3,
-                selectInput(ns("band_select"),
-                            label = "Select Frequency Band",
-                            choices = c("50 to 1000 Hz", "<0.8 Hz", "0.8 Hz","1 Hz","1.3 Hz","1.6 Hz","2 Hz","2.5 Hz","3.2 Hz",    
-                                        "4 Hz","5 Hz","6.3 Hz","7.9 Hz","10 Hz","12.6 Hz","15.8 Hz","20 Hz","25.1 Hz","31.6 Hz","39.8 Hz",    
-                                        "50.1 Hz","63.1 Hz","79.4 Hz","100 Hz","125.9 Hz","158.5 Hz","199.5 Hz","251.2 Hz","316.2 Hz","398.1 Hz","501.2 Hz",   
-                                        "631 Hz","794.3 Hz","1000 Hz","1258.9 Hz","1584.9 Hz","1995.3 Hz","2511.9 Hz","3162.3 Hz","3981.1 Hz","5011.9 Hz","6309.6 Hz",
-                                        "7943.3 Hz","10000 Hz","12589.3 Hz","15848.9 Hz","19952.6 Hz","25118.9 Hz","31622.8 Hz","39810.7 Hz"),
-                            selected = "50 to 1000 Hz",
-                            multiple = TRUE
-                )
+            style = "
+          display: flex; align-items: flex-end; gap: 16px;
+          padding: 14px 18px;
+          background-color: #f4f6f8;
+          border-radius: 10px;
+          border: 1px solid #e0e0e0;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+          flex-wrap: wrap;
+        ",
+            div(
+              style = "flex: 1; min-width: 280px;",
+              tags$label(
+                style = "font-size: 0.75rem; font-weight: 600; color: #888;
+                     text-transform: uppercase; letter-spacing: 0.05em;
+                     display: block; margin-bottom: 4px;",
+                shiny::icon("wave-square", style = "margin-right: 4px;"),
+                "Select Frequency Band(s)"
               ),
-              column(
-                width = 3,
-                br(),
-                actionButton(
-                  ns("render_plot"),
-                  "Render Plot",
-                  icon = shiny::icon("file-lines"),
-                  style = "background-color: #00688B; color: white; border: none;"
-                )
+              selectInput(
+                ns("band_select"), NULL,
+                choices = c(
+                  "50 to 1000 Hz", "<0.8 Hz", "0.8 Hz", "1 Hz", "1.3 Hz",
+                  "1.6 Hz", "2 Hz", "2.5 Hz", "3.2 Hz", "4 Hz", "5 Hz",
+                  "6.3 Hz", "7.9 Hz", "10 Hz", "12.6 Hz", "15.8 Hz", "20 Hz",
+                  "25.1 Hz", "31.6 Hz", "39.8 Hz", "50.1 Hz", "63.1 Hz",
+                  "79.4 Hz", "100 Hz", "125.9 Hz", "158.5 Hz", "199.5 Hz",
+                  "251.2 Hz", "316.2 Hz", "398.1 Hz", "501.2 Hz", "631 Hz",
+                  "794.3 Hz", "1000 Hz", "1258.9 Hz", "1584.9 Hz", "1995.3 Hz",
+                  "2511.9 Hz", "3162.3 Hz", "3981.1 Hz", "5011.9 Hz", "6309.6 Hz",
+                  "7943.3 Hz", "10000 Hz", "12589.3 Hz", "15848.9 Hz",
+                  "19952.6 Hz", "25118.9 Hz", "31622.8 Hz", "39810.7 Hz"
+                ),
+                selected = "50 to 1000 Hz",
+                multiple = TRUE,
+                width    = "100%"
               )
             ),
-            br(), br(), br(),
+            
+            # Vertical divider
+            div(style = "width: 1px; background-color: #ddd; height: 40px; align-self: center;"),
+            
+            div(
+              style = "padding-bottom: 2px;",
+              actionButton(
+                ns("render_plot"),
+                "Render Plot",
+                icon = shiny::icon("play")
+              )
+            )
+          ),
+          
+          # Info banner
+          div(
+            style = "
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 14px;
+          background-color: #e8f4fd;
+          border-left: 4px solid #00688B;
+          border-radius: 6px;
+          font-size: 0.85rem;
+          color: #555;
+        ",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0;"),
+            "Select one or more frequency bands above and click Render Plot. 
+         A separate chart will be generated for each band."
+          ),
+          
+          # Plots area
+          div(
+            style = "
+          background-color: #ffffff;
+          border-radius: 10px;
+          border: 1px solid #e0e0e0;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          padding: 16px;
+        ",
             uiOutput(ns("spl_plot_ui"))
           )
         )

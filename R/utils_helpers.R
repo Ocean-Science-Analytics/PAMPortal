@@ -1798,63 +1798,76 @@ plot_measurements <- function(location_list, base_path,
 card_spectro <- function(ns, id, index) {
   tagList(
     div(
-      style = "display: flex; flex-direction: row;
+      style = "display: flex; flex-direction: column;
                border: none; border-radius: 12px;
                margin-bottom: 24px; padding: 0;
-               height: 820px;
                background-color: #ffffff;
                box-shadow: 0 4px 16px rgba(0,0,0,0.10);
                overflow: hidden;",
       
-      # ── Left panel ──────────────────────────────────────────────────────
+      # ── Header ──────────────────────────────────────────────────────────
       div(
-        style = "flex: 0 0 290px; display: flex; flex-direction: column;
-                 gap: 0; background-color: #f4f6f8;
-                 border-right: 1px solid #e0e0e0; padding: 16px;
-                 overflow-y: auto;",
+        style = "display: flex; align-items: center; gap: 10px;
+                 padding: 14px 18px;
+                 background-color: #001f3f;
+                 border-bottom: 2px solid #00688B;",
+        shiny::icon("wave-square", style = "color: #00688B; font-size: 1.2em;"),
+        tags$span(
+          paste("Spectrogram", index),
+          style = "font-weight: bold; font-size: 1.05rem; color: white;"
+        )
+      ),
+      
+      # ── Top control bar ─────────────────────────────────────────────────
+      div(
+        style = "display: flex; gap: 12px; flex-wrap: wrap;
+                 padding: 14px 18px;
+                 background-color: #f4f6f8;
+                 border-bottom: 1px solid #e0e0e0;
+                 align-items: stretch;",
         
-        # Header
+        # File Selection — 2x2 grid
         div(
-          style = "display: flex; align-items: center; gap: 8px;
-                   margin-bottom: 14px; padding-bottom: 10px;
-                   border-bottom: 2px solid #00688B;",
-          shiny::icon("wave-square", style = "color: #00688B; font-size: 1.1em;"),
-          tags$span(
-            paste("Spectrogram", index),
-            style = "font-weight: bold; font-size: 1rem; color: #001f3f;"
-          )
-        ),
-        
-        # File selection section
-        div(
-          style = "background-color: #ffffff; border-radius: 8px;
-                   padding: 10px; margin-bottom: 10px;
+          style = "flex: 2; min-width: 300px; background-color: #ffffff;
+                   border-radius: 8px; padding: 12px;
                    border: 1px solid #e0e0e0;",
           tags$p(
-            style = "font-size: 0.75rem; font-weight: 600; color: #888;
+            style = "font-size: 0.72rem; font-weight: 600; color: #888;
                      text-transform: uppercase; letter-spacing: 0.05em;
                      margin-bottom: 8px;",
             shiny::icon("folder-open", style = "margin-right: 4px;"),
             "File Selection"
           ),
-          selectInput(ns(paste0("location_", index)), "Location",  choices = NULL, width = "100%"),
-          selectInput(ns(paste0("species_",  index)), "Species",   choices = NULL, width = "100%"),
-          selectInput(ns(paste0("folder_",   index)), "Folder",    choices = NULL, width = "100%"),
-          selectInput(ns(paste0("file_",     index)), "WAV File",  choices = NULL, width = "100%")
+          div(
+            style = "display: grid; grid-template-columns: 1fr 1fr; gap: 8px;",
+            div(selectInput(ns(paste0("location_", index)), "Location",
+                            choices = NULL, width = "100%")),
+            div(selectInput(ns(paste0("species_",  index)), "Species",
+                            choices = NULL, width = "100%")),
+            div(selectInput(ns(paste0("folder_",   index)), "Folder",
+                            choices = NULL, width = "100%")),
+            div(selectInput(ns(paste0("file_",     index)), "WAV File",
+                            choices = NULL, width = "100%"))
+          )
         ),
         
-        # Settings section
+        # Vertical divider
+        div(style = "width: 1px; background-color: #ddd; align-self: stretch;"),
+        
+        # Settings + Render button
         div(
-          style = "background-color: #ffffff; border-radius: 8px;
-                   padding: 10px; margin-bottom: 10px;
-                   border: 1px solid #e0e0e0;",
+          style = "flex: 1; min-width: 240px; background-color: #ffffff;
+                   border-radius: 8px; padding: 12px;
+                   border: 1px solid #e0e0e0;
+                   display: flex; flex-direction: column; gap: 4px;",
           tags$p(
-            style = "font-size: 0.75rem; font-weight: 600; color: #888;
+            style = "font-size: 0.72rem; font-weight: 600; color: #888;
                      text-transform: uppercase; letter-spacing: 0.05em;
-                     margin-bottom: 8px;",
+                     margin-bottom: 4px;",
             shiny::icon("sliders", style = "margin-right: 4px;"),
             "Settings"
           ),
+          # All three settings inputs stacked
           numericInput(ns(paste0("wl_", index)),
                        "Window Length",
                        value = 1024, min = 128, step = 128, width = "100%"),
@@ -1863,80 +1876,71 @@ card_spectro <- function(ns, id, index) {
                       min = 50, max = 90, value = 70, step = 2, width = "100%"),
           sliderInput(ns(paste0("dyn_range_", index)),
                       "Dynamic Range (dB)",
-                      min = 20, max = 120, value = 40, step = 5, width = "100%")
-        ),
-        
-        # Render button at bottom of left panel
-        div(
-          style = "margin-top: auto;",
-          actionButton(
-            ns(paste0("render_", index)),
-            "Render Spectrogram",
-            icon  = shiny::icon("play"),
-            class = "custom-btn",
-            style = "width: 100%; padding: 10px;"
+                      min = 20, max = 120, value = 40, step = 5, width = "100%"),
+          # Render button pinned below settings
+          div(
+            style = "margin-top: auto; padding-top: 8px;",
+            actionButton(
+              ns(paste0("render_", index)),
+              "Render Spectrogram",
+              icon  = shiny::icon("play"),
+              class = "custom-btn",
+              style = "width: 100%; padding: 10px;"
+            )
           )
         )
       ),
       
-      # ── Right panel ─────────────────────────────────────────────────────
+      # ── Audio player row ─────────────────────────────────────────────────
       div(
-        style = "flex: 1; min-width: 0; display: flex; flex-direction: column;
-                 padding: 16px; gap: 10px; height: 100%; background-color: #ffffff;",
+        style = "display: flex; align-items: center; gap: 10px;
+                 padding: 10px 18px;
+                 background-color: #f9f9f9;
+                 border-bottom: 1px solid #e0e0e0;",
+        shiny::icon("headphones",
+                    style = "color: #00688B; font-size: 1.1em; flex-shrink: 0;"),
+        div(style = "flex: 1; min-width: 0;",
+            uiOutput(ns(paste0("audio_", index))))
+      ),
+      
+      # ── Spectrogram plot ─────────────────────────────────────────────────
+      div(
+        style = "flex: 1; min-height: 500px; background-color: #001f3f;",
+        uiOutput(ns(paste0("plot_ui_", index)))
+      ),
+      
+      # ── Description / Analysis comments ──────────────────────────────────
+      div(
+        style = "display: flex; gap: 0;
+                 border-top: 1px solid #e0e0e0;
+                 background-color: #f4f6f8;
+                 min-height: 100px; max-height: 130px; overflow-y: auto;",
         
-        # Audio player row
         div(
-          style = "display: flex; align-items: center; gap: 10px;
-                   padding: 8px 12px; background-color: #f4f6f8;
-                   border-radius: 8px; border: 1px solid #e0e0e0;",
-          shiny::icon("headphones", style = "color: #00688B; font-size: 1.1em; flex-shrink: 0;"),
-          div(style = "flex: 1; min-width: 0;",
-              uiOutput(ns(paste0("audio_", index)))
-          )
+          style = "flex: 1; padding: 12px 16px;
+                   border-right: 1px solid #e0e0e0;",
+          tags$p(
+            style = "font-size: 0.72rem; font-weight: 600; color: #888;
+                     text-transform: uppercase; letter-spacing: 0.05em;
+                     margin-bottom: 4px;",
+            shiny::icon("align-left", style = "margin-right: 4px;"),
+            "Description"
+          ),
+          div(style = "font-size: 0.9rem; color: #333;",
+              uiOutput(ns(paste0("description_", index))))
         ),
         
-        # Spectrogram plot
         div(
-          style = "flex: 1; min-height: 0; border-radius: 8px;
-           overflow: hidden; border: 1px solid #e0e0e0;
-           background-color: #001f3f;",
-          uiOutput(ns(paste0("plot_ui_", index)))
-        ),
-        
-        # Description / Analysis comments
-        div(
-          style = "padding: 12px; border-radius: 8px;
-           background-color: #f4f6f8; border: 1px solid #e0e0e0;
-           min-height: 100px; max-height: 130px; overflow-y: auto;",
-          
-          div(
-            style = "display: flex; gap: 24px;",
-            div(
-              style = "flex: 1;",
-              tags$p(
-                style = "font-size: 0.75rem; font-weight: 600; color: #888;
-                         text-transform: uppercase; letter-spacing: 0.05em;
-                         margin-bottom: 4px;",
-                shiny::icon("align-left", style = "margin-right: 4px;"),
-                "Description"
-              ),
-              div(style = "font-size: 0.9rem; color: #333;",
-                  uiOutput(ns(paste0("description_", index))))
-            ),
-            div(style = "width: 1px; background-color: #ddd;"),
-            div(
-              style = "flex: 1;",
-              tags$p(
-                style = "font-size: 0.75rem; font-weight: 600; color: #888;
-                         text-transform: uppercase; letter-spacing: 0.05em;
-                         margin-bottom: 4px;",
-                shiny::icon("comment", style = "margin-right: 4px;"),
-                "Analysis Comments"
-              ),
-              div(style = "font-size: 0.9rem; color: #333;",
-                  uiOutput(ns(paste0("analysis_", index))))
-            )
-          )
+          style = "flex: 1; padding: 12px 16px;",
+          tags$p(
+            style = "font-size: 0.72rem; font-weight: 600; color: #888;
+                     text-transform: uppercase; letter-spacing: 0.05em;
+                     margin-bottom: 4px;",
+            shiny::icon("comment", style = "margin-right: 4px;"),
+            "Analysis Comments"
+          ),
+          div(style = "font-size: 0.9rem; color: #333;",
+              uiOutput(ns(paste0("analysis_", index))))
         )
       )
     )
