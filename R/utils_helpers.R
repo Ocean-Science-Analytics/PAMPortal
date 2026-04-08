@@ -1806,15 +1806,29 @@ card_spectro <- function(ns, id, index) {
                overflow: hidden;",
       
       # ── Header ──────────────────────────────────────────────────────────
+      # ── Header ──────────────────────────────────────────────────────────
       div(
         style = "display: flex; align-items: center; gap: 10px;
-                 padding: 14px 18px;
-                 background-color: #001f3f;
-                 border-bottom: 2px solid #00688B;",
+           padding: 14px 18px;
+           background-color: #001f3f;
+           border-bottom: 2px solid #00688B;",
         shiny::icon("wave-square", style = "color: #00688B; font-size: 1.2em;"),
         tags$span(
           paste("Spectrogram", index),
           style = "font-weight: bold; font-size: 1.05rem; color: white;"
+        ),
+        
+        # Push help button to the right
+        div(style = "margin-left: auto;",
+            actionButton(
+              ns(paste0("help_", index)),
+              "",
+              icon  = shiny::icon("circle-question"),
+              style = "background-color: transparent; color: #8DB6CD; border: none;
+               font-size: 1.2em; padding: 0; cursor: pointer;
+               transition: color 0.2s ease;",
+              title = "Help"   # tooltip on hover
+            )
         )
       ),
       
@@ -1906,7 +1920,13 @@ card_spectro <- function(ns, id, index) {
       # ── Spectrogram plot ─────────────────────────────────────────────────
       div(
         style = "flex: 1; min-height: 500px; background-color: #001f3f;",
-        uiOutput(ns(paste0("plot_ui_", index)))
+        uiOutput(ns(paste0("plot_ui_", index))),
+        # Hidden element carrying margin data for JS
+        tags$span(
+          id    = ns(paste0("margins_", index)),
+          style = "display: none;",
+          textOutput(ns(paste0("margins_", index)), inline = TRUE)
+        )
       ),
       
       # ── Description / Analysis comments ──────────────────────────────────
