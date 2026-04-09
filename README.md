@@ -34,7 +34,7 @@ golem::run_dev()
 
 ## Usage
 
-The most up-to-date working application is on the main branch. Other branches are used for development purposes and may not be in working order.
+The most up-to-date working application is on the Public branch. Other branches are used for development purposes and may not be in working order.
 
 ------------------------------------------------------------------------
 
