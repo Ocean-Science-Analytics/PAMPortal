@@ -16,7 +16,3 @@ plot_call_density(
 \description{
 View the relative call density of each species across time.
 }
-\examples{
-plot_call_density()
-
-}

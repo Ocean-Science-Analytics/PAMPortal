@@ -18,7 +18,3 @@ plot_call_count(
 Plot the number of calls recorded per day (on a regular or logarithmic scale) along with call type.
 Option to add environmental data.
 }
-\examples{
-plot_call_count()
-
-}

@@ -278,6 +278,17 @@
       ],
       "Hash": "d7421bb5dfeb2676b9e4a5a60c2fcfd2"
     },
+    "av": {
+      "Package": "av",
+      "Version": "0.9.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "graphics"
+      ],
+      "Hash": "360d782afc7d0711e85af63dcca48a2c"
+    },
     "backports": {
       "Package": "backports",
       "Version": "1.5.0",
@@ -1350,7 +1361,7 @@
     },
     "httr2": {
       "Package": "httr2",
-      "Version": "1.0.1",
+      "Version": "1.2.2",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1367,7 +1378,7 @@
         "vctrs",
         "withr"
       ],
-      "Hash": "03d741c92fda96d98c3a3f22494e3b4a"
+      "Hash": "c20959a9442c0e3adb1e8d3809c5d1f7"
     },
     "ids": {
       "Package": "ids",

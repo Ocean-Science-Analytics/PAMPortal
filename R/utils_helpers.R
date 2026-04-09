@@ -477,7 +477,6 @@ get_rds <- function(name, rds_paths, rds_cache_val, update_cache_fn) {
 #'
 #' @examples
 #' get_data(location, base_path, months_of_interest = c(6,7))
-#' output: df with UTC, species, callType, and duration
 get_data <- function(location, base_path,
                      months_of_interest = c('All'), species_of_interest = c("All"),
                      load_rds_fn = NULL) {
@@ -536,9 +535,6 @@ get_data <- function(location, base_path,
 #' (Latitude, Longitude, Depth_m, dc, dc_per_hour, tz) 
 #' from csv files in the PAMportal folder.
 #'
-#' @examples
-#' get_metadata(location, base_path, variable = "Latitude")
-#' output: entry for the site/variable combo in Metadata.csv
 get_metadata <- function(location, base_path, variable) {
   csv_path <- file.path(base_path, "Metadata.csv")
   df <- read.csv(csv_path, stringsAsFactors = FALSE)
@@ -549,9 +545,6 @@ get_metadata <- function(location, base_path, variable) {
 #' 
 #' @description Retrieves time zone for the location.
 #'
-#' @examples
-#' get_timezone(location, base_path)
-#' ex. output: "Pacific/Wake"
 get_timezone <- function(location, base_path) {
   library(lutz)
   
@@ -570,9 +563,6 @@ get_timezone <- function(location, base_path) {
 #' 
 #' @description Retrieves sound map df from csv and filters to months of interest.
 #'
-#' @examples
-#' get_soundmap(location, base_path, c(6,7))
-#' 
 get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
   
   file_name <- file.path(base_path, paste0(location, "_sound_map.csv"))
@@ -602,9 +592,6 @@ get_soundmap <- function(location, base_path, months_of_interest = c("All")) {
 #' 
 #' @description Retrieves environmental df from csv and filters to months of interest.
 #'
-#' @examples
-#' get_environmental(location, base_path, c(6,7))
-#' 
 get_environmental <- function(location, base_path, months_of_interest = c("All")) {
   
   file_name <- file.path(base_path, paste0(location, "_environmental_data.csv"))
@@ -631,9 +618,6 @@ get_environmental <- function(location, base_path, months_of_interest = c("All")
 #' Set species colors
 #' 
 #' @description Creates a map of colors so that species are consistently represented across figures.
-#'
-#' @examples
-#' 
 #' 
 set_colors <- function(location, base_path) {
   set.seed(47)
@@ -668,10 +652,6 @@ set_colors <- function(location, base_path) {
 #' converts an input dataframe to local time zone with day/hour/minute columns
 #' for future use.  Input dataframe MUST have a UTC col.
 #'
-#' @examples
-#' convert_timezone(df, data_tz = "UTC", local_tz = "Pacific/Wake")
-#' Output: modified df with local_time, species, callType, duration, day, hour, minute
-#' 
 convert_timezone <- function(df, data_tz, local_tz) {
   converted <- df
   data_tz <- data_tz
@@ -696,9 +676,6 @@ convert_timezone <- function(df, data_tz, local_tz) {
 #' and specification of minute resolution (T/F) and returns a dataframe with a row for each
 #' day/hour/species/(minute) combination in the given time frame
 #'
-#' @examples
-#' get_grid(df, species_list = c("Fin whale", "Blue whale"), minutes = FALSE))
-#' 
 get_grid <- function(df, location, base_path,
                      months_of_interest = c("All"), species_of_interest = c("All"),
                      minutes = FALSE, soundmap_data = NULL) {
@@ -752,10 +729,6 @@ get_grid <- function(df, location, base_path,
 #' 
 #' @description Takes an input dataframe (full grid, converted TZ; must have "day" col) and returns daylight T/F for each row.
 #'
-#' @examples
-#' get_daylight(df, local_tz = "Pacific/Wake", location, basepath)
-#' 
-#' 
 get_daylight <- function(df, local_tz,
                          location, base_path, 
                          months_of_interest = c("All"),
@@ -840,9 +813,6 @@ format_species_title <- function(species_vec) {
 #' minutes monitored (effort) for species of interest (default all) and months of interest (default all), 
 #' with environmental variable of interest (options are in the enviro_data list)
 #'
-#' @examples
-#' plot_occurrence()
-#' 
 plot_occurrence <- function(location, base_path,
                             months_of_interest = c("All"), species_of_interest = c("All"), 
                             environmental_variable = NA, show_effort = FALSE, load_rds_fn = NULL) {
@@ -1043,9 +1013,6 @@ plot_occurrence <- function(location, base_path,
 #' @description Plot the number of calls recorded per day (on a regular or logarithmic scale) along with call type.
 #' Option to add environmental data.
 #'
-#' @examples
-#' plot_call_count()
-#' 
 plot_call_count <- function(location, base_path, 
                             months_of_interest = c("All"), species_of_interest = c("All"), 
                             environmental_variable = NA, log_scale = FALSE, load_rds_fn = NULL) {
@@ -1197,9 +1164,6 @@ plot_call_count <- function(location, base_path,
 #' 
 #' @description View the relative call density of each species across time.
 #'
-#' @examples
-#' plot_call_density()
-#' 
 plot_call_density <- function(location, base_path, 
                               months_of_interest = c("All"), species_of_interest = c("All"), 
                               environmental_variable = NA, load_rds_fn = NULL) {
@@ -1329,9 +1293,6 @@ plot_call_density <- function(location, base_path,
 #' 
 #' @description View hourly presence and acoustic intensity by species.  Specify metric as "Count" or "Duration".
 #'
-#' @examples
-#' plot_hourly_presence()
-#' 
 plot_hourly_presence<- function(location, base_path, 
                                 months_of_interest = c("All"), species_of_interest = c("All"),
                                 metric = "Count", log_scale = FALSE, load_rds_fn = NULL) {
@@ -1454,9 +1415,6 @@ plot_hourly_presence<- function(location, base_path,
 #' 
 #' @description Presence/absence of detections by minute.
 #'
-#' @examples
-#' plot_detections_by_minute()
-#' 
 plot_detections_by_minute <- function(location, base_path, 
                                       months_of_interest = c("All"), species_of_interest = c("All"),
                                       see_duty_cycle = FALSE, load_rds_fn = NULL) {
@@ -1615,10 +1573,6 @@ plot_detections_by_minute <- function(location, base_path,
 #' @description Compare whistle/click characteristics between multiple events.  Options for detector type are "Whistle & Moan" or "Click".
 #' User can choose any of the variables available for their chosen 
 #'
-#' @examples
-#' plot_measurements(location_list = c("H11S1_2024", "H11S1_2025"), base_path = "C://PAMPortal_CTBTO",
-#' detector_type = "Whistle & Moan", variables_of_interest = c("freqMean", "duration"), species = "Fin whale")
-#' 
 plot_measurements <- function(location_list, base_path,
                               detector_type, variables_of_interest,
                               species, events_of_interest = c("All"), load_rds_fn = NULL) {

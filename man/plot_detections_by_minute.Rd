@@ -16,7 +16,3 @@ plot_detections_by_minute(
 \description{
 Presence/absence of detections by minute.
 }
-\examples{
-plot_detections_by_minute()
-
-}

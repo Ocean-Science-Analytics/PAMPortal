@@ -19,7 +19,3 @@ Plot of number of minutes an animal was detected with option to show total numbe
 minutes monitored (effort) for species of interest (default all) and months of interest (default all), 
 with environmental variable of interest (options are in the enviro_data list)
 }
-\examples{
-plot_occurrence()
-
-}
