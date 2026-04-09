@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Database (RSQLite, DBI)
     libsqlite3-dev \
     # Network/SSL (curl, openssl, httr)
+    curl \
     libcurl4-openssl-dev \
     libssl-dev \
     # XML parsing (xml2)
@@ -156,4 +157,3 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Run Shiny app with production settings
 CMD ["R", "-e", "options(shiny.port=3838, shiny.host='0.0.0.0'); pkgload::load_all(export_all=FALSE, helpers=FALSE, attach_testthat=FALSE); PAMPortal::run_app()"]
-
