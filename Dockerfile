@@ -10,8 +10,7 @@ FROM rocker/r-ver:4.3.3 AS builder
 
 # Set environment variables for reproducible builds
 ENV RENV_VERSION=1.0.11 \
-    RENV_PATHS_CACHE=/renv/cache \
-    RENV_CONFIG_REPOS_OVERRIDE=https://cran.rstudio.com
+    RENV_PATHS_CACHE=/renv/cache
 
 # Install system dependencies required for R packages
 # These include libraries for: seewave, tuneR (audio), sf (geospatial),
@@ -19,8 +18,10 @@ ENV RENV_VERSION=1.0.11 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools
     build-essential \
+    cmake \
     pkg-config \
     # Audio processing (seewave, tuneR)
+    libavfilter-dev \
     libsndfile1-dev \
     libfftw3-dev \
     # Geospatial (sf, leaflet dependencies)
@@ -80,6 +81,7 @@ LABEL org.opencontainers.image.title="PAMPortal" \
 # Package versions are for Ubuntu 22.04 (Jammy) used by rocker/r-ver:4.3.3
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Audio processing runtime
+    ffmpeg \
     libsndfile1 \
     libfftw3-double3 \
     libfftw3-single3 \
