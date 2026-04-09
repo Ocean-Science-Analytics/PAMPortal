@@ -9,7 +9,7 @@
 FROM rocker/r-ver:4.3.3 AS builder
 
 # Set environment variables for reproducible builds
-ENV RENV_VERSION=1.0.11 \
+ENV RENV_VERSION=1.0.7 \
     RENV_PATHS_CACHE=/renv/cache
 
 # Install system dependencies required for R packages
@@ -61,8 +61,8 @@ WORKDIR /build
 # Copy renv files first for layer caching
 COPY renv.lock renv.lock
 
-# Install renv and restore packages
-RUN R -e "install.packages('renv', repos = c(CRAN = 'https://cran.rstudio.com'))" \
+# Install the lockfile's renv version before restore to keep restore ordering stable.
+RUN R -e "install.packages(sprintf('https://cran.rstudio.com/src/contrib/Archive/renv/renv_%s.tar.gz', Sys.getenv('RENV_VERSION')), repos = NULL, type = 'source')" \
     && R -e "renv::consent(provided = TRUE)" \
     && R -e "renv::restore(lockfile = 'renv.lock', library = '/usr/local/lib/R/site-library', prompt = FALSE)"
 
