@@ -16,8 +16,3 @@ get_daylight(
 \description{
 Takes an input dataframe (full grid, converted TZ; must have "day" col) and returns daylight T/F for each row.
 }
-\examples{
-get_daylight(df, local_tz = "Pacific/Wake", location, basepath)
-
-
-}

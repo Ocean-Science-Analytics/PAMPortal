@@ -17,7 +17,3 @@ plot_hourly_presence(
 \description{
 View hourly presence and acoustic intensity by species.  Specify metric as "Count" or "Duration".
 }
-\examples{
-plot_hourly_presence()
-
-}

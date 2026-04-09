@@ -11,8 +11,3 @@ If metadata reflects current time zone in UTC,
 converts an input dataframe to local time zone with day/hour/minute columns
 for future use.  Input dataframe MUST have a UTC col.
 }
-\examples{
-convert_timezone(df, data_tz = "UTC", local_tz = "Pacific/Wake")
-Output: modified df with local_time, species, callType, duration, day, hour, minute
-
-}

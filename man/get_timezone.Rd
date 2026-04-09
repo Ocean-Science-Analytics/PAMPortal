@@ -9,7 +9,3 @@ get_timezone(location, base_path)
 \description{
 Retrieves time zone for the location.
 }
-\examples{
-get_timezone(location, base_path)
-ex. output: "Pacific/Wake"
-}

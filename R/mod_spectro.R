@@ -226,10 +226,60 @@ mod_spectro_server <- function(id, data) {
               contentType = "audio/wav"
             )
             
+            
+            ########################################
+            # Check sample rate and upsample if needed for browser compatibility
+            wave_check <- tuneR::readWave(temp_audio_path, header = TRUE)
+            
+            if (wave_check$sample.rate >= 2000 && wave_check$sample.rate < 8000) {
+              # Upsample files between 2-8 kHz for browser compatibility
+              showNotification(
+                paste0("Low sample rate detected (", wave_check$sample.rate, " Hz) — upsampling audio for playback."),
+                type = "message", duration = 5, session = session
+              )
+              upsampled_path <- sub("\\.wav$", "_resampled.wav", temp_audio_path)
+              av::av_audio_convert(
+                audio       = temp_audio_path,
+                output      = upsampled_path,
+                format      = "wav",
+                sample_rate = 8000
+              )
+              encode_path <- upsampled_path
+              
+            } else if (wave_check$sample.rate < 2000) {
+              # Below 2 kHz — too low even for upsampling, skip audio
+              showNotification(
+                paste0("Sample rate too low (", wave_check$sample.rate, " Hz) — audio playback is not supported below 2 kHz."),
+                type = "warning", duration = 8, session = session
+              )
+              encode_path <- NULL
+              
+            } else {
+              # 8 kHz and above — use as-is
+              encode_path <- temp_audio_path
+            }
+            
+            # Only encode and render audio if we have a valid file
+            if (!is.null(encode_path)) {
+              raw_bytes <- readBin(encode_path, "raw", file.info(encode_path)$size)
+              b64       <- jsonlite::base64_enc(raw_bytes)
+              data_uri  <- paste0("data:audio/wav;base64,", b64)
+              
+              # Clean up resampled file if created
+              if (exists("upsampled_path") && file.exists(upsampled_path)) {
+                file.remove(upsampled_path)
+              }
+            } else {
+              data_uri <- NULL
+            }
+            ####################################
+            
+            
+            
             # Read and encode — then immediately free raw bytes after encoding
-            raw_bytes <- readBin(temp_audio_path, "raw", file.info(temp_audio_path)$size)
-            b64       <- jsonlite::base64_enc(raw_bytes)
-            data_uri  <- paste0("data:audio/wav;base64,", b64)
+            # raw_bytes <- readBin(temp_audio_path, "raw", file.info(temp_audio_path)$size)
+            # b64       <- jsonlite::base64_enc(raw_bytes)
+            # data_uri  <- paste0("data:audio/wav;base64,", b64)
             
             output[[paste0("audio_", index)]] <- renderUI({
               audio_id  <- ns(paste0("audio_element_", index))
@@ -239,17 +289,27 @@ mod_spectro_server <- function(id, data) {
               tagList(
                 div(
                   style = "display: flex; align-items: center; gap: 10px;",
-                  tags$audio(
-                    id       = audio_id,
-                    controls = TRUE,
-                    preload  = "auto",
-                    style    = "width: 50%; margin-top: 5px;",
-                    tags$source(src = data_uri, type = "audio/wav"),
-                    "Your browser does not support the audio element."
-                  ),
+                  
+                  if (!is.null(data_uri)) {
+                    tags$audio(
+                      id       = audio_id,
+                      controls = TRUE,
+                      preload  = "auto",
+                      style    = "width: 50%; margin-top: 5px;",
+                      tags$source(src = data_uri, type = "audio/wav"),
+                      "Your browser does not support the audio element."
+                    )
+                  } else {
+                    div(
+                      style = "font-size: 0.85rem; color: #888; padding: 6px;",
+                      shiny::icon("circle-xmark", style = "color: #cc0000; margin-right: 6px;"),
+                      "Audio playback not available for this low of a sample rate."
+                    )
+                  },
+                  
                   downloadButton(
                     ns(paste0("download_audio_", index)),
-                    label = "Download WAV",
+                    label = " Download WAV",
                     icon  = shiny::icon("download"),
                     class = "download-audio-btn",
                     style = "background-color: #2e7d32; color: white; border: none;
@@ -351,9 +411,9 @@ mod_spectro_server <- function(id, data) {
             shinycssloaders::withSpinner(
               plotOutput(ns(plotOutput), height = "500px"),
               type    = 4,
-              color   = "#ffffff",       # <-- white spinner
-              color.background = "#001f3f",  # <-- match dark background so spinner is visible
-              size    = 1.5              # <-- slightly larger
+              color   = "#ffffff",      
+              color.background = "#001f3f",  
+              size    = 1.5              
             )
           })
           
@@ -361,9 +421,18 @@ mod_spectro_server <- function(id, data) {
             
             wave <- tuneR::readWave(wav_path_val)
             
+            # if (wave@samp.rate < 8000) {
+            #   showNotification(
+            #     "This recording's sample rate is below 8000 Hz and may not play in all browsers.",
+            #     type = "warning",
+            #     duration = 8,
+            #     session = session
+            #   )
+            # }
+            
             # Explicitly clear old cache before computing new one
-            spectro_cache(NULL)          # <-- free previous matrix
-            gc()                         # <-- hint to R to collect garbage
+            spectro_cache(NULL)
+            gc()      
             
             spect <- seewave::spectro(
               wave,
@@ -471,6 +540,44 @@ mod_spectro_server <- function(id, data) {
           req(spectro_cache())
           # renderPlot above already reads dyn_range input reactively — no proxy needed
         }, ignoreInit = TRUE)
+        
+        observeEvent(input[[paste0("help_", index)]], {
+          showModal(modalDialog(
+            title = div(
+              style = "display: flex; align-items: center; gap: 10px;",
+              shiny::icon("circle-question", style = "color: #00688B; font-size: 1.2em;"),
+              span("Spectrogram Help", style = "font-weight: bold; color: #001f3f;")
+            ),
+            easyClose = TRUE,
+            footer = modalButton("Close"),
+            size = "m",
+            div(
+              style = "display: flex; gap: 12px; align-items: flex-start;
+               padding: 12px; border-radius: 8px;
+               background-color: #fff8e1; border-left: 4px solid #CDAD00;",
+              shiny::icon("triangle-exclamation",
+                          style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+              div(
+                tags$b("Performance Notice"),
+                tags$p(
+                  style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                  "PAMPortal can occasionally freeze when generating spectrograms during
+           periods of high traffic. If this happens, simply refresh the app and
+           try again."
+                ),
+                tags$p(
+                  style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                  "If the problem persists, please contact ",
+                  tags$a(
+                    href  = "mailto:jstephens@oceanscienceanalytics.com",
+                    style = "color: #00688B;",
+                    "jstephens@oceanscienceanalytics.com"
+                  ), "."
+                )
+              )
+            )
+          ))
+        })
       })
     }
   })

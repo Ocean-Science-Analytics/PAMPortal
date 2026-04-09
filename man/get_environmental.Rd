@@ -9,7 +9,3 @@ get_environmental(location, base_path, months_of_interest = c("All"))
 \description{
 Retrieves environmental df from csv and filters to months of interest.
 }
-\examples{
-get_environmental(location, base_path, c(6,7))
-
-}

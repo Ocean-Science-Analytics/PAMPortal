@@ -11,7 +11,3 @@ Retrieves specific metadata variables
 (Latitude, Longitude, Depth_m, dc, dc_per_hour, tz) 
 from csv files in the PAMportal folder.
 }
-\examples{
-get_metadata(location, base_path, variable = "Latitude")
-output: entry for the site/variable combo in Metadata.csv
-}

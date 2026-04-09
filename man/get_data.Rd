@@ -18,5 +18,4 @@ particular time frame (if specified) into a dataframe.
 }
 \examples{
 get_data(location, base_path, months_of_interest = c(6,7))
-output: df with UTC, species, callType, and duration
 }

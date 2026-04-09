@@ -19,7 +19,3 @@ Takes an input dataframe (must have columns "day" and "species"), a list of spec
 and specification of minute resolution (T/F) and returns a dataframe with a row for each
 day/hour/species/(minute) combination in the given time frame
 }
-\examples{
-get_grid(df, species_list = c("Fin whale", "Blue whale"), minutes = FALSE))
-
-}
