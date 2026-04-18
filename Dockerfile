@@ -9,9 +9,8 @@
 FROM rocker/r-ver:4.3.3 AS builder
 
 # Set environment variables for reproducible builds
-ENV RENV_VERSION=1.0.11 \
-    RENV_PATHS_CACHE=/renv/cache \
-    RENV_CONFIG_REPOS_OVERRIDE=https://cran.rstudio.com
+ENV RENV_VERSION=1.0.7 \
+    RENV_PATHS_CACHE=/renv/cache
 
 # Install system dependencies required for R packages
 # These include libraries for: seewave, tuneR (audio), sf (geospatial),
@@ -19,8 +18,10 @@ ENV RENV_VERSION=1.0.11 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools
     build-essential \
+    cmake \
     pkg-config \
     # Audio processing (seewave, tuneR)
+    libavfilter-dev \
     libsndfile1-dev \
     libfftw3-dev \
     # Geospatial (sf, leaflet dependencies)
@@ -31,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Database (RSQLite, DBI)
     libsqlite3-dev \
     # Network/SSL (curl, openssl, httr)
+    curl \
     libcurl4-openssl-dev \
     libssl-dev \
     # XML parsing (xml2)
@@ -59,8 +61,8 @@ WORKDIR /build
 # Copy renv files first for layer caching
 COPY renv.lock renv.lock
 
-# Install renv and restore packages
-RUN R -e "install.packages('renv', repos = c(CRAN = 'https://cran.rstudio.com'))" \
+# Install the lockfile's renv version before restore to keep restore ordering stable.
+RUN R -e "install.packages(sprintf('https://cran.rstudio.com/src/contrib/Archive/renv/renv_%s.tar.gz', Sys.getenv('RENV_VERSION')), repos = NULL, type = 'source')" \
     && R -e "renv::consent(provided = TRUE)" \
     && R -e "renv::restore(lockfile = 'renv.lock', library = '/usr/local/lib/R/site-library', prompt = FALSE)"
 
@@ -79,6 +81,7 @@ LABEL org.opencontainers.image.title="PAMPortal" \
 # Package versions are for Ubuntu 22.04 (Jammy) used by rocker/r-ver:4.3.3
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Audio processing runtime
+    ffmpeg \
     libsndfile1 \
     libfftw3-double3 \
     libfftw3-single3 \
@@ -156,4 +159,3 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Run Shiny app with production settings
 CMD ["R", "-e", "options(shiny.port=3838, shiny.host='0.0.0.0'); pkgload::load_all(export_all=FALSE, helpers=FALSE, attach_testthat=FALSE); PAMPortal::run_app()"]
-
