@@ -10,16 +10,28 @@
 guide <- cicerone::Cicerone$
   new()$
   step(
-    el = "main_1-sidebar",
-    title = "Data Uploading",
-    description = "This is where you'll input the Zipped folder containing your PAMGuard data. The app does not require anything to be changed within the zipped data folder. All data will be correctly read into the app",
-    position = "right-center"
+    el          = "main_1-client_access_section",
+    title       = "Client Access",
+    description = "Enter your Client ID here to access your data files stored on the server.",
+    position    = "right-center"
   )$
   step(
-    el = "main_1-map_container",
-    title = "Map View",
+    el          = "main_1-upload_section",
+    title       = "Upload Data",
+    description = "Upload a ZIP folder containing your PAMGuard data. The app does not require anything to be changed within the zipped data folder.",
+    position    = "right-center"
+  )$
+  step(
+    el          = "main_1-example_section",
+    title       = "Try a Demo",
+    description = "Load a pre-built example dataset to explore the app's features.",
+    position    = "right-center"
+  )$
+  step(
+    el          = "main_1-map_container",
+    title       = "Map View",
     description = "This map will display the data collection locations.",
-    position = "right-center"
+    position    = "right-center"
   )$
   step(
     el = "nav",
