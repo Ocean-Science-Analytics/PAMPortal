@@ -11,13 +11,87 @@ app_ui <- function(request) {
     # Leave this function for adding external resources
     
     waiter::waiter_show_on_load(
-      html = tagList(
-        tags$img(src = "www/white_square_OSA_med.jpg", height = "80px"),
-        h2("Loading PAMPortal...", style = "color:white; margin-top: 10px;"),
-        br(),
-        waiter::spin_wave()
-      ),
-      color = "#3E606F"
+      color = "#001f3f",   # Dark navy (#001f3f) or olive green (#3E606F)
+      html  = div(
+        style = "
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 20px;
+      font-family: 'Roboto Condensed', sans-serif;
+    ",
+        
+        # Logo
+        tags$img(
+          src   = "www/white_square_OSA_med.jpg",
+          style = "
+        height: 100px;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        margin-bottom: 10px;
+      "
+        ),
+        
+        # App name
+        tags$h1(
+          "PAMPortal",
+          style = "
+        color: white;
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+        text-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+        letter-spacing: 2px;
+      "
+        ),
+        
+        # Subtitle
+        tags$p(
+          "Passive Acoustic Monitoring Data Portal",
+          style = "
+        color: #8DB6CD;
+        font-size: 1rem;
+        margin: 0;
+        letter-spacing: 1px;
+      "
+        ),
+        
+        # Divider
+        div(style = "
+      width: 200px;
+      height: 2px;
+      background: linear-gradient(to right, transparent, #00688B, transparent);
+      margin: 10px 0;
+    "),
+        
+        # Spinner
+        waiter::spin_wave(),
+        
+        # Loading text
+        tags$p(
+          "Initializing application...",
+          style = "
+        color: #aaa;
+        font-size: 0.85rem;
+        margin-top: 8px;
+        letter-spacing: 0.5px;
+      "
+        ),
+        
+        # Footer credit
+        div(
+          style = "
+        position: absolute;
+        bottom: 30px;
+        color: #555;
+        font-size: 0.75rem;
+        text-align: center;
+      ",
+          "© Ocean Science Analytics"
+        )
+      )
     ),
     
     golem_add_external_resources(),
@@ -71,6 +145,27 @@ app_ui <- function(request) {
           border-bottom: 1px solid rgba(0,0,0,0.15);
           box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+        .nav-link {
+          color: #001f3f !important;
+          font-weight: 500;
+          letter-spacing: 0.04em;
+          padding: 8px 16px !important;
+          border-radius: 6px !important;
+          transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        
+        /* Hover state */
+        .nav-link:hover {
+          background-color: rgba(0, 104, 139, 0.12) !important;
+          color: #00688B !important;
+        }
+        
+        /* Active/selected tab */
+        .nav-link.active {
+          background-color: #00688B !important;
+          color: white !important;
+          box-shadow: 0 2px 6px rgba(0, 104, 139, 0.35);
+        }
       "))
     ),
     
@@ -78,18 +173,8 @@ app_ui <- function(request) {
       theme = bslib::bs_theme(
         version = 5,
         base_font = bslib::font_google("Roboto Condensed"),
-        "nav-link-font-size" = "1.25rem !important"
+        "nav-link-font-size" = "1.15rem !important"
       ),
-      
-      # Title with image
-      # div(
-      #   class = "app-header",
-      #   style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
-      #   img(src = "www/white_square_OSA_med.jpg",height = 45,class = "header-logo",style = "margin: 0 10px 0 25px;"),
-      #   h2("PAMPortal", class = "pam-title", style = "margin: 0; color: white; flex-grow: 1;"),
-      #   img(src = "www/header_scene.png", height = 70, style = "margin: 0 11px 0 22px; opacity: 0.9; filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));"),
-      #   actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey", style = "margin: 0 20px 0 10px;")  # Guide button
-      # ),
       
       div(
         class = "app-header",
@@ -169,39 +254,6 @@ app_ui <- function(request) {
           )
         )
       )
-      
-      
-      # Sidebar + Main Content (using fluidRow now)
-      # fluidRow(
-      #   column(
-      #     width = 3,
-      #     style = "padding-top: 10px;",
-      #     mod_main_ui("main_1")
-      #   ),
-      #   column(
-      #     width = 9,
-      #     div(class = "main-panel",
-      #         bslib::navset_card_underline(
-      #           id = "nav",
-      #           bslib::nav_panel(
-      #             title = "SUMMARY",
-      #             value = "summary",
-      #             mod_overview_ui("overview_1")
-      #           ),
-      #           bslib::nav_panel(
-      #             title = "SPECTROGRAM",
-      #             value = "spectro",
-      #             mod_spectro_ui("spectro_1")
-      #           ),
-      #           bslib::nav_panel(
-      #             title = "DATA VISULIZATION",
-      #             value = "analysis",
-      #             mod_analysis_ui("analysis_1")
-      #         )
-      #       )
-      #     )
-      #   )
-      # )
     )
   )
 }

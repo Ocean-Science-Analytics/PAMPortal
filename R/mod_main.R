@@ -17,10 +17,8 @@ mod_main_ui <- function(id) {
   ns <- NS(id)
   
   tagList(
-    
     shinyjs::useShinyjs(),
     
-    # Included inline CSS to fix Browse button
     tags$head(
       tags$style(HTML("
         .btn-file {  
@@ -36,94 +34,100 @@ mod_main_ui <- function(id) {
           transition: all 0.2s ease !important;
         }
         .modal-confirm-btn:hover {
-          background-color: lightskyblue !important;
+          filter: brightness(1.15) !important;
           transform: translateY(-2px) !important;
           box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
-        }
-        .input-section {
-          border: 2px solid black; 
-          padding: 10px; 
-          margin-bottom: 15px; 
-          margin-left: 10px;
-          border-radius: 5px;
-          background-color: #F8F8F8;
         }
         .custom-btn {
           background-color: #00688B !important;
           color: white !important;
-          border-color: black !important;
+          border-color: #00688B !important;
+          transition: all 0.2s ease;
         }
         .custom-btn:hover {
-          background-color: lightskyblue !important; 
-          transform: scale(1.05);
+          background-color: #8DB6CD !important;
+          transform: translateY(-1px);
+          box-shadow: 0 3px 8px rgba(0,0,0,0.15);
         }
-        .example-btn {
-          background-color: #CD950C !important;   /* named CSS color */
-          color: white !important;                      /* contrast text */
-          border: 1px solid black !important;
+        .load-example-btn {
+          transition: all 0.2s ease;
         }
         .load-example-btn:hover {
           background-color: #FFD700 !important;
           color: black !important;
-          transform: scale(1.05);
-        }
-        .success-text {
-          color: darkgreen;
-          font-weight: bold;
-          margin-top: 10px;
-        }
-        .map-container {
-          border: 2px solid black; 
-          border-radius: 5px;
-          padding: 5px;
-          background-color: #F8F8F8;
-          margin-top: 15px;
-          margin-left: 10px;
+          transform: translateY(-1px);
+          box-shadow: 0 3px 8px rgba(0,0,0,0.15);
         }
         .map-toggle-btn {
           width: 100%;
-          margin-top: 5px;
+          margin-top: 8px;
           background-color: #00688B;
           color: white;
-          border: 1px solid black;
-          border-radius: 5px;
-          padding: 5px;
+          border: none;
+          border-radius: 6px;
+          padding: 6px;
+          transition: all 0.2s ease;
+          font-size: 0.85rem;
         }
         .map-toggle-btn:hover {
-          background-color: lightskyblue;
+          background-color: #8DB6CD;
+          transform: translateY(-1px);
+        }
+        .sidebar-section {
+          background-color: #ffffff;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 1px; 
+          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+          border: 1px solid rgba(0, 0, 0, 0.8);
+        }
+        .sidebar-section-label {
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: #888;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
         .shiny-input-container {
-          margin-bottom: 5px !important;
+          margin-bottom: 6px !important;
+        }
+        .load-status-text {
+          font-size: 0.85rem;
+          font-weight: 600;
+          margin-top: 6px;
+          text-align: center;
         }
       "))
     ),
-
-    ##############################################################
-    # SIDE BAR DATA INPUTS AND BUTTONS
-    ##############################################################
-    tags$div(
-      id = ns("sidebar"),
-      class = "input-section",
-      # h4(tags$span(shiny::icon("file-upload"), " Select Data File:"), style = "color: black;"),
-      # div(style = "width: 100%;",
-      #     fileInput(ns("data"), NULL, width = "100%", accept = c(".rds"))  # File input
-      # ),
-      
-      h4(tags$span(shiny::icon("users"), " Client Access"), 
-         style = "color: black;"),
-      
+    
+    # ── Client Access ────────────────────────────────────────────
+    div(
+      id    = ns("client_access_section"),
+      class = "sidebar-section",
+      div(
+        class = "sidebar-section-label",
+        shiny::icon("users"), "Client Access"
+      ),
       textInput(
         ns("client_id"),
-        label = "Enter Client ID:",
-        placeholder = "e.g. ID_12345"
+        label       = NULL,
+        placeholder = "Enter Client ID (e.g. ID_12345)",
+        width       = "100%"
       ),
       div(
-        style = "display: flex; width: 100%; align-items: center; gap: 10px;",
-        actionButton(ns("submit_id"), "Access Files", icon = shiny::icon("folder-open"), 
-                     class = "custom-btn", style = "flex-grow: 1;"),
-        # Spinner shown while loading
+        style = "display: flex; align-items: center; gap: 8px;",
+        actionButton(
+          ns("submit_id"), "Access Files",
+          icon  = shiny::icon("folder-open"),
+          class = "custom-btn",
+          style = "flex-grow: 1;"
+        ),
         div(
-          id = ns("client_spinner"),
+          id    = ns("client_spinner"),
           style = "display: none;",
           tags$span(
             class = "spinner-border spinner-border-sm text-secondary",
@@ -131,61 +135,100 @@ mod_main_ui <- function(id) {
             style = "width: 1.2rem; height: 1.2rem;"
           )
         )
-      ),
-      tags$hr(style = "border-top: 2px solid black; margin-top: 15px; margin-bottom: 15px;"),
-      
-      h4(tags$span(shiny::icon("file-import"), "Import Data:"), style = "color: black;"), 
-      div(style = "display: flex; width: 100%;",  
-          fileInput(ns("zip_file"), "Upload a Zip File:", accept = ".zip")
-      ),
-      
-      #shiny::verbatimTextOutput(ns("directory")),
-      
-      # Submit button with loading spinner
-      div(
-        style = "display: flex; width: 100%;",
-        actionButton(ns("submit_files"), "Load Files", icon = shiny::icon("folder-open"), class = "custom-btn", style = "flex-grow: 1;")
-      ),
-      shiny::h6(
-        "Note: Files up to 2 GB are supported.",
-        style = "margin-top: 0px; margin-bottom: 10px; font-size: 0.82rem; color: #888; text-align: left;"
-      ),
-      
-      textOutput(ns("load_status")),
-      #br(),
-      # Horizontal black line
-      tags$hr(style = "border-top: 2px solid black; margin-top: 15px; margin-bottom: 15px;"),
-      
-      # "Use Example Data" button
-      div(
-        style = "display: flex; width: 100%;",
-        actionButton(
-          ns("load_example"), 
-          "Use Example Data", 
-          icon = icon("flask"), 
-          style = "
-            flex-grow: 1;
-            background-color: #CDAD00; 
-            border: 1px solid black; 
-            color: white;
-          ",
-          class = "load-example-btn"
-        )
       )
     ),
     
-    ##############################################################
-    # LEAFLET MAP 
-    ##############################################################
+    # ── Upload ZIP ───────────────────────────────────────────────
     div(
-      id = ns("map_container"),
-      class = "map-container",
-      leaflet::leafletOutput(ns("map"), height = "300px"),
-      actionButton(ns("expand_map"), "Expand Map", icon = shiny::icon("map"), class = "map-toggle-btn")
+      id    = ns("upload_section"),
+      class = "sidebar-section",
+      div(
+        class = "sidebar-section-label",
+        shiny::icon("file-import"), "Upload Data"
+      ),
+      fileInput(
+        ns("zip_file"), NULL,
+        accept      = ".zip",
+        placeholder = "Select a ZIP file",
+        width       = "100%"
+      ),
+      actionButton(
+        ns("submit_files"), "Load Files",
+        icon  = shiny::icon("upload"),
+        class = "custom-btn",
+        style = "width: 100%;"
+      ),
+      tags$p(
+        "Files up to 2 GB supported.",
+        style = "font-size: 0.75rem; color: #aaa; margin: 6px 0 0 0; text-align: center;"
+      )
     ),
+    
+    # ── Example Data ─────────────────────────────────────────────
     div(
-      style = "margin-top: 10px; font-size: 0.85rem; color: #333; text-align: center;",
-      HTML('Please send any questions or issues to <u>jstephens@oceanscienceanalytics.com</u>')
+      id    = ns("example_section"),
+      class = "sidebar-section",
+      div(
+        class = "sidebar-section-label",
+        shiny::icon("flask"), "Try a Demo"
+      ),
+      actionButton(
+        ns("load_example"),
+        "Use Example Dataset",
+        icon  = shiny::icon("play"),
+        style = "
+          width: 100%;
+          background-color: #CDAD00;
+          border: none;
+          color: white;
+          border-radius: 6px;
+          padding: 8px;
+          font-weight: 500;
+        ",
+        class = "load-example-btn"
+      ),
+      tags$p(
+        "Load a pre-built OOI demo dataset.",
+        style = "font-size: 0.75rem; color: #aaa; margin: 6px 0 0 0; text-align: center;"
+      )
+    ),
+    
+    # ── Load Status ──────────────────────────────────────────────
+    uiOutput(ns("load_status")),
+    
+    # ── Map ──────────────────────────────────────────────────────
+    div(
+      id    = ns("map_container"),
+      class = "sidebar-section",
+      style = "padding: 8px;",
+      div(
+        class = "sidebar-section-label",
+        style = "margin-bottom: 6px;",
+        shiny::icon("map-location-dot"), "Deployment Map"
+      ),
+      div(
+        style = "border-radius: 6px; overflow: hidden; border: 1px solid #dde3e8;",
+        leaflet::leafletOutput(ns("map"), height = "260px")
+      ),
+      actionButton(
+        ns("expand_map"), "Expand Map",
+        icon  = shiny::icon("expand"),
+        class = "map-toggle-btn"
+      )
+    ),
+    
+    # ── Footer ───────────────────────────────────────────────────
+    div(
+      style = "
+        margin-top: 4px;
+        padding: 8px;
+        font-size: 0.75rem;
+        color: #aaa;
+        text-align: center;
+        border-top: 1px solid #eee;
+      ",
+      HTML('Questions? <a href="mailto:jstephens@oceanscienceanalytics.com" 
+            style="color: #00688B;">jstephens@oceanscienceanalytics.com</a>')
     )
   )
 }
@@ -206,6 +249,10 @@ mod_main_server <- function(id){
       )
     }
     
+    # Initially set loading status to NULL
+    load_status_state <- reactiveVal(NULL)  # NULL = hidden, "success" = green, "error" = red
+    load_status_msg   <- reactiveVal("")
+    
 ##############################################################
 # DIRECTORY OUTPUT LOGIC
 ##############################################################
@@ -220,38 +267,6 @@ mod_main_server <- function(id){
     soundscape_data <- reactiveVal(NULL)
     click_detector_data <-reactiveVal(NULL)
     use_example <- reactiveVal(FALSE)
-    
-    # volumes <- c(
-    #   Home = fs::path_home(),
-    #   Downloads = fs::path_home("Downloads"),
-    #   #"C Drive" = "C:/",
-    #   #"D Drive" = "D:/",
-    #   Root = "/"
-    # )
-    # 
-    # # Enable directory selection
-    # shinyFiles::shinyDirChoose(
-    #   input = input,
-    #   id = "dir",
-    #   roots = volumes,
-    #   session = session,
-    #   allowDirCreate = FALSE
-    # )
-    # 
-    # # Selected directory reactive
-    # selected_dir <- shiny::reactive({
-    #   shiny::req(input$dir)
-    #   shinyFiles::parseDirPath(volumes, input$dir)
-    # })
-    # 
-    # # Display selected directory path
-    # output$directory <- shiny::renderPrint({
-    #   if(length(selected_dir()) == 0) {
-    #     "No directory selected"
-    #   } else {
-    #     selected_dir()
-    #   }
-    # })
     
     
 ##############################################################
@@ -443,10 +458,49 @@ mod_main_server <- function(id){
       base_map
     })
     
-    
-    ##############################################################
-    # EXAMPLE DATA LOGIC
-    ##############################################################
+##############################################################
+# LOADING MESSAGES
+##############################################################
+    output$load_status <- renderUI({
+      state <- load_status_state()
+      if (is.null(state)) return(NULL)
+      
+      if (state == "success") {
+        div(
+          style = "
+        text-align: center;
+        padding: 6px 10px;
+        margin-bottom: 10px;
+        background-color: #f0faf0;
+        border-radius: 6px;
+        border: 1px solid #c3e6cb;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #2e7d32;
+      ",
+          load_status_msg()
+        )
+      } else if (state == "error") {
+        div(
+          style = "
+        text-align: center;
+        padding: 6px 10px;
+        margin-bottom: 10px;
+        background-color: #fff3f3;
+        border-radius: 6px;
+        border: 1px solid #f5c6cb;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #c62828;
+      ",
+          load_status_msg()
+        )
+      }
+    })
+        
+##############################################################
+# EXAMPLE DATA LOGIC
+##############################################################
     observeEvent(input$load_example, {
       showModal(modalDialog(
         title = div(
@@ -619,7 +673,20 @@ mod_main_server <- function(id){
 
     observeEvent(input$confirm_example_load, {
       removeModal()
-      showNotification("Loading Example Data Files...", type = "message", duration = 10)
+      load_status_state(NULL) 
+      #showNotification("Loading Example Data Files...", type = "message", duration = 10)
+      notif <- showNotification(
+        ui       = tagList(
+          shiny::icon("spinner", class = "fa-spin", style = "margin-right: 8px;"),
+          "Loading Example Data Files..."
+        ),
+        type     = "message",
+        duration = NULL,
+        closeButton = FALSE
+      )
+      
+      # Notification is always removed even if an error occurs
+      on.exit(removeNotification(notif))
       
       # Full relative path to the example ZIP file inside the app directory
       example_zip_path <- "inst/data/OSA_OOI_Demo.zip"
@@ -639,13 +706,13 @@ mod_main_server <- function(id){
       click_detector_data(result$click_detector)
       use_example(TRUE)
       
-      output$load_status <- renderText({
-        if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
-          "✔️ Example Data Loaded"
-        } else {
-          "Example Data Did Not Load Properly"
-        }
-      })
+      if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
+        load_status_state("success")
+        load_status_msg("✔️ Example Data Loaded")
+      } else {
+        load_status_state("error")
+        load_status_msg("❌ Example Data Did Not Load Properly")
+      }
     })
     
     
@@ -656,21 +723,33 @@ mod_main_server <- function(id){
       req(input$client_id)
       
       client_id <- trimws(input$client_id)
+      load_status_state(NULL) 
       
       if (client_id == "") {
         showNotification("Please enter a Client ID.", type = "error")
         return()
       }
       
+      notif <- showNotification(
+        ui = tagList(
+          shiny::icon("spinner", class = "fa-spin", style = "margin-right: 8px;"),
+          "Loading Data Files..."
+        ),
+        type        = "message",
+        duration    = NULL,
+        closeButton = FALSE
+      )
+      
       shinyjs::show("client_spinner")
       shinyjs::disable("submit_id")
       
       on.exit({
+        removeNotification(notif)
         shinyjs::hide("client_spinner")
         shinyjs::enable("submit_id")
       })
       
-      showNotification("Loading Data Files...", type = "message")
+      #showNotification("Loading Data Files...", type = "message")
       
       DATA_ROOT <- Sys.getenv("DATA_ROOT", unset = "inst/data")
       client_folder <- file.path(DATA_ROOT, client_id)
@@ -694,9 +773,8 @@ mod_main_server <- function(id){
       soundscape_data(result$soundscape)
       click_detector_data(result$click_detector)
       
-      output$load_status <- renderText({
-        "✔️ Data Succesfully Loaded"
-      })
+      load_status_state("success")
+      load_status_msg("✔️ Data Successfully Loaded")
     })
     
     
@@ -706,7 +784,20 @@ mod_main_server <- function(id){
     
     observeEvent(input$submit_files, {
       req(input$zip_file)  # Wait for zip upload
-      showNotification("Reading Uploaded Data Files...", type = "message")
+      #showNotification("Reading Uploaded Data Files...", type = "message")
+      
+      notif <- showNotification(
+        ui = tagList(
+          shiny::icon("spinner", class = "fa-spin", style = "margin-right: 8px;"),
+          "Reading Uploaded Data Files..."
+        ),
+        type        = "message",
+        duration    = NULL,
+        closeButton = FALSE
+      )
+      
+      on.exit(removeNotification(notif))
+      load_status_state(NULL) 
       
       zip_path <- input$zip_file$datapath
       
@@ -727,18 +818,18 @@ mod_main_server <- function(id){
         click_detector_data(result$click_detector)
         use_example(FALSE)
         
-        # Status
-        output$load_status <- renderText({
-          if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
-            paste0("✔️ ", length(result$rds_names), " Datasets Loaded")
-          } else {
-            "No Datasets Loaded"
-          }
-        })
+        if (!is.null(result$rds_names) && length(result$rds_names) > 0) {
+          load_status_state("success")
+          load_status_msg(paste0("✔️ ", length(result$rds_names), " Datasets Loaded"))
+        } else {
+          load_status_state("error")
+          load_status_msg("No Datasets Loaded")
+        }
         
       }, error = function(e) {
         selected_dir(NULL)
-        output$load_status <- renderText(paste("❌ Error loading ZIP:", e$message))
+        load_status_state("error")
+        load_status_msg(paste("❌ Error loading ZIP:", e$message))
         showNotification(paste("Error:", e$message), type = "error")
       })
     })
