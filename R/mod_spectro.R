@@ -17,15 +17,15 @@ mod_spectro_ui <- function(id) {
   
   tagList(
     tags$head(
-      # tags$script(HTML("
-      #   Shiny.addCustomMessageHandler('stopAudio', function(message) {
-      #     var audioEl = document.getElementById(message.id);
-      #     if (audioEl && !audioEl.paused) {
-      #       audioEl.pause();
-      #       audioEl.currentTime = 0;
-      #     }
-      #   });
-      # ")),
+      tags$script(HTML("
+        Shiny.addCustomMessageHandler('stopAudio', function(message) {
+          var audioEl = document.getElementById(message.id);
+          if (audioEl && !audioEl.paused) {
+            audioEl.pause();
+            audioEl.currentTime = 0;
+          }
+        });
+      ")),
       
       tags$style(HTML("
         .full-height {
@@ -96,19 +96,28 @@ mod_spectro_server <- function(id, data) {
           updateSelectInput(session, locationInput, choices = names(tree()))
         })
         
+        # This resets the spectrograms and audio player when a new dataset is loaded
+        observeEvent(tree(), {
+          spectro_cache(NULL)
+          output[[plotOutput]] <- renderPlot({ NULL })
+          
+          output[[paste0("audio_", index)]] <- renderUI({ NULL })
+          session$sendCustomMessage("stopAudio", list(id = ns(paste0("audio_element_", index))))
+        }, ignoreInit = TRUE)
+        
         observeEvent(input[[locationInput]], {
           loc <- input[[locationInput]]
           req(loc)
           species_choices <- names(tree()[[loc]])
           updateSelectInput(session, speciesInput, choices = species_choices)
           
-          # Also immediately update folder based on first species of new location
+          # Immediately update folder based on first species of new location
           first_species <- species_choices[1]
           if (!is.null(first_species)) {
             folder_choices <- names(tree()[[loc]][[first_species]])
             updateSelectInput(session, folderInput, choices = folder_choices)
             
-            # And update files based on first folder
+            # Update files based on first folder
             first_folder <- folder_choices[1]
             if (!is.null(first_folder)) {
               wavs <- tree()[[loc]][[first_species]][[first_folder]]
@@ -124,7 +133,7 @@ mod_spectro_server <- function(id, data) {
           folder_choices <- names(tree()[[loc]][[sp]])
           updateSelectInput(session, folderInput, choices = folder_choices)
           
-          # Also immediately update files based on first folder
+          # Immediately update files based on first folder
           first_folder <- folder_choices[1]
           if (!is.null(first_folder)) {
             wavs <- tree()[[loc]][[sp]][[first_folder]]
@@ -162,7 +171,7 @@ mod_spectro_server <- function(id, data) {
             dyn_range_val <- 60
           }
           
-          # === Find event name from folder selection ===
+          # Find event name from folder selection
           selected_loc <- input[[locationInput]]
           selected_name <- input[[folderInput]]
           
@@ -562,8 +571,8 @@ mod_spectro_server <- function(id, data) {
                 tags$p(
                   style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
                   "PAMPortal can occasionally freeze when generating spectrograms during
-           periods of high traffic. If this happens, simply refresh the app and
-           try again."
+                   periods of high traffic. If this happens, simply refresh the app and
+                   try again."
                 ),
                 tags$p(
                   style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
@@ -572,7 +581,7 @@ mod_spectro_server <- function(id, data) {
                     href  = "mailto:jstephens@oceanscienceanalytics.com",
                     style = "color: #00688B;",
                     "jstephens@oceanscienceanalytics.com"
-                  ), "."
+                  )
                 )
               )
             )

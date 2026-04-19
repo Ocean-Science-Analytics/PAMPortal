@@ -78,8 +78,8 @@ mod_main_ui <- function(id) {
           border-radius: 8px;
           padding: 12px;
           margin-bottom: 1px; 
-          border: 1px solid #dde3e8;
           box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+          border: 1px solid rgba(0, 0, 0, 0.8);
         }
         .sidebar-section-label {
           font-size: 0.72rem;

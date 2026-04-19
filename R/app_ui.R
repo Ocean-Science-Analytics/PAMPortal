@@ -11,7 +11,7 @@ app_ui <- function(request) {
     # Leave this function for adding external resources
     
     waiter::waiter_show_on_load(
-      color = "#001f3f",   # match your app's dark navy (#001f3f) or olive green (#3E606F)
+      color = "#001f3f",   # Dark navy (#001f3f) or olive green (#3E606F)
       html  = div(
         style = "
       display: flex;
@@ -145,6 +145,27 @@ app_ui <- function(request) {
           border-bottom: 1px solid rgba(0,0,0,0.15);
           box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+        .nav-link {
+          color: #001f3f !important;
+          font-weight: 500;
+          letter-spacing: 0.04em;
+          padding: 8px 16px !important;
+          border-radius: 6px !important;
+          transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        
+        /* Hover state */
+        .nav-link:hover {
+          background-color: rgba(0, 104, 139, 0.12) !important;
+          color: #00688B !important;
+        }
+        
+        /* Active/selected tab */
+        .nav-link.active {
+          background-color: #00688B !important;
+          color: white !important;
+          box-shadow: 0 2px 6px rgba(0, 104, 139, 0.35);
+        }
       "))
     ),
     
@@ -152,18 +173,8 @@ app_ui <- function(request) {
       theme = bslib::bs_theme(
         version = 5,
         base_font = bslib::font_google("Roboto Condensed"),
-        "nav-link-font-size" = "1.25rem !important"
+        "nav-link-font-size" = "1.15rem !important"
       ),
-      
-      # Title with image
-      # div(
-      #   class = "app-header",
-      #   style = "display: flex; align-items: center; padding: 10px; background-color: #7AC5CD;",
-      #   img(src = "www/white_square_OSA_med.jpg",height = 45,class = "header-logo",style = "margin: 0 10px 0 25px;"),
-      #   h2("PAMPortal", class = "pam-title", style = "margin: 0; color: white; flex-grow: 1;"),
-      #   img(src = "www/header_scene.png", height = 70, style = "margin: 0 11px 0 22px; opacity: 0.9; filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));"),
-      #   actionButton(inputId = "help", label = "Guide", class = "btn btn-lightgrey", style = "margin: 0 20px 0 10px;")  # Guide button
-      # ),
       
       div(
         class = "app-header",
