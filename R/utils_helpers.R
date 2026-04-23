@@ -1745,6 +1745,146 @@ plot_measurements <- function(location_list, base_path,
 
 
 
+#' DeepAcoustics Plot
+#' 
+#' @description view DA output compared to PG detections.
+#'
+##  grouping - can be c("day", "Week", "Month")
+##  species_of_interest - can be Fin whale, Blue whale, and/or Sei whale
+##  months_of_interest - same as others (c("All") or list of months)
+
+deep_acoustics_plot <- function(location, basepath, 
+                                months_of_interest = c('All'),
+                                species_of_interest = c("Fin whale", "Blue whale", "Sei whale"),
+                                grouping = "day") {
+  
+  tzone <- get_timezone(location, basepath)
+  
+  # get start/end times
+  sound_df <- get_soundmap(location, basepath) %>%
+    mutate(
+      UTC = ymd_hms(UTC),
+      local_time = with_tz(UTC, tzone = tzone)
+    ) %>%
+    filter(
+      "All" %in% months_of_interest |
+        month(local_time, label = TRUE, abbr = FALSE) %in% months_of_interest
+    )
+  
+  start_time <- as.Date(min(sound_df$local_time, na.rm = TRUE), tz = tzone)
+  end_time   <- as.Date(max(sound_df$local_time, na.rm = TRUE), tz = tzone)
+  
+  # Deep Acoustics data
+  path <- file.path(basepath, "DeepAcoustics", paste0(location, "_DA.csv"))
+  
+  da_df <- read_csv(path) %>%
+    mutate(local_time = with_tz(UTC, tzone = tzone)) %>%
+    filter(
+      species %in% species_of_interest,
+      "All" %in% months_of_interest |
+        month(local_time, label = TRUE, abbr = FALSE) %in% months_of_interest
+    ) %>%
+    mutate(group_time = floor_date(local_time, unit = grouping)) %>%
+    group_by(group_time, species, Type) %>%
+    summarise(da_detections = n(), .groups = "drop") %>%
+    filter(group_time >= start_time & group_time <= end_time)
+  
+  # PAMGuard data (includes possible)
+  species_plus_possible <- as.vector(
+    rbind(species_of_interest, paste("Possible", tolower(species_of_interest)))
+  )
+  
+  pg_df <- get_data(location, basepath, months_of_interest, species_plus_possible) %>%
+    mutate(
+      local_time = with_tz(UTC, tzone = tzone),
+      group_time = floor_date(local_time, unit = grouping)
+    ) %>%
+    group_by(group_time, species) %>%
+    summarise(pg_detections = n(), .groups = "drop") %>%
+    mutate(
+      pg_pos_detections = if_else(str_detect(species, "^Possible "), pg_detections, 0L),
+      pg_detections = if_else(str_detect(species, "^Possible "), 0L, pg_detections),
+      species = str_remove(species, "^Possible "),
+      species = str_to_sentence(species)
+    ) %>%
+    group_by(group_time, species) %>%
+    summarise(
+      pg_detections = sum(pg_detections),
+      pg_pos_detections = sum(pg_pos_detections) + sum(pg_detections),
+      .groups = "drop"
+    )
+  
+  # grid for missing combinations
+  if (grouping %in% c('day', 'week', 'month')) {
+    
+    grid <- expand_grid(
+      group_time = seq(start_time, end_time, by = grouping),
+      species = species_of_interest
+    )
+    
+  } else if (grouping == 'hour') {
+    
+    grid <- expand_grid(
+      day = seq(start_time, end_time, by = 'day'),
+      hour = seq(0, 23),
+      species = species_of_interest
+    ) %>%
+      mutate(group_time = ymd(day) + hours(hour)) %>%
+      select(group_time, species)
+  }
+  
+  pg_dets <- grid %>%
+    left_join(pg_df, by = c("group_time", "species")) %>%
+    mutate(across(everything(), ~ replace_na(.x, 0)))
+  
+  has_pg <- nrow(pg_df) > 0
+  start_time <- as.POSIXct(start_time, tz = tzone)
+  end_time   <- as.POSIXct(end_time, tz = tzone)
+  
+  p <- ggplot() +
+    geom_col(
+      data = da_df,
+      aes(x = group_time, y = da_detections, fill = Type),
+      position = "stack"
+    ) +
+    facet_wrap(~ species, scales = "free_y", ncol = 1) +
+    scale_fill_manual(values = alpha(palette_secondary, 1)) +
+    labs(
+      title = paste(gsub("_", " ", location), "Low Frequency Detections"),
+      y = paste("Detections per", grouping),
+      x = "",
+      fill = "Deep\nAcoustics"
+    ) +
+    scale_x_datetime(limits = c(start_time, end_time)) +
+    scale_y_continuous(expand = c(0,0))
+  
+  if (has_pg) {
+    
+    p <- p +
+      geom_line(
+        data = pg_dets,
+        aes(x = group_time, y = pg_pos_detections,
+            color = "Possible\ndetections"),
+        lty = 3,
+        lwd = 1
+      ) +
+      geom_line(
+        data = pg_dets,
+        aes(x = group_time, y = pg_detections,
+            color = "Detections"),
+        lwd = 1
+      ) +
+      scale_color_manual(values = c(
+        "Detections" = text,
+        "Possible\ndetections" = text
+      )) +
+      labs(color = "PAMGuard")
+  }
+  
+  return(p)
+}
+
+
 #' Spectrogram Card
 #' 
 #' @description Generates UI cards for spectrogram module
