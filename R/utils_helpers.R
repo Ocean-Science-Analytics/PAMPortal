@@ -1753,7 +1753,7 @@ plot_measurements <- function(location_list, base_path,
 ##  species_of_interest - can be Fin whale, Blue whale, and/or Sei whale
 ##  months_of_interest - same as others (c("All") or list of months)
 
-deep_acoustics_plot <- function(location, basepath, 
+plot_deep_acoustics <- function(location, basepath, 
                                 months_of_interest = c('All'),
                                 species_of_interest = c("Fin whale", "Blue whale", "Sei whale"),
                                 grouping = "day") {
