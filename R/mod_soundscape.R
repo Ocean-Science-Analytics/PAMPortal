@@ -83,7 +83,7 @@ mod_soundscape_server <- function(id, data){
     #########################################################################
     output$psd_tab_content <- renderUI({
       if (!has_soundscape()) {
-        no_data_message("No PSD images are available for this current dataset.")
+        no_data_message("No PSD images are available in this dataset.")
       } else {
         div(
           style = "display: flex; flex-direction: column; gap: 12px;",

@@ -479,6 +479,75 @@ mod_analysis_ui <- function(id) {
         br(),
         withSpinner(plotOutput(ns("distribution_plot"), height = "750px"), type = 4, color = "#001f3f",caption="Loading Call Measurment Plot...")
         #plotOutput(ns("distribution_plot"), height = "600px")
+      ),
+      tabPanel(
+        "Deep Acoustics",
+        br(),
+        div(style = "border: 2px solid black; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 8px 10px rgba(0,0,0.08,0.4);",
+            fluidRow(
+              column(
+                width = 3,
+                div(
+                  style = "display: flex; align-items: center; gap: 8px;",
+                  div(style = "flex: 1; min-width: 0;",
+                      selectInput(ns("location_deep_acou"), "Select Location", choices = NULL, width = "100%")
+                  ),
+                  div(
+                    id = ns("spinner_call_den"),
+                    style = "display: none; margin-top: 18px;",
+                    tags$span(
+                      class = "spinner-border spinner-border-sm text-secondary",
+                      role  = "status",
+                      style = "width: 1.2rem; height: 1.2rem;"
+                    )
+                  )
+                ),
+                selectInput(
+                  inputId = ns("grouping_deep_acou"),
+                  label   = "Time Increment",
+                  choices = c("day", "week", "month"),
+                  multiple = FALSE,
+                  selected = "day"
+                )
+              ),
+              column(
+                width = 3,
+                selectInput(ns("species_filter_deep_acou"), "Select Species", choices = c("Fin whale", "Blue whale", "Sei whale"), multiple = TRUE),
+                # div(
+                #   style = "padding-top: 28px;",
+                #   checkboxInput(
+                #     inputId = ns("log_scale"),
+                #     label = "Log Scale",
+                #     value = FALSE
+                #   )
+                # )
+              ),
+              column(
+                width = 3,
+                selectInput(ns("month_filter_deep_acou"), "Select Month", choices = c("All", month.name), selected = "All", multiple = TRUE)
+              ),
+              column(
+                width = 1, 
+                align = "middle",
+                div(style = "height: 100%; border-right: 2px solid black;")
+              ),
+              column(
+                width = 2,
+                tags$div(
+                  style = "margin-bottom: 10px;",
+                  actionButton(ns("render_deep_acou"), "Render Plot", icon = shiny::icon("file-lines"), class = "custom-btn")
+                ),
+                downloadButton(ns("download_deep_acou_plot"), "Download Plot", class = "btn-success custom-btn-success")
+              )
+            ),
+        ),
+        div(
+          style = "display: flex; justify-content: flex-end; width: 100%; padding-right: 20px;",
+          actionButton(ns("deep_acou_description"), "", icon = shiny::icon("question"), class = "custom-btn")
+        ),
+        br(),
+        withSpinner(plotOutput(ns("deep_acou_plot"), height = "750px"), type = 4, color = "#001f3f", caption="Loading Deep Acoustic Plot...")
+        #plotOutput(ns("effort_plot"),height = "600px")
       )
     )
   )
@@ -529,6 +598,8 @@ mod_analysis_server <- function(id, data){
                           "detector_filter", "render_distribution",
                           "download_distribution_plot", "call_measurment_description")
     
+    deep_acou_inputs <- c()
+    
     #########################################################################
     # Initial Paths and Functions for this Module
     #########################################################################
@@ -539,6 +610,7 @@ mod_analysis_server <- function(id, data){
     plot_measurements_obj <- reactiveVal(NULL)
     occurrence_plot_obj <- reactiveVal(NULL)
     detection_plot_obj <- reactiveVal(NULL)
+    deep_acou_plot_obj <- reactiveVal(NULL)
     
     base_path <- reactive({
       req(data$selected_dir())
@@ -565,6 +637,7 @@ mod_analysis_server <- function(id, data){
       updateSelectInput(session, "location_dis", choices = locations)
       updateSelectInput(session, "location_occr", choices = locations)
       updateSelectInput(session, "location_detection", choices = locations)
+      updateSelectInput(session, "location_deep_acou", choices = locations)
     })
     
     observeEvent(input$detector_filter, {
@@ -907,6 +980,51 @@ mod_analysis_server <- function(id, data){
     })
     
     ###################################################################
+    # Deep Acoustics Plot
+    ###################################################################
+    observeEvent(input$location_deep_acou, {
+      req(input$location_deep_acou)
+      set_loading("spinner_deep_acou", call_den_inputs, loading = TRUE)
+      on.exit(set_loading("spinner_deep_acou", call_den_inputs, loading = FALSE))
+      rds <- load_rds(input$location_deep_acou)
+      req(!is.null(rds))
+      species <- unique(unlist(lapply(rds@events, function(ev) ev@species$id)))
+      updateSelectInput(session, "species_filter_deep_acou", choices = c("Fin whale", "Blue whale", "Sei whale"), selected = "Fin whale")
+    })
+    
+    
+    deep_acou_plot_obj <- eventReactive(input$render_deep_acou, {
+      req(base_path(), input$location_deep_acou)
+      showNotification("Loading Deep Acoustics Plot...", type = "message")
+      
+      if (length(input$species_filter_deep_acou) == 0) {
+        showNotification("Deep Acoustics Stopped", type = "error", duration = 8)
+        showNotification("Please select specific species to view or set species to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific species to view or set species to 'All'.")
+      }
+      if (length(input$month_filter_deep_acou) == 0) {
+        showNotification("Deep Acoustics Stopped", type = "error", duration = 8)
+        showNotification("Please select specific months to view or set months to 'All'.", type = "warning", duration = 8)
+        stop("Please select specific months to view or set months to 'All'.")
+      }
+      
+      plot_deep_acoustics(
+        location = input$location_deep_acou,
+        base_path = base_path(),
+        species_of_interest = input$species_filter_deep_acou,
+        months_of_interest = input$month_filter_deep_acou,
+        grouping = input$grouping_deep_acou,
+        load_rds_fn = load_rds
+        #log_scale = input$log_scale
+      )
+    }, ignoreNULL = TRUE)
+    
+    output$deep_acou_plot <- renderPlot({
+      req(deep_acou_plot_obj())
+      deep_acou_plot_obj()
+    })
+    
+    ###################################################################
     # Download Plot Logic
     ###################################################################
     output$download_call_count_plot <- downloadHandler(
@@ -968,135 +1086,442 @@ mod_analysis_server <- function(id, data){
         ggsave(file, plot = detection_plot_obj(), bg = "white", width = 10, height = 6, dpi = 300)
       }
     )
+    ###
+    output$download_deep_acou_plot <- downloadHandler(
+      filename = function() {
+        paste0("deep_acoustic_plot_", Sys.Date(), ".png")
+      },
+      content = function(file) {
+        req(deep_acou_plot_obj())
+        ggsave(file, plot = deep_acou_plot_obj(), bg = "white", width = 10, height = 6, dpi = 300)
+      }
+    )
     
     ###################################################################
     # Description Pages
     ###################################################################
     observeEvent(input$occr_description, {
       showModal(modalDialog(
-        title = "Occurrence Plot",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("calendar-days", style = "color: #00688B; font-size: 1.2em;"),
+          span("Daily Occurrence Plot", style = "font-weight: bold; color: #001f3f;")
+        ),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tagList(
-          p("This plot shows the total number of minutes per day in which each species was acoustically detected at the selected deployment."),
-          
-          p("Each colored bar represents one day of detections. The height of the bar indicates how many minutes that species was present in the acoustic data for that day."),
-          
-          p("This visualization is useful for examining short-term and long-term occurrence patterns, identifying periods of high activity, and comparing species presence across the deployment timeline."),
-          
-          p("If an environmental variable is selected, it is displayed on a secondary axis to help identify relationships between detection patterns and environmental conditions.")
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("chart-bar", style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Overview"),
+              tags$p(style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                     "This plot shows the total number of minutes per day in which each species 
+             was acoustically detected at the selected deployment. It is useful for examining 
+             short-term and long-term occurrence patterns and identifying periods of high activity."
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("layer-group", style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Plot Details"),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(tags$b("X-axis: "), "Calendar date across the deployment period."),
+                tags$li(tags$b("Y-axis: "), "Number of minutes with at least one detection."),
+                tags$li(tags$b("Bars: "), "Each bar represents one day. Height indicates detected minutes for that species."),
+                tags$li(tags$b("Facets: "), "Each species is shown in its own panel for easy comparison.")
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 10px; align-items: flex-start;
+                 padding: 10px 12px; background-color: #f9f9f9;
+                 border-radius: 6px; border: 1px solid #ddd;
+                 font-size: 0.82rem; color: #666;",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0; margin-top: 2px;"),
+            "If an environmental variable is selected, it is overlaid as a line on a secondary 
+         axis to help identify relationships between detection patterns and environmental conditions."
+          )
         )
       ))
     })
     
     observeEvent(input$call_count_description, {
       showModal(modalDialog(
-        title = "Call Count Plot",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("hashtag", style = "color: #00688B; font-size: 1.2em;"),
+          span("Call Count Plot", style = "font-weight: bold; color: #001f3f;")
+        ),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tagList(
-          p("This plot displays the total number of acoustic calls detected per day for each species at the selected deployment."),
-          
-          p("Unlike the Occurrence Plot, which shows the number of detected minutes per day, this figure shows the actual count of individual calls identified in the dataset."),
-          
-          p("Each bar represents one day of detections. The height or position on the plot corresponds to the total number of calls recorded for that species on that date."),
-          
-          p("This visualization is useful for examining calling behavior, comparing call rates across time, identifying peaks in acoustic activity, and distinguishing changes in daily calling patterns."),
-          
-          p("If an environmental variable is selected, it is displayed on a secondary axis to help identify relationships between call rates and environmental conditions.")
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("chart-bar", style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Overview"),
+              tags$p(style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                     "This plot displays the total number of acoustic calls detected per day for each 
+             species. Unlike the Occurrence Plot which shows detected minutes, this figure 
+             counts individual calls identified in the dataset."
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("layer-group", style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Plot Details"),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(tags$b("X-axis: "), "Calendar date across the deployment period."),
+                tags$li(tags$b("Y-axis: "), "Total number of individual calls recorded that day."),
+                tags$li(tags$b("Bars: "), "Each bar represents one day of detections."),
+                tags$li(tags$b("Facets: "), "Each species is shown in its own panel.")
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 10px; align-items: flex-start;
+                 padding: 10px 12px; background-color: #f9f9f9;
+                 border-radius: 6px; border: 1px solid #ddd;
+                 font-size: 0.82rem; color: #666;",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0; margin-top: 2px;"),
+            "If an environmental variable is selected, it is overlaid as a line on a secondary 
+         axis to help identify relationships between call rates and environmental conditions."
+          )
         )
       ))
     })
     
     observeEvent(input$call_den_description, {
       showModal(modalDialog(
-        title = "Call Density Plot",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("wave-square", style = "color: #00688B; font-size: 1.2em;"),
+          span("Call Density Plot", style = "font-weight: bold; color: #001f3f;")
+        ),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tagList(
-          p("This plot displays the normalized call density for each species across all recorded days at the selected deployment."),
-          
-          p("Call density represents the relative concentration of calls rather than the total number of detections. 
-         The density curve shows how calling activity is distributed through time, highlighting periods of increased or decreased vocal behavior."),
-          
-          p("Unlike the Occurrence Plot (detected minutes per day) or the Call Count Plot (number of calls per day), 
-         this plot emphasizes the overall shape and intensity of calling patterns, making it easy to compare calling behavior across species."),
-          
-          p("Each species is shown as a smoothed density curve, normalized so species with different call numbers can be compared on the same scale."),
-          
-          p("If an environmental variable is selected, it appears as a line overlay with a secondary axis, enabling comparisons between calling activity and environmental conditions.")
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("chart-area", style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Overview"),
+              tags$p(style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                     "This plot displays the normalized call density for each species, showing how 
+             calling activity is distributed through time. Unlike call count or occurrence 
+             plots, this emphasizes the overall shape and intensity of calling patterns."
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("layer-group", style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Plot Details"),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(tags$b("X-axis: "), "Calendar date across the deployment period."),
+                tags$li(tags$b("Y-axis: "), "Normalized call density — relative concentration of calls over time."),
+                tags$li(tags$b("Curves: "), "Smoothed density curves, normalized so species with different call volumes can be compared on the same scale."),
+                tags$li(tags$b("Facets: "), "Each species is shown in its own panel.")
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 10px; align-items: flex-start;
+                 padding: 10px 12px; background-color: #f9f9f9;
+                 border-radius: 6px; border: 1px solid #ddd;
+                 font-size: 0.82rem; color: #666;",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0; margin-top: 2px;"),
+            "If an environmental variable is selected, it appears as a line overlay with a 
+         secondary axis, enabling comparisons between calling activity and environmental conditions."
+          )
         )
       ))
     })
     
     observeEvent(input$call_measurment_description, {
       showModal(modalDialog(
-        title = "Call Measurement Plot",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("ruler", style = "color: #00688B; font-size: 1.2em;"),
+          span("Call Measurements Plot", style = "font-weight: bold; color: #001f3f;")
+        ),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tagList(
-          p("This plot displays the distribution of selected acoustic call measurements (e.g., duration, maximum frequency, median frequency, frequency spread, and other variables)."),
-          
-          p("Each violin represents the full distribution of values for the chosen variable(s), grouped by the selected species and event(s). 
-         This allows users to visually compare how call characteristics differ across categories."),
-          
-          tags$ul(
-            tags$li(strong("Violin plots:"), " show the shape and spread of the data, highlighting patterns such as skewness, multimodality, and overall variability."),
-            tags$li(strong("Filters:"), " Users can filter by species, detector type, acoustic event, and measurement variable using the dropdown selectors above.")
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("chart-simple", style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Overview"),
+              tags$p(style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                     "This plot displays the distribution of selected acoustic call measurements 
+             such as duration, maximum frequency, median frequency, and frequency spread. 
+             It is useful for comparing call structure across species or acoustic events."
+              )
+            )
           ),
-          
-          p("This tool is especially useful for examining how call structure varies between species or across different acoustic events.")
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("layer-group", style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Plot Details"),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(tags$b("Violin plots: "), "Show the full distribution of values, highlighting skewness, multimodality, and variability."),
+                tags$li(tags$b("Box plots: "), "Overlaid on each violin to show median and interquartile range."),
+                tags$li(tags$b("X-axis: "), "Acoustic events, grouped by the selected species."),
+                tags$li(tags$b("Y-axis: "), "Measurement value in the appropriate unit (Hz, seconds, etc.)"),
+                tags$li(tags$b("Facets: "), "Each selected measurement variable is shown in its own panel.")
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 10px; align-items: flex-start;
+                 padding: 10px 12px; background-color: #f9f9f9;
+                 border-radius: 6px; border: 1px solid #ddd;
+                 font-size: 0.82rem; color: #666;",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0; margin-top: 2px;"),
+            "Use the dropdown selectors to filter by species, detector type (Whistle & Moan or Click), 
+         acoustic event, and measurement variable."
+          )
         )
       ))
     })
     
     observeEvent(input$presence_description, {
       showModal(modalDialog(
-        title = "Presence Plot",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("table-cells", style = "color: #00688B; font-size: 1.2em;"),
+          span("Diel Density Plot", style = "font-weight: bold; color: #001f3f;")
+        ),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tagList(
-          p("This plot displays species presence, showing how call counts vary over time of day and across the deployment period."),
-          
-          p("Each tile represents a specific combination of date (x-axis) and time of day (y-axis). 
-         The color intensity of the tile corresponds to the number of detected calls within that time window."),
-          
-          tags$ul(
-            tags$li(strong("X-axis:"), " Calendar date, showing how detections change over days or months."),
-            tags$li(strong("Y-axis:"), " Time of day, allowing users to identify diel calling patterns (e.g., dawn/dusk peaks)."),
-            tags$li(strong("Color scale:"), " Represents the call count—darker or more saturated colors indicate higher presence.")
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("grid", style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Overview"),
+              tags$p(style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                     "This heatmap displays species presence across both calendar date and time of day, 
+             making it ideal for identifying diel patterns (e.g., dawn/dusk peaks) and how 
+             calling behavior shifts across seasons."
+              )
+            )
           ),
-          
-          p("This visualization is useful for identifying daily or seasonal patterns in calling behavior, detecting shifts in activity over time, and comparing presence across species or detectors.")
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("layer-group", style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Plot Details"),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(tags$b("X-axis: "), "Calendar date across the deployment period."),
+                tags$li(tags$b("Y-axis: "), "Time of day (24-hour clock)."),
+                tags$li(tags$b("Color: "), "Represents call count or duration — more saturated colors indicate higher presence."),
+                tags$li(tags$b("Shading: "), "Dark shading indicates nighttime hours based on local sunrise/sunset times."),
+                tags$li(tags$b("Facets: "), "Each species is shown in its own panel.")
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 10px; align-items: flex-start;
+                 padding: 10px 12px; background-color: #f9f9f9;
+                 border-radius: 6px; border: 1px solid #ddd;
+                 font-size: 0.82rem; color: #666;",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0; margin-top: 2px;"),
+            "Switch between Count and Duration metrics using the Select Metric dropdown. 
+         Enable Log Scale to better visualize data with large value ranges."
+          )
         )
       ))
     })
     
     observeEvent(input$detection_description, {
       showModal(modalDialog(
-        title = "Detections Plot",
-        size = "l",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("circle-dot", style = "color: #00688B; font-size: 1.2em;"),
+          span("Diel Detection Plot", style = "font-weight: bold; color: #001f3f;")
+        ),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tagList(
-          p("This plot displays each individual call detection as a point, allowing users to see the precise timing of every detected call throughout the deployment."),
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("braille", style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Overview"),
+              tags$p(style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                     "This plot displays each individual call detection as a point, providing a 
+             high-resolution view of the precise timing of every detected call throughout 
+             the deployment. Dense clusters indicate periods of increased calling activity."
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("layer-group", style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Plot Details"),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(tags$b("X-axis: "), "Calendar date across the deployment period."),
+                tags$li(tags$b("Y-axis: "), "Time of day (24-hour clock)."),
+                tags$li(tags$b("Points: "), "Each point represents one individual detected call."),
+                tags$li(tags$b("Facets: "), "Each species is shown in its own panel.")
+              )
+            )
+          ),
+          div(
+            style = "display: flex; gap: 10px; align-items: flex-start;
+                 padding: 10px 12px; background-color: #f9f9f9;
+                 border-radius: 6px; border: 1px solid #ddd;
+                 font-size: 0.82rem; color: #666;",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0; margin-top: 2px;"),
+            "Enable Show Full Duty Cycle to display the complete recording window for each hour, 
+         giving context to gaps in detection data relative to the instrument's duty cycle."
+          )
+        )
+      ))
+    })
+    
+    observeEvent(input$deep_acou_description, {
+      showModal(modalDialog(
+        title = div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::icon("water", style = "color: #00688B; font-size: 1.2em;"),
+          span("Deep Acoustics Plot", style = "font-weight: bold; color: #001f3f;")
+        ),
+        size      = "l",
+        easyClose = TRUE,
+        footer    = modalButton("Close"),
+        tagList(
           
-          p("Every point corresponds to a single detection event, plotted by its date and exact time of day. 
-         This high-resolution view reveals fine-scale temporal patterns, clustering of detections, and potential behavioral rhythms."),
-          
-          tags$ul(
-            tags$li(strong("X-axis:"), " Calendar date, showing how detections are distributed over the deployment period."),
-            tags$li(strong("Y-axis:"), " Time of day (24-hour clock), enabling users to identify diel patterns or recurring detection windows."),
-            tags$li(strong("Points:"), " Each point represents one detected call. Dense clusters indicate periods of increased calling activity.")
+          # Overview
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #e8f4fd; border-left: 4px solid #00688B;
+                 margin-bottom: 12px;",
+            shiny::icon("chart-bar", 
+                        style = "color: #00688B; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Overview"),
+              tags$p(
+                style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                "This plot combines detection outputs from the ",
+                tags$b("Deep Acoustics"), " program with PAMGuard detections to provide 
+            a comprehensive view of low-frequency species activity over the deployment period."
+              )
+            )
           ),
           
-          p("This visualization is particularly useful for exploring the timing and frequency of individual detection events, 
-         identifying bursts of calling, and comparing fine-scale temporal patterns across species, deployments, or detectors.")
+          # Description
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #fff8e1; border-left: 4px solid #CDAD00;
+                 margin-bottom: 12px;",
+            shiny::icon("layer-group",
+                        style = "color: #CDAD00; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Plot Layers"),
+              tags$p(
+                style = "margin: 6px 0 0 0; font-size: 0.9rem; color: #555;",
+                "The plot contains two overlaid data sources:"
+              ),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(
+                  tags$b("Stacked bars"), " — Deep Acoustics detections per time period, 
+              colored by detection type (e.g. call type or confidence category)."
+                ),
+                tags$li(
+                  tags$b("Solid line"), " — PAMGuard confirmed detections per time period."
+                ),
+                tags$li(
+                  tags$b("Dashed line"), " — PAMGuard possible detections per time period 
+              (includes both confirmed and possible calls)."
+                )
+              )
+            )
+          ),
+          
+          # Axes and controls
+          div(
+            style = "display: flex; gap: 12px; align-items: flex-start;
+                 padding: 12px; border-radius: 8px;
+                 background-color: #f4f6f8; border-left: 4px solid #aaa;
+                 margin-bottom: 12px;",
+            shiny::icon("sliders",
+                        style = "color: #555; font-size: 1.2em; margin-top: 2px; flex-shrink: 0;"),
+            div(
+              tags$b("Axes and Controls"),
+              tags$ul(
+                style = "font-size: 0.9rem; color: #555; margin-top: 4px;",
+                tags$li(tags$b("X-axis: "), "Calendar date or time, depending on the selected grouping interval."),
+                tags$li(tags$b("Y-axis: "), "Number of detections per grouping interval (day, week, month, or hour)."),
+                tags$li(tags$b("Species: "), "Filter to Fin whale, Blue whale, or Sei whale — each displayed in its own facet panel."),
+                tags$li(tags$b("Grouping: "), "Controls the temporal resolution of the bars and lines (hour, day, week, or month)."),
+                tags$li(tags$b("Months: "), "Optionally filter to specific months of the deployment.")
+              )
+            )
+          ),
+          
+          # Note about data sources
+          div(
+            style = "display: flex; gap: 10px; align-items: flex-start;
+                 padding: 10px 12px;
+                 background-color: #f9f9f9;
+                 border-radius: 6px;
+                 border: 1px solid #ddd;
+                 font-size: 0.82rem; color: #666;",
+            shiny::icon("circle-info", style = "color: #00688B; flex-shrink: 0; margin-top: 2px;"),
+            "PAMGuard lines will only appear if matching species detections exist in the RDS dataset 
+         for the selected location. If no PAMGuard data is available, only the Deep Acoustics 
+         bars will be shown."
+          )
         )
       ))
     })
