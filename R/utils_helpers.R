@@ -1753,15 +1753,15 @@ plot_measurements <- function(location_list, base_path,
 ##  species_of_interest - can be Fin whale, Blue whale, and/or Sei whale
 ##  months_of_interest - same as others (c("All") or list of months)
 
-plot_deep_acoustics <- function(location, basepath, 
+plot_deep_acoustics <- function(location, base_path, 
                                 months_of_interest = c('All'),
                                 species_of_interest = c("Fin whale", "Blue whale", "Sei whale"),
-                                grouping = "day") {
+                                grouping = "day", load_rds_fn = NULL) {
   
-  tzone <- get_timezone(location, basepath)
+  tzone <- get_timezone(location, base_path)
   
   # get start/end times
-  sound_df <- get_soundmap(location, basepath) %>%
+  sound_df <- get_soundmap(location, base_path) %>%
     mutate(
       UTC = ymd_hms(UTC),
       local_time = with_tz(UTC, tzone = tzone)
@@ -1775,9 +1775,16 @@ plot_deep_acoustics <- function(location, basepath,
   end_time   <- as.Date(max(sound_df$local_time, na.rm = TRUE), tz = tzone)
   
   # Deep Acoustics data
-  path <- file.path(basepath, "DeepAcoustics", paste0(location, "_DA.csv"))
+  path <- file.path(base_path, "DeepAcoustics", paste0(location, "_DA.csv"))
   
   da_df <- read_csv(path) %>%
+    mutate(
+      UTC = lubridate::parse_date_time(UTC,
+                                       orders = c("Ymd HMS", "Ymd HMSz", "Ymd HMSOS"),
+                                       tz     = "UTC",
+                                       quiet  = TRUE)
+    ) %>%
+    filter(!is.na(UTC)) %>%
     mutate(local_time = with_tz(UTC, tzone = tzone)) %>%
     filter(
       species %in% species_of_interest,
@@ -1794,7 +1801,7 @@ plot_deep_acoustics <- function(location, basepath,
     rbind(species_of_interest, paste("Possible", tolower(species_of_interest)))
   )
   
-  pg_df <- get_data(location, basepath, months_of_interest, species_plus_possible) %>%
+  pg_df <- get_data(location, base_path, months_of_interest, species_plus_possible, load_rds_fn = load_rds_fn) %>%
     mutate(
       local_time = with_tz(UTC, tzone = tzone),
       group_time = floor_date(local_time, unit = grouping)
