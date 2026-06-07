@@ -83,7 +83,7 @@ guide <- cicerone::Cicerone$
     el = "[data-value='analysis']",
     title = "Data Visualization Page",
     description = HTML("
-    <p>The data visualization page contains six different visualization methods:</p>
+    <p>The data visualization page contains seven different visualization methods:</p>
     <ul>
       <li>Occurrence</li>
       <li>Call Count</li>
@@ -91,6 +91,7 @@ guide <- cicerone::Cicerone$
       <li>Call Measurment</li>
       <li>Presence</li>
       <li>Detections</li>
+      <li>Deep Acoustics</li>
     </ul>
     <p>Please see the respective help pages, identified by the '?', for more details on each method.</p>
     "),

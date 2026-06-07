@@ -1775,7 +1775,11 @@ plot_deep_acoustics <- function(location, base_path,
   end_time   <- as.Date(max(sound_df$local_time, na.rm = TRUE), tz = tzone)
   
   # Deep Acoustics data
-  path <- file.path(base_path, "DeepAcoustics", paste0(location, "_DA.csv"))
+  da_folder <- file.path(base_path, "DeepAcoustics")
+  if (!dir.exists(da_folder)) {
+    stop("No Deep Acoustics data available for this dataset")
+  }
+  path <- file.path(da_folder, paste0(location, "_DA.csv"))
   
   da_df <- read_csv(path) %>%
     mutate(

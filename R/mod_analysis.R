@@ -995,6 +995,14 @@ mod_analysis_server <- function(id, data){
     
     deep_acou_plot_obj <- eventReactive(input$render_deep_acou, {
       req(base_path(), input$location_deep_acou)
+      
+      # Check if DeepAcoustics folder exists for this dataset
+      da_folder <- file.path(base_path(), "DeepAcoustics")
+      if (!dir.exists(da_folder)) {
+        showNotification("No Deep Acoustics data available for this dataset", type = "warning", duration = 8)
+        return(NULL)
+      }
+      
       showNotification("Loading Deep Acoustics Plot...", type = "message")
       
       if (length(input$species_filter_deep_acou) == 0) {
