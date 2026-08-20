@@ -22,11 +22,15 @@ import(shinythemes)
 import(suncalc)
 import(tidyr)
 import(tuneR)
-importFrom(golem,activate_js)
-importFrom(golem,add_resource_path)
-importFrom(golem,bundle_resources)
-importFrom(golem,favicon)
-importFrom(golem,with_golem_options)
-importFrom(shiny,NS)
-importFrom(shiny,shinyApp)
-importFrom(shiny,tagList)
+importFrom(golem,
+  activate_js,
+  add_resource_path,
+  bundle_resources,
+  favicon,
+  with_golem_options
+)
+importFrom(shiny,
+  NS,
+  shinyApp,
+  tagList
+)
